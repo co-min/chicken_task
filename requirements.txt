@@ -1,0 +1,23 @@
+# Chicken Task - Required Packages
+# Python 3.11 required (psychopy does not support 3.12+ yet)
+
+# Core dependencies
+psychopy==2025.2.4
+numpy==1.26.4
+pandas==2.2.2
+pillow==10.3.0
+
+# GUI and Graphics
+pyglet==1.4.11
+pyopengl==3.1.7
+
+# Eye tracking (optional)
+# pylink==0.1.0
+# Uncomment if using EyeLink eye tracker
+
+# Data handling
+openpyxl==3.1.2
+
+# System utilities
+python-dateutil==2.8.2
+pytz==2023.3

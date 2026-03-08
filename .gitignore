@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+psychopy_env/
+venv/
+ENV/
+env/
+
+# PsychoPy
+*.psydat
+*.log
+lastrun.py
+
+# Data files
+Data/**/
+!Data/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Experimental data
+*.csv
+*.json
+!config.json
+
+# Eye tracking
+*.edf
+
+# Temporary files
+tmp/
+temp/
+*.tmp
