@@ -177,44 +177,38 @@ class TokenManager:
             return True
         return False
     
-    def check_catch(self, chaser_name, target_name):
+    def check_catch(self, chaser_name, prey_name):
         """
-        잡기 조건 확인
-        - chaser의 다음 칸이 target 위치 (바로 뒤에 있음)
-        - chaser와 target이 같은 위치 (같은 칸)
-        - chaser가 target의 다음 칸 위치 (방금 건너뛰어 추월함)
+        잡기 조건 확인 (추월 판정)
+        
+        조건: chaser가 prey의 바로 다음 위치에 도달 (1칸 추월)
+        
+        Note: 턴제 게임에서 get_target_position()이 다른 토큰을 건너뛰므로,
+              두 토큰이 같은 위치에 있는 상황은 발생하지 않음.
         
         Args:
-            chaser_name (str): 쫓는 토큰
-            target_name (str): 쫓기는 토큰
+            chaser_name (str): 쫓는 토큰 ('chase' 또는 'octopus')
+            prey_name (str): 쫓기는 토큰 ('octopus' 또는 'flight')
         
         Returns:
-            bool: True=잡기 조건 충족
+            bool: True=잡기 성공 (추월)
+        
+        Examples:
+            Chase(1,1), Octopus(1,0) → Chase가 Octopus의 다음 위치 → True
+            Chase(0,8), Octopus(1,0) → 아직 추월 안 함 → False
         """
         chaser = self.get_token(chaser_name)
-        target = self.get_token(target_name)
+        prey = self.get_token(prey_name)
         
-        if not chaser or not target:
+        if not chaser or not prey:
             return False
         
         chaser_pos = chaser.get_position()
-        target_pos = target.get_position()
+        prey_pos = prey.get_position()
         
-        # 1. chaser의 다음 칸이 target 위치 (바로 뒤에서 잡으려는 상황)
-        chaser_next = self.get_next_position(chaser_pos)
-        if chaser_next == target_pos:
-            return True
-        
-        # 2. chaser와 target이 같은 위치 (같은 칸에 있음)
-        if chaser_pos == target_pos:
-            return True
-        
-        # 3. chaser가 target의 다음 칸에 위치 (방금 건너뛰어 추월함)
-        target_next = self.get_next_position(target_pos)
-        if chaser_pos == target_next:
-            return True
-        
-        return False
+        # chaser가 prey의 바로 다음 위치 (1칸 추월)
+        prey_next = self.get_next_position(prey_pos)
+        return chaser_pos == prey_next
     
     def check_victory(self):
         """
@@ -253,53 +247,108 @@ class TokenManager:
 
 # ==================== 테스트 코드 ====================
 if __name__ == "__main__":
-    print("\n### TokenManager 테스트 ###\n")
+    print("\n" + "="*60)
+    print("TokenManager 테스트")
+    print("="*60)
     
     # 토큰 관리자 생성
     tm = TokenManager()
+    print("\n[1단계] 초기 상태")
     tm.print_status()
     
-    # 다음 위치 계산 테스트
-    print("\n### 순환 경로 테스트 ###")
+    # 순환 경로 테스트
+    print("\n[2단계] 순환 경로 테스트")
+    print("-" * 60)
     test_positions = [
-        (0, 0),   # 1-1 → 1-2
-        (0, 8),   # 1-9 → 2-1
-        (1, 8),   # 2-9 → 3-1
-        (2, 8),   # 3-9 → 1-1 (순환)
+        ((0, 0), (0, 1), "1행 1열 → 1행 2열"),
+        ((0, 8), (1, 0), "1행 9열 → 2행 1열 (행 넘김)"),
+        ((1, 8), (2, 0), "2행 9열 → 3행 1열 (행 넘김)"),
+        ((2, 8), (0, 0), "3행 9열 → 1행 1열 (순환!)"),
     ]
     
-    for pos in test_positions:
-        next_pos = tm.get_next_position(pos)
-        print(f"{pos} → {next_pos}")
+    all_passed = True
+    for pos, expected, desc in test_positions:
+        result = tm.get_next_position(pos)
+        status = "✓" if result == expected else "✗"
+        if result != expected:
+            all_passed = False
+        print(f"{status} {pos} → {result} ({desc})")
     
-    # 타겟 위치 테스트 (다른 토큰 건너뛰기)
-    print("\n### 타겟 위치 테스트 (잡기 메커니즘) ###")
-    print(f"Chase 타겟: {tm.get_target_position('chase')}")
-    print(f"Octopus 타겟: {tm.get_target_position('octopus')}")
-    print(f"Flight 타겟: {tm.get_target_position('flight')}")
+    if all_passed:
+        print("✓ 순환 경로 테스트 통과!")
     
-    # 이동 테스트
-    print("\n### 이동 테스트 ###")
-    tm.move_token('chase', (0, 1))
-    tm.move_token('octopus', (1, 1))
+    # 타겟 위치 테스트
+    print("\n[3단계] 타겟 위치 계산 테스트 (초기 상태)")
+    print("-" * 60)
+    print("모두 (1,4)에서 시작 - 겹치므로 건너뛰기 발생")
+    print(f"Chase 타겟:   {tm.get_target_position('chase')} (다음 칸에 Octopus/Flight → 건너뜀)")
+    print(f"Octopus 타겟: {tm.get_target_position('octopus')} (다음 칸에 Chase/Flight → 건너뜀)")
+    print(f"Flight 타겟:  {tm.get_target_position('flight')} (다음 칸에 Chase/Octopus → 건너뜀)")
+    
+    # 토큰 분리 후 타겟 테스트
+    print("\n[4단계] 토큰 분리 후 타겟 계산")
+    print("-" * 60)
+    tm.move_token('chase', (0, 2))
+    tm.move_token('octopus', (1, 5))
+    tm.move_token('flight', (2, 7))
     tm.print_status()
+    print(f"\nChase (0,2) 타겟:   {tm.get_target_position('chase')} (바로 앞 비어있음)")
+    print(f"Octopus (1,5) 타겟: {tm.get_target_position('octopus')} (바로 앞 비어있음)")
+    print(f"Flight (2,7) 타겟:  {tm.get_target_position('flight')} (바로 앞 비어있음)")
     
-    # 잡기 조건 테스트
-    print("\n### 잡기 조건 테스트 ###")
-    # Chase를 (0,8)로, Octopus를 (1,0)로 이동 → 잡기 가능
+    # 잡기 시나리오 테스트
+    print("\n[5단계] 잡기 조건 테스트 - 추월 전")
+    print("-" * 60)
     tm.chase.move_to(0, 8)
     tm.octopus.move_to(1, 0)
+    tm.flight.move_to(2, 0)
     tm.print_status()
     
-    print(f"\nChase가 Octopus 잡을 수 있음? {tm.check_victory()}")
-    print(f"  → Chase(0,8) 다음 칸 = (1,0) = Octopus 위치")
-    print(f"Octopus가 Flight 잡을 수 있음? {tm.check_defeat()}")
+    print(f"\n현재 상황:")
+    print(f"  Chase (0,8), Octopus (1,0)")
+    print(f"  Chase의 다음 위치: {tm.get_next_position((0,8))} = Octopus 위치")
+    print(f"  → Chase가 Octopus의 다음 위치는 아님")
+    print(f"\n승리? {tm.check_victory()} (예상: False)  ← 아직 추월 안 함")
+    print(f"패배? {tm.check_defeat()} (예상: False)")
     
-    # Chase가 이동하면 승리
-    target = tm.get_target_position('chase')
-    print(f"\nChase 타겟: {target} (Octopus 건너뛰어 (1,1))")
-    tm.move_token('chase', target)
+    # Chase가 타겟으로 이동 → 승리
+    print("\n[6단계] Chase 이동 → 추월 성공!")
+    print("-" * 60)
+    chase_target = tm.get_target_position('chase')
+    print(f"Chase의 타겟: {chase_target} (Octopus(1,0) 건너뛰어 그 앞)")
+    tm.move_token('chase', chase_target)
     tm.print_status()
-    print(f"승리? {tm.check_victory()}")
     
-    print("\n[OK] TokenManager 테스트 완료!")
+    print(f"\n현재 상황:")
+    print(f"  Chase (1,1), Octopus (1,0)")
+    print(f"  Chase = Octopus의 다음 위치 {tm.get_next_position((1,0))}")
+    print(f"  → Chase가 Octopus를 추월했음!")
+    print(f"\n승리? {tm.check_victory()} (예상: True)  ← 추월 성공! 🎉")
+    
+    # Octopus가 Flight 추월 테스트
+    print("\n[7단계] Octopus → Flight 추월 테스트")
+    print("-" * 60)
+    tm.octopus.move_to(2, 1)
+    tm.flight.move_to(2, 0)
+    tm.print_status()
+    
+    print(f"\n현재 상황:")
+    print(f"  Octopus (2,1), Flight (2,0)")
+    print(f"  Octopus = Flight의 다음 위치 {tm.get_next_position((2,0))}")
+    print(f"  패배? {tm.check_defeat()} (예상: True) ← 추월! 💀")
+    
+    # 순환 경로 추월 테스트
+    print("\n[8단계] 순환 경로 추월 테스트")
+    print("-" * 60)
+    tm.chase.move_to(0, 0)
+    tm.octopus.move_to(2, 8)
+    tm.print_status()
+    print(f"\n현재 상황:")
+    print(f"  Chase (0,0), Octopus (2,8) - 마지막 칸")
+    print(f"  Octopus의 다음 위치: {tm.get_next_position((2,8))} = (0,0)")
+    print(f"  Chase = Octopus의 다음 위치")
+    print(f"  승리? {tm.check_victory()} (예상: True) ← 순환 경로 추월! 🎉")
+    
+    print("\n" + "="*60)
+    print("✓ TokenManager 모든 테스트 완료!")
+    print("="*60)
