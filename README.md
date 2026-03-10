@@ -183,8 +183,9 @@ chicken_task_first/
 
 ## 개발 정보
 
-- **Python**: 3.10
-- **PsychoPy**: 2023.2.3
+- **Python**: 3.11
+- **PsychoPy**: 2025.2.4
+
 - **개발 기간**: 2026.03
 - **연구 목적**: Working memory & Decision making
 

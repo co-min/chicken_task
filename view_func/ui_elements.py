@@ -2,10 +2,14 @@
 # UI 요소 렌더링 (타이머, 점수, 텍스트, 버튼 등)
 
 from psychopy import visual
+import sys, os
+sys.path.insert(0, os.path.abspath(os.path.join(__file__, '..', '..')))
 from config import (
     WIDTH, HEIGHT,
     TEXT_COLOR, TEXT_SIZE,
-    BUTTON_COLOR_NORMAL, BUTTON_COLOR_HOVER, BUTTON_COLOR_SELECTED
+    BUTTON_COLOR_NORMAL, BUTTON_COLOR_HOVER, BUTTON_COLOR_SELECTED,
+    TOKEN_BUTTON_WIDTH, TOKEN_BUTTON_HEIGHT, TOKEN_BUTTON_TEXT_HEIGHT,
+    CHASE_BUTTON_POS, FLIGHT_BUTTON_POS, TOKEN_BUTTON_LINE_WIDTH
 )
 
 
@@ -55,8 +59,8 @@ class UIElements:
         self.message_text = visual.TextStim(
             win=self.win,
             text="",
-            pos=(0, 0),
-            height=60,
+            pos=(0, -300),
+            height=24,
             color=[255, 255, 0],  # 노란색 (강조)
             colorSpace='rgb255',
             bold=True
@@ -77,19 +81,19 @@ class UIElements:
         self.token_choice_buttons['chase'] = {
             'rect': visual.Rect(
                 win=self.win,
-                width=380,
-                height=120,
-                pos=(0, 180),
+                width=TOKEN_BUTTON_WIDTH,
+                height=TOKEN_BUTTON_HEIGHT,
+                pos=CHASE_BUTTON_POS,
                 fillColor=BUTTON_COLOR_NORMAL,
                 lineColor=[255, 255, 255],
-                lineWidth=4,
+                lineWidth=TOKEN_BUTTON_LINE_WIDTH,
                 colorSpace='rgb255'
             ),
             'text': visual.TextStim(
                 win=self.win,
                 text="CHASE\n(문어를 쫓는 닭)",
-                pos=(0, 180),
-                height=36,
+                pos=CHASE_BUTTON_POS,
+                height=TOKEN_BUTTON_TEXT_HEIGHT,
                 color=[255, 255, 255],
                 colorSpace='rgb255'
             )
@@ -99,19 +103,19 @@ class UIElements:
         self.token_choice_buttons['flight'] = {
             'rect': visual.Rect(
                 win=self.win,
-                width=380,
-                height=120,
-                pos=(0, -180),
+                width=TOKEN_BUTTON_WIDTH,
+                height=TOKEN_BUTTON_HEIGHT,
+                pos=FLIGHT_BUTTON_POS,
                 fillColor=BUTTON_COLOR_NORMAL,
                 lineColor=[255, 255, 255],
-                lineWidth=4,
+                lineWidth=TOKEN_BUTTON_LINE_WIDTH,
                 colorSpace='rgb255'
             ),
             'text': visual.TextStim(
                 win=self.win,
                 text="FLIGHT\n(도망치는 닭)",
-                pos=(0, -180),
-                height=36,
+                pos=FLIGHT_BUTTON_POS,
+                height=TOKEN_BUTTON_TEXT_HEIGHT,
                 color=[255, 255, 255],
                 colorSpace='rgb255'
             )

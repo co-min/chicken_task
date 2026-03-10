@@ -72,6 +72,14 @@ BUTTON_COLOR_NORMAL = [100, 100, 100]
 BUTTON_COLOR_HOVER = [150, 150, 150]
 BUTTON_COLOR_SELECTED = [0, 200, 200]  # Mint
 
+# Token choice button settings (Chase / Flight)
+TOKEN_BUTTON_WIDTH = 250
+TOKEN_BUTTON_HEIGHT = 100
+TOKEN_BUTTON_TEXT_HEIGHT = 30
+CHASE_BUTTON_POS = (0, -90)      # (x, y)
+FLIGHT_BUTTON_POS = (0, -200)    # (x, y)
+TOKEN_BUTTON_LINE_WIDTH = 4
+
 # ==================== KEY MAPPINGS ====================
 KEY_CHASE = 'up'              # chase 선택 (위쪽 닭)
 KEY_FLIGHT = 'down'           # flight 선택 (아래쪽 닭)
