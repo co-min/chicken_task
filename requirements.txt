@@ -8,13 +8,7 @@ pandas==2.2.2
 pillow==10.3.0
 
 # GUI and Graphics
-
-#window
-pyglet==1.4.11
-
-# mac
-# pyglet==1.5.27
-
+pyglet==1.5.27
 pyopengl==3.1.7
 
 # Eye tracking (optional)
