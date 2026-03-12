@@ -11,6 +11,7 @@ try:
     from game_func.board_class import ConditionBoard
     from game_func.deck_class import MainDeck
     from game_func.token_class import TokenManager
+    from game_func.npc_ai import NPCAI
     from utils.timer import GameTimer
     from utils.card_matcher import check_match
     from ..config import TURN_TIME_LIMIT, PC_SUCCESS_RATE, PC_THINK_TIME
@@ -19,9 +20,10 @@ except ImportError:
     from game_func.board_class import ConditionBoard
     from game_func.deck_class import MainDeck
     from game_func.token_class import TokenManager
+    from game_func.npc_ai import NPCAI
     from utils.timer import GameTimer
     from utils.card_matcher import check_match
-    from config import TURN_TIME_LIMIT, PC_SUCCESS_RATE, PC_THINK_TIME
+    from config import TURN_TIME_LIMIT, PC_SUCCESS_RATE, PC_THINK_TIME, TOKEN_TIME_WAIT
 
 
 class GameState:
@@ -50,6 +52,7 @@ class GameState:
         self.board = ConditionBoard()
         self.deck = MainDeck()
         self.tokens = TokenManager()
+        self.npc_ai = NPCAI(success_rate=PC_SUCCESS_RATE)  # NPC AI
         
         # 게임 상태
         self.phase = self.PHASE_NOT_STARTED
@@ -184,6 +187,9 @@ class GameState:
         self.trial_history.append(trial)
         
         if is_match:
+            # 성공 시, 토큰 이동 전 대기
+            time.sleep(TOKEN_TIME_WAIT)
+            
             # 성공: 토큰 이동
             target_pos = self.get_target_position()
             self.tokens.move_token(self.selected_token, target_pos)
@@ -231,20 +237,12 @@ class GameState:
         target_pos = self.tokens.get_target_position('octopus')
         condition = self.board.get_condition(target_pos[0], target_pos[1])
         
-        # PC 카드 선택 (60% 정답률)
-        if random.random() < PC_SUCCESS_RATE:
-            # 정답 선택
-            selected_pos = self._pc_select_matching_card(condition)
-        else:
-            # 오답 선택
-            selected_pos = self._pc_select_non_matching_card(condition)
+        # NPC AI를 통해 카드 선택 (60% 정답률) - 매칭 결과도 함께 반환받음
+        selected_pos, is_match = self.npc_ai.select_card(self.deck, condition)
         
         # 카드 뒤집기
         self.deck.flip_card(selected_pos[0], selected_pos[1])
         card = self.deck.get_card(selected_pos[0], selected_pos[1])
-        
-        # 매칭 확인
-        is_match = check_match(condition, card)
         
         # 기록
         trial = {
@@ -260,6 +258,9 @@ class GameState:
         self.trial_history.append(trial)
         
         if is_match:
+            # 성공 시, 토큰 이동 전 대기
+            time.sleep(TOKEN_TIME_WAIT)
+            
             # 성공: 문어 이동
             self.tokens.move_token('octopus', target_pos)
             self.pc_move_count += 1
@@ -275,40 +276,6 @@ class GameState:
             print("PC 실패! 턴 종료")
             self.end_pc_turn()
             return ('failure', selected_pos)
-    
-    def _pc_select_matching_card(self, condition):
-        """PC가 조건에 맞는 카드 선택"""
-        matching = []
-        for row in range(self.deck.rows):
-            for col in range(self.deck.cols):
-                card = self.deck.get_card(row, col)
-                if check_match(condition, card):
-                    matching.append((row, col))
-        
-        if matching:
-            return random.choice(matching)
-        else:
-            return self._pc_select_random_card()
-    
-    def _pc_select_non_matching_card(self, condition):
-        """PC가 조건에 맞지 않는 카드 선택"""
-        non_matching = []
-        for row in range(self.deck.rows):
-            for col in range(self.deck.cols):
-                card = self.deck.get_card(row, col)
-                if not check_match(condition, card):
-                    non_matching.append((row, col))
-        
-        if non_matching:
-            return random.choice(non_matching)
-        else:
-            return self._pc_select_random_card()
-    
-    def _pc_select_random_card(self):
-        """PC가 랜덤 카드 선택 (fallback)"""
-        row = random.randint(0, self.deck.rows - 1)
-        col = random.randint(0, self.deck.cols - 1)
-        return (row, col)
     
     def end_pc_turn(self):
         """PC 턴 종료 → 사용자 턴 시작"""

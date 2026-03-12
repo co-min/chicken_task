@@ -32,6 +32,10 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
     Phase 1+: 게임 플레이 단계
     사용자와 PC가 교대로 턴을 진행하며 게임을 플레이
     
+    턴 시스템:
+    - 사용자 턴: 닭 선택 → 카드 선택 → 성공(계속)/실패(PC 턴)
+    - PC 턴: AI 카드 선택 (60% 정답률) → 성공(계속)/실패(사용자 턴)
+    
     Args:
         win: PsychoPy window 객체
         game_state: GameState 인스턴스
@@ -51,13 +55,15 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
     while True:
         # 게임 종료 확인
         if game_state.phase == game_state.PHASE_VICTORY:
+            print("[GAME END] 플레이어 승리!")
             return 'victory'
         elif game_state.phase == game_state.PHASE_DEFEAT:
+            print("[GAME END] PC 승리 (플레이어 패배)")
             return 'defeat'
         
-        # 현재 턴 확인
+        # 현재 턴 확인 및 실행
         if game_state.current_turn == game_state.TURN_USER:
-            # 사용자 턴
+            # 사용자 턴 실행
             result = _run_user_turn(win, game_state, ui_elements, board_renderer, 
                                    deck_renderer, token_renderer, mouse)
             
@@ -66,15 +72,21 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
             elif result == 'game_end':
                 # 게임 종료 (승리 또는 패배)
                 continue
+            elif result == 'continue':
+                # 사용자 턴 종료 → PC 턴으로 전환됨
+                print(f"[TURN SWITCH] 사용자 → PC (턴 {game_state.turn_count})")
             
         elif game_state.current_turn == game_state.TURN_PC:
-            # PC 턴
+            # PC 턴 실행
             result = _run_pc_turn(win, game_state, ui_elements, board_renderer,
                                  deck_renderer, token_renderer)
             
             if result == 'game_end':
                 # 게임 종료 (승리 또는 패배)
                 continue
+            elif result == 'continue':
+                # PC 턴 종료 → 사용자 턴으로 전환됨
+                print(f"[TURN SWITCH] PC → 사용자 (턴 {game_state.turn_count})")
         
         # 프레임 대기
         core.wait(0.016)
@@ -85,12 +97,19 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
     """
     사용자 턴 실행
     
+    흐름:
+    1. 닭 선택 단계 (선택되지 않았을 경우)
+    2. 카드 선택 루프 (같은 닭으로 계속 시도)
+       - 성공: 타이머 리셋 후 다음 타겟으로 계속
+       - 실패/타임아웃: 턴 종료 → PC 턴으로 전환
+    
     Returns:
-        str: 'exit' (게임 종료), 'game_end' (승패 결정), 'continue' (계속 진행)
+        str: 'exit' (게임 종료), 'game_end' (승패 결정), 'continue' (턴 종료 → PC 턴)
     """
     
     # 1. 닭 선택 단계 (토큰이 선택되지 않았을 때만)
     if game_state.selected_token is None:
+        print(f"[USER TURN] 닭 선택 단계 (턴 {game_state.turn_count})")
         selected = run_token_selection_phase(win, game_state, ui_elements, 
                                             board_renderer, deck_renderer, token_renderer)
         
@@ -99,6 +118,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
         
         # 선택 확정 및 타이머 시작
         game_state.confirm_selection()
+        print(f"[USER TURN] {game_state.selected_token.upper()} 선택, 카드 선택 시작")
     
     # 2. 카드 선택 루프 (같은 토큰으로 계속 진행)
     while game_state.phase == game_state.PHASE_GAME_PLAY and \
@@ -118,6 +138,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
         
         # 시간 초과 확인
         if game_state.timer.is_expired():
+            print(f"[USER TURN] 타임아웃! 턴 종료")
             ui_elements.message_text.text = "시간 초과! 턴 종료"
             ui_elements.message_text.color = [255, 0, 0]  # 빨간색
             
@@ -147,6 +168,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                 
                 # 카드 선택 처리
                 result = game_state.user_click_card(card_row, card_col)
+                print(f"[USER TURN] 카드 선택: {card_pos}, 결과: {result}")
                 
                 # 카드 뒤집기 애니메이션 (game_state.user_click_card에서 이미 flip 수행됨)
                 _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, target_pos)
@@ -166,6 +188,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                     game_state.deck.hide_card(card_row, card_col)
                     
                     # 다음 타겟 위치로 계속 진행 (루프 계속)
+                    print(f"[USER TURN] 성공, 타이머 리셋, 다음 타겟으로 계속")
                     core.wait(TRIAL_INTERVAL)
                     # 계속 루프를 진행하여 다음 타겟으로
                     continue
@@ -182,7 +205,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                     game_state.deck.hide_card(card_row, card_col)
                     
                     # 턴 종료 (end_user_turn에서 selected_token 리셋됨)
-                    
+                    print(f"[USER TURN] 실패, 턴 종료")
                     return 'continue'
                 
                 elif result == 'game_end':
@@ -204,65 +227,96 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
 
 def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, token_renderer):
     """
-    PC 턴 실행
-    PC도 성공 시 계속 시도하고, 실패 시 사용자 턴으로 전환
+    PC 턴 실행 (NPC AI 사용)
+    
+    흐름:
+    1. NPC AI가 카드 선택 (60% 정답률)
+    2. 카드 뒤집기 애니메이션
+    3. 결과 판정 표시
+    4. 성공 시: 토큰 이동 애니메이션 → 다음 타겟으로 계속
+       실패 시: 턴 종료 → 사용자 턴으로 전환
     
     Returns:
-        str: 'game_end' (승패 결정), 'continue' (계속 진행)
+        str: 'game_end' (승패 결정), 'continue' (턴 종료 → 사용자 턴)
     """
     
     # PC 턴 루프 (성공 시 계속 진행)
     while game_state.current_turn == game_state.TURN_PC:
-        # 안내 문구 업데이트
-        ui_elements.instruction_text.text = "PC가 카드를 선택하는 중..."
-        ui_elements.message_text.text = "잠시만 기다려주세요"
-        ui_elements.message_text.color = TEXT_COLOR
-        ui_elements.timer_text.text = ""
+        print(f"[PC TURN] Octopus 카드 선택 시작 (턴 {game_state.turn_count})")
         
-        _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, None)
+        # PC 타겟 위치 확인
+        pc_target_pos = game_state.tokens.get_target_position('octopus')
+        
+        # 안내 문구 업데이트
+        ui_elements.instruction_text.text = f"PC 차례 - Octopus가 카드를 선택하는 중... (턴 {game_state.turn_count})"
+        ui_elements.message_text.text = f"타겟: {pc_target_pos}"
+        ui_elements.message_text.color = TEXT_COLOR
+        
+        # PC 턴에도 타이머 표시
+        ui_elements.timer_text.text = f"PC 턴"
+        
+        # 타겟 하이라이트와 함께 화면 그리기
+        _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, pc_target_pos)
         win.flip()
         
         # PC 생각 시간
         core.wait(PC_THINK_TIME)
         
-        # PC 카드 선택 및 실행 (result와 card_pos 반환)
+        # PC 카드 선택 및 실행 (NPC AI 사용, result와 card_pos 반환)
         result, card_pos = game_state.pc_turn_step()
+        print(f"[PC TURN] 카드 선택: {card_pos}, 결과: {result}")
         
-        # 카드 뒤집기 애니메이션 표시
-        _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, None)
+        # 1단계: 카드 뒂집기 애니메이션 (타겟 하이라이트 유지)
+        ui_elements.message_text.text = f"PC가 ({card_pos[0]}, {card_pos[1]}) 카드 선택"
+        _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, pc_target_pos)
         win.flip()
         core.wait(CARD_FLIP_DURATION)
         
+        # 2단계: 결과 판정 표시
         if result == 'success':
-            ui_elements.message_text.text = "PC 성공! 문어가 이동했습니다"
+            ui_elements.message_text.text = "PC 성공!"
+            ui_elements.message_text.color = [255, 100, 0]  # 주황색
+        elif result == 'failure':
+            ui_elements.message_text.text = "PC 실패!"
+            ui_elements.message_text.color = [255, 255, 0]  # 노란색
+        elif result == 'game_end':
+            ui_elements.message_text.text = "게임 종료!"
+            ui_elements.message_text.color = [255, 0, 0]  # 빨간색
+        
+        _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, pc_target_pos)
+        win.flip()
+        core.wait(FEEDBACK_DURATION)
+        
+        # 3단계: 결과에 따른 처리
+        if result == 'success':
+            # 성공 시 토큰 이동 애니메이션 표시
+            ui_elements.message_text.text = f"문어가 {pc_target_pos}로 이동했습니다"
             ui_elements.message_text.color = [255, 100, 0]  # 주황색
             
+            # 카드 숨기고 토큰 위치 업데이트된 화면 표시
+            game_state.deck.hide_card(card_pos[0], card_pos[1])
             _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, None)
             win.flip()
             core.wait(FEEDBACK_DURATION)
             
-            # 카드 다시 뒤로 감추기 (hide_card 사용)
-            game_state.deck.hide_card(card_pos[0], card_pos[1])
-            
             # 계속 PC 턴 진행 (루프 계속)
+            print(f"[PC TURN] 성공, 다음 타겟으로 계속")
             core.wait(TRIAL_INTERVAL)
             continue
             
         elif result == 'failure':
-            ui_elements.message_text.text = "PC 실패! 턴 종료"
-            ui_elements.message_text.color = [255, 255, 0]  # 노란색
-            
+            # 실패 시 카드 숨기기
+            game_state.deck.hide_card(card_pos[0], card_pos[1])
             _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, None)
             win.flip()
             core.wait(FEEDBACK_DURATION)
             
-            # 카드 다시 뒤로 감추기 (hide_card 사용)
-            game_state.deck.hide_card(card_pos[0], card_pos[1])
-            
             # PC 턴 종료 (사용자 턴으로 전환됨)
+            print(f"[PC TURN] 실패, 턴 종료")
             return 'continue'
         
         elif result == 'game_end':
+            # 게임 종료
             return 'game_end'
     
     return 'continue'
