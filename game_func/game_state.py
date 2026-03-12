@@ -153,11 +153,14 @@ class GameState:
         if self.current_turn != self.TURN_USER:
             return 'error'
         
-        # 타이머 확인
+        # 타이머 확인 (15초 초과 시 턴 종료)
         if self.timer.is_expired():
             print("시간 초과!")
             self.end_user_turn()
             return 'timeout'
+        
+        # 현재까지 경과 시간 기록 (카드 뒤집기 전)
+        elapsed_time = self.timer.get_elapsed()
         
         # 카드 뒤집기
         self.deck.flip_card(card_row, card_col)
@@ -167,7 +170,7 @@ class GameState:
         condition = self.get_target_condition()
         is_match = check_match(condition, card)
         
-        # 기록
+        # 시행 기록 저장
         trial = {
             'turn': self.turn_count,
             'token': self.selected_token,
@@ -176,12 +179,12 @@ class GameState:
             'selected_card_pos': (card_row, card_col),
             'selected_card': card,
             'is_match': is_match,
-            'elapsed_time': self.timer.get_elapsed()
+            'elapsed_time': elapsed_time  # 이번 시도에 걸린 시간
         }
         self.trial_history.append(trial)
         
         if is_match:
-            # 성공: 토큰 이동 + 타이머 리셋
+            # 성공: 토큰 이동
             target_pos = self.get_target_position()
             self.tokens.move_token(self.selected_token, target_pos)
             self.user_move_count += 1
@@ -192,14 +195,16 @@ class GameState:
             if self.check_game_end():
                 return 'game_end'
             
-            # 타이머 리셋 + 다음 시도
+            # ⭐ 성공 시 타이머 15초로 리셋 ⭐
+            # 다음 카드 시도를 위해 15초가 다시 주어짐
             self.timer.reset()
-            self.phase = self.PHASE_TOKEN_SELECTION
-            self.selected_token = None
+            
+            # phase는 GAME_PLAY 유지, selected_token도 유지
+            # → 같은 닭으로 다음 타겟 계속 진행
             
             return 'success'
         else:
-            # 실패: 턴 종료
+            # 실패: 턴 종료 (PC 턴으로 전환)
             print("실패! 턴 종료")
             self.end_user_turn()
             return 'failure'
@@ -209,6 +214,7 @@ class GameState:
         self.timer.stop()
         self.current_turn = self.TURN_PC
         self.phase = self.PHASE_GAME_PLAY
+        self.selected_token = None  # 다음 사용자 턴을 위해 리셋
         print("사용자 턴 종료. PC 차례")
     
     def pc_turn_step(self):
@@ -216,13 +222,10 @@ class GameState:
         PC 턴 1회 시도
         
         Returns:
-            str: 결과 ('success', 'failure')
+            tuple: (result, card_pos) - result는 'success', 'failure', 'game_end', card_pos는 (row, col)
         """
         if self.current_turn != self.TURN_PC:
-            return 'error'
-        
-        # PC 생각 시간
-        time.sleep(PC_THINK_TIME)
+            return ('error', None)
         
         # 타겟 확인
         target_pos = self.tokens.get_target_position('octopus')
@@ -264,14 +267,14 @@ class GameState:
             
             # 승패 확인
             if self.check_game_end():
-                return 'game_end'
+                return ('game_end', selected_pos)
             
-            return 'success'
+            return ('success', selected_pos)
         else:
             # 실패: PC 턴 종료
             print("PC 실패! 턴 종료")
             self.end_pc_turn()
-            return 'failure'
+            return ('failure', selected_pos)
     
     def _pc_select_matching_card(self, condition):
         """PC가 조건에 맞는 카드 선택"""
@@ -311,6 +314,7 @@ class GameState:
         """PC 턴 종료 → 사용자 턴 시작"""
         self.current_turn = self.TURN_USER
         self.phase = self.PHASE_TOKEN_SELECTION
+        self.selected_token = None  # 사용자가 다시 닭을 선택하도록
         self.turn_count += 1
         print(f"PC 턴 종료. 사용자 차례 (턴 {self.turn_count})")
     

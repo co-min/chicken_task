@@ -6,15 +6,15 @@ import sys
 import platform
 from datetime import datetime
 
-from set_opts.set_device_opt import set_device_opt
-from set_opts.set_visual_opt import set_visual_opt
-from set_opts.set_game_opt import set_game_opt
-from config import USE_EYELINK
+from .set_opts.set_device_opt import set_device_opt
+from .set_opts.set_visual_opt import set_visual_opt
+from .set_opts.set_game_opt import set_game_opt
+from .config import USE_EYELINK
 
 if USE_EYELINK:
-    from set_opts.set_eyelink import set_eye_opt
+    from .set_opts.set_eyelink import set_eye_opt
     import pylink
-    from eye_func.EyeLinkCoreGraphicsPsychoPy import EyeLinkCoreGraphicsPsychoPy
+    from .eye_func.EyeLinkCoreGraphicsPsychoPy import EyeLinkCoreGraphicsPsychoPy
 
 def define_save_directory(base_dir, subject_id):
     """
