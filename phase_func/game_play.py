@@ -7,7 +7,7 @@ from psychopy import core, event
 
 try:
     from ..config import (
-        KEY_EXIT, TURN_TIME_LIMIT, CARD_FLIP_DURATION,
+        KEY_EXIT, CARD_FLIP_DURATION,
         FEEDBACK_DURATION, TRIAL_INTERVAL, PC_THINK_TIME,
         WIDTH, HEIGHT, TEXT_COLOR,
         DECK_LEFT_MARGIN, DECK_TOP_MARGIN,
@@ -18,7 +18,7 @@ try:
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from config import (
-        KEY_EXIT, TURN_TIME_LIMIT, CARD_FLIP_DURATION,
+        KEY_EXIT, CARD_FLIP_DURATION,
         FEEDBACK_DURATION, TRIAL_INTERVAL, PC_THINK_TIME,
         WIDTH, HEIGHT, TEXT_COLOR,
         DECK_LEFT_MARGIN, DECK_TOP_MARGIN,
@@ -90,7 +90,7 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
                 print(f"[TURN SWITCH] PC → 사용자 (턴 {game_state.turn_count})")
         
         # 프레임 대기
-        core.wait(0.016)
+        core.wait(0.005)
 
 
 def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer, 
@@ -133,9 +133,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
         ui_elements.message_text.text = f"{game_state.selected_token.upper()} 닭을 조종 중..."
         
         # 타이머 업데이트
-        elapsed = game_state.timer.get_elapsed()
-        remaining = max(0, TURN_TIME_LIMIT - elapsed)
-        ui_elements.timer_text.text = f"{int(remaining):02d}:{int((remaining % 1) * 100):02d}"
+        ui_elements.timer_text.text = game_state.timer.get_display_text()
         
         # 시간 초과 확인
         if game_state.timer.is_expired():
@@ -198,9 +196,10 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                     # 카드 뒤로 감추기 (hide_card 사용)
                     game_state.deck.hide_card(card_row, card_col)
                     
-                    # 다음 타겟 위치로 계속 진행 (루프 계속)
-                    print(f"[USER TURN] 성공, 타이머 리셋, 다음 타겟으로 계속")
+                    # 모든 피드백이 끝난 뒤 타이머 리셋
                     core.wait(TRIAL_INTERVAL)
+                    game_state.timer.reset()
+                    print(f"[USER TURN] 성공, 타이머 리셋, 다음 타겟으로 계속")
                     # 계속 루프를 진행하여 다음 타겟으로
                     continue
                 

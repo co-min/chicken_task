@@ -199,10 +199,6 @@ class GameState:
             if self.check_game_end():
                 return 'game_end'
             
-            # ⭐ 성공 시 타이머 15초로 리셋 ⭐
-            # 다음 카드 시도를 위해 15초가 다시 주어짐
-            self.timer.reset()
-            
             # phase는 GAME_PLAY 유지, selected_token도 유지
             # → 같은 닭으로 다음 타겟 계속 진행
             

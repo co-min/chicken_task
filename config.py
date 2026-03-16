@@ -60,9 +60,9 @@ COLOR_RGB = {
 
 # ==================== TIMING SETTINGS ====================
 TURN_TIME_LIMIT = 15          # 초 (매 시도마다 리셋)
-CARD_FLIP_DURATION = 5        # 초 (카드 앞면 노출 시간)
+CARD_FLIP_DURATION = 2       # 초 (카드 앞면 노출 시간)
 FEEDBACK_DURATION = 0.5       # 초 (피드백 표시 시간)
-TRIAL_INTERVAL = 0.5          # 초 (시행 간 간격)
+TRIAL_INTERVAL = 1          # 초 (시행 간 간격)
 TOKEN_TIME_WAIT = 1
 
 # ==================== PC AI SETTINGS ====================
