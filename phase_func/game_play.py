@@ -3,8 +3,7 @@
 
 import sys
 from pathlib import Path
-from psychopy import visual, core, event
-import time
+from psychopy import core, event
 
 try:
     from ..config import (
@@ -15,6 +14,7 @@ try:
         DECK_CARD_WIDTH, DECK_CARD_HEIGHT, DECK_CARD_SPACING
     )
     from ..phase_func.token_selection import run_token_selection_phase
+    from ..phase_func.feedback import run_feedback_phase
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from config import (
@@ -25,6 +25,7 @@ except ImportError:
         DECK_CARD_WIDTH, DECK_CARD_HEIGHT, DECK_CARD_SPACING
     )
     from phase_func.token_selection import run_token_selection_phase
+    from phase_func.feedback import run_feedback_phase
 
 
 def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_renderer, token_renderer):
@@ -139,12 +140,17 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
         # 시간 초과 확인
         if game_state.timer.is_expired():
             print(f"[USER TURN] 타임아웃! 턴 종료")
-            ui_elements.message_text.text = "시간 초과! 턴 종료"
-            ui_elements.message_text.color = [255, 0, 0]  # 빨간색
-            
-            _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, None)
-            win.flip()
-            core.wait(FEEDBACK_DURATION)
+            run_feedback_phase(
+                win,
+                ui_elements,
+                board_renderer,
+                deck_renderer,
+                token_renderer,
+                message="시간 초과! 턴 종료",
+                color=[255, 0, 0],
+                duration=FEEDBACK_DURATION,
+                highlighted_pos=None,
+            )
             
             # 턴 종료 (end_user_turn에서 selected_token 리셋됨)
             game_state.end_user_turn()
@@ -177,12 +183,17 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                 
                 # 결과 처리
                 if result == 'success':
-                    ui_elements.message_text.text = "성공! 닭이 이동했습니다"
-                    ui_elements.message_text.color = [0, 255, 0]  # 초록색
-                    
-                    _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, None)
-                    win.flip()
-                    core.wait(FEEDBACK_DURATION)
+                    run_feedback_phase(
+                        win,
+                        ui_elements,
+                        board_renderer,
+                        deck_renderer,
+                        token_renderer,
+                        message="성공! 닭이 이동했습니다",
+                        color=[0, 255, 0],
+                        duration=FEEDBACK_DURATION,
+                        highlighted_pos=None,
+                    )
                     
                     # 카드 뒤로 감추기 (hide_card 사용)
                     game_state.deck.hide_card(card_row, card_col)
@@ -194,12 +205,17 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                     continue
                 
                 elif result == 'failure':
-                    ui_elements.message_text.text = "실패! 턴 종료"
-                    ui_elements.message_text.color = [255, 0, 0]  # 빨간색
-                    
-                    _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, None)
-                    win.flip()
-                    core.wait(FEEDBACK_DURATION)
+                    run_feedback_phase(
+                        win,
+                        ui_elements,
+                        board_renderer,
+                        deck_renderer,
+                        token_renderer,
+                        message="실패! 턴 종료",
+                        color=[255, 0, 0],
+                        duration=FEEDBACK_DURATION,
+                        highlighted_pos=None,
+                    )
                     
                     # 카드 뒤로 감추기 (hide_card 사용)
                     game_state.deck.hide_card(card_row, card_col)
@@ -274,30 +290,42 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
         
         # 2단계: 결과 판정 표시
         if result == 'success':
-            ui_elements.message_text.text = "PC 성공!"
-            ui_elements.message_text.color = [255, 100, 0]  # 주황색
+            feedback_message = "PC 성공!"
+            feedback_color = [255, 100, 0]
         elif result == 'failure':
-            ui_elements.message_text.text = "PC 실패!"
-            ui_elements.message_text.color = [255, 255, 0]  # 노란색
+            feedback_message = "PC 실패!"
+            feedback_color = [255, 255, 0]
         elif result == 'game_end':
-            ui_elements.message_text.text = "게임 종료!"
-            ui_elements.message_text.color = [255, 0, 0]  # 빨간색
-        
-        _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, pc_target_pos)
-        win.flip()
-        core.wait(FEEDBACK_DURATION)
+            feedback_message = "게임 종료!"
+            feedback_color = [255, 0, 0]
+
+        run_feedback_phase(
+            win,
+            ui_elements,
+            board_renderer,
+            deck_renderer,
+            token_renderer,
+            message=feedback_message,
+            color=feedback_color,
+            duration=FEEDBACK_DURATION,
+            highlighted_pos=pc_target_pos,
+        )
         
         # 3단계: 결과에 따른 처리
         if result == 'success':
-            # 성공 시 토큰 이동 애니메이션 표시
-            ui_elements.message_text.text = f"문어가 {pc_target_pos}로 이동했습니다"
-            ui_elements.message_text.color = [255, 100, 0]  # 주황색
-            
             # 카드 숨기고 토큰 위치 업데이트된 화면 표시
             game_state.deck.hide_card(card_pos[0], card_pos[1])
-            _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, None)
-            win.flip()
-            core.wait(FEEDBACK_DURATION)
+            run_feedback_phase(
+                win,
+                ui_elements,
+                board_renderer,
+                deck_renderer,
+                token_renderer,
+                message=f"문어가 {pc_target_pos}로 이동했습니다",
+                color=[255, 100, 0],
+                duration=FEEDBACK_DURATION,
+                highlighted_pos=None,
+            )
             
             # 계속 PC 턴 진행 (루프 계속)
             print(f"[PC TURN] 성공, 다음 타겟으로 계속")
@@ -307,9 +335,17 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
         elif result == 'failure':
             # 실패 시 카드 숨기기
             game_state.deck.hide_card(card_pos[0], card_pos[1])
-            _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, None)
-            win.flip()
-            core.wait(FEEDBACK_DURATION)
+            run_feedback_phase(
+                win,
+                ui_elements,
+                board_renderer,
+                deck_renderer,
+                token_renderer,
+                message="PC 턴 종료",
+                color=[255, 255, 255],
+                duration=FEEDBACK_DURATION,
+                highlighted_pos=None,
+            )
             
             # PC 턴 종료 (사용자 턴으로 전환됨)
             print(f"[PC TURN] 실패, 턴 종료")

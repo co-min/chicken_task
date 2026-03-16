@@ -54,7 +54,7 @@ TURN_TIME_LIMIT = 15          # 초 (매 시도마다 리셋)
 CARD_FLIP_DURATION = 5        # 초 (카드 앞면 노출 시간)
 FEEDBACK_DURATION = 0.5       # 초 (피드백 표시 시간)
 TRIAL_INTERVAL = 0.5          # 초 (시행 간 간격)
-
+TOKEN_TIME_WAIT = 1
 
 # ==================== PC AI SETTINGS ====================
 PC_SUCCESS_RATE = 0.6         # 60% 정답 확률
@@ -87,6 +87,7 @@ KEY_CHASE = 'up'              # chase 선택 (위쪽 닭)
 KEY_FLIGHT = 'down'           # flight 선택 (아래쪽 닭)
 KEY_CONFIRM = 'return'        # 선택 확정
 KEY_EXIT = 'escape'           # 게임 종료
+
 
 # ==================== EXPERIMENT SETTINGS ====================
 USE_PRACTICE = 1              # 0: 연습 없음, 1: 연습 있음
