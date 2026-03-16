@@ -77,7 +77,7 @@ class UIElements:
         )
         
         # 토큰 선택 버튼들 (Chase / Flight)
-        # Chase 버튼 (위쪽)
+        # Chase 버튼 (왼쪽)
         self.token_choice_buttons['chase'] = {
             'rect': visual.Rect(
                 win=self.win,
@@ -99,7 +99,7 @@ class UIElements:
             )
         }
         
-        # Flight 버튼 (아래쪽)
+        # Flight 버튼 (오른쪽)
         self.token_choice_buttons['flight'] = {
             'rect': visual.Rect(
                 win=self.win,
@@ -208,7 +208,7 @@ class UIElements:
         """
         turn_text = visual.TextStim(
             win=self.win,
-            text=f"{'유저' if turn == 'user' else 'PC'} 턴",
+            text=f"{'사용자' if turn == 'user' else '문어'} 턴",
             pos=(WIDTH / 2 - 120, HEIGHT / 2 - 70),
             height=30,
             color=[255, 200, 0] if turn == 'user' else [200, 0, 255],
@@ -307,7 +307,7 @@ if __name__ == "__main__":
         ui.draw_timer(time_str)
         ui.draw_score(score, 0)
         ui.draw_turn_indicator('user')
-        ui.draw_instruction("위쪽 또는 아래쪽 닭을 선택하세요 (ESC: 종료)")
+        ui.draw_instruction("왼쪽 또는 오른쪽 닭을 선택하세요 (ESC: 종료)")
         
         if selected_token:
             ui.draw_message(f"{selected_token.upper()} 선택됨!")

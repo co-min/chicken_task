@@ -13,19 +13,28 @@ BOARD_ROWS = 3
 BOARD_COLS = 9
 TOTAL_CARDS = 27  # 3 x 9
 
-# Board position (left side) - 1080x1080 화면 최적화
-BOARD_LEFT_MARGIN = 10
-BOARD_TOP_MARGIN = 250
-BOARD_CARD_WIDTH = 50
-BOARD_CARD_HEIGHT = 70
-BOARD_CARD_SPACING = 5
+# Layout margins - 보드/덱을 화면 중앙 기준으로 좌우 배치
+BOARD_DECK_CENTER_GAP = 20
+BOARD_DECK_TOP_MARGIN = 250
+
+# 카드 크기
+BOARD_CARD_WIDTH = 80
+BOARD_CARD_HEIGHT = 110
+
+BOARD_CARD_SPACING = 1.5
+
+BOARD_TOTAL_WIDTH = BOARD_COLS * BOARD_CARD_WIDTH + (BOARD_COLS - 1) * BOARD_CARD_SPACING
+BOARD_LEFT_MARGIN = (WIDTH // 2) - BOARD_DECK_CENTER_GAP // 2 - BOARD_TOTAL_WIDTH
+BOARD_TOP_MARGIN = BOARD_DECK_TOP_MARGIN
 
 # Deck position (right side) - 1080x1080 화면 최적화
-DECK_LEFT_MARGIN = 580
-DECK_TOP_MARGIN = 250
-DECK_CARD_WIDTH = 50
-DECK_CARD_HEIGHT = 70
-DECK_CARD_SPACING = 5
+DECK_CARD_WIDTH = 80
+DECK_CARD_HEIGHT = 110
+DECK_CARD_SPACING = 1.5
+
+DECK_TOTAL_WIDTH = BOARD_COLS * DECK_CARD_WIDTH + (BOARD_COLS - 1) * DECK_CARD_SPACING
+DECK_LEFT_MARGIN = (WIDTH // 2) + BOARD_DECK_CENTER_GAP // 2
+DECK_TOP_MARGIN = BOARD_DECK_TOP_MARGIN
 
 # ==================== TOKEN SETTINGS ====================
 # Initial positions (0-indexed: row, col)
@@ -33,7 +42,7 @@ CHASE_START_POS = (0, 0)      # 1행 1열 (문어를 쫓는 닭)
 OCTOPUS_START_POS = (1, 0)    # 2행 1열 (PC)
 FLIGHT_START_POS = (2, 0)     # 3행 1열 (문어로부터 도망치는 닭)
 
-TOKEN_SIZE = 50  # pixels (1080x1080 화면에 맞춤)
+TOKEN_SIZE = 56  # pixels (1080x1080 화면에 맞춤)
 
 
 # ==================== CARD ATTRIBUTES ====================
@@ -75,16 +84,16 @@ BUTTON_COLOR_HOVER = [150, 150, 150]
 BUTTON_COLOR_SELECTED = [0, 200, 200]  # Mint
 
 # Token choice button settings (Chase / Flight)
-TOKEN_BUTTON_WIDTH = 250
-TOKEN_BUTTON_HEIGHT = 100
+TOKEN_BUTTON_WIDTH = 300
+TOKEN_BUTTON_HEIGHT = 95
 TOKEN_BUTTON_TEXT_HEIGHT = 30
-CHASE_BUTTON_POS = (0, -90)      # (x, y)
-FLIGHT_BUTTON_POS = (0, -200)    # (x, y)
+CHASE_BUTTON_POS = (-170, -160)      # (x, y)
+FLIGHT_BUTTON_POS = (170, -160)      # (x, y)
 TOKEN_BUTTON_LINE_WIDTH = 4
 
 # ==================== KEY MAPPINGS ====================
-KEY_CHASE = 'up'              # chase 선택 (위쪽 닭)
-KEY_FLIGHT = 'down'           # flight 선택 (아래쪽 닭)
+KEY_CHASE = 'left'            # chase 선택 (왼쪽 버튼)
+KEY_FLIGHT = 'right'          # flight 선택 (오른쪽 버튼)
 KEY_CONFIRM = 'return'        # 선택 확정
 KEY_EXIT = 'escape'           # 게임 종료
 
