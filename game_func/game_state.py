@@ -187,8 +187,6 @@ class GameState:
         self.trial_history.append(trial)
         
         if is_match:
-            # 성공 시, 토큰 이동 전 대기
-            time.sleep(TOKEN_TIME_WAIT)
             
             # 성공: 토큰 이동
             target_pos = self.get_target_position()
@@ -258,8 +256,6 @@ class GameState:
         self.trial_history.append(trial)
         
         if is_match:
-            # 성공 시, 토큰 이동 전 대기
-            time.sleep(TOKEN_TIME_WAIT)
             
             # 성공: 문어 이동
             self.tokens.move_token('octopus', target_pos)

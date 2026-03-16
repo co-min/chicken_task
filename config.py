@@ -35,8 +35,6 @@ FLIGHT_START_POS = (2, 0)     # 3행 1열 (문어로부터 도망치는 닭)
 
 TOKEN_SIZE = 50  # pixels (1080x1080 화면에 맞춤)
 
-TOKEN_TIME_WAIT = 1
-
 
 # ==================== CARD ATTRIBUTES ====================
 # 9가지 조건 (각 3번 반복 = 27장)
@@ -54,13 +52,13 @@ COLOR_RGB = {
 # ==================== TIMING SETTINGS ====================
 TURN_TIME_LIMIT = 15          # 초 (매 시도마다 리셋)
 CARD_FLIP_DURATION = 5        # 초 (카드 앞면 노출 시간)
-FEEDBACK_DURATION = 1.5       # 초 (피드백 표시 시간)
-TRIAL_INTERVAL = 1.0          # 초 (시행 간 간격)
-TOKEN_TIME_WAIT = 1.0         # 초 (성공 후 토큰 이동 전 대기)
+FEEDBACK_DURATION = 0.5       # 초 (피드백 표시 시간)
+TRIAL_INTERVAL = 0.5          # 초 (시행 간 간격)
+
 
 # ==================== PC AI SETTINGS ====================
 PC_SUCCESS_RATE = 0.6         # 60% 정답 확률
-PC_THINK_TIME = 1.0           # 초 (PC 선택까지 대기 시간)
+PC_THINK_TIME = 1           # 초 (PC 선택까지 대기 시간)
 
 # ==================== VISUAL SETTINGS ====================
 # Highlight colors
