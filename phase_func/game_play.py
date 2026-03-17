@@ -282,17 +282,17 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
         print(f"[PC TURN] 카드 선택: {card_pos}, 결과: {result}")
         
         # 1단계: 카드 뒂집기 애니메이션 (타겟 하이라이트 유지)
-        ui_elements.message_text.text = f"PC가 ({card_pos[0]}, {card_pos[1]}) 카드 선택"
+        # ui_elements.message_text.text = f"문어가 ({card_pos[0]}, {card_pos[1]}) 카드 선택"
         _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, pc_target_pos)
         win.flip()
         core.wait(CARD_FLIP_DURATION)
         
         # 2단계: 결과 판정 표시
         if result == 'success':
-            feedback_message = "PC 성공!"
+            feedback_message = "문어 성공!"
             feedback_color = [255, 100, 0]
         elif result == 'failure':
-            feedback_message = "PC 실패!"
+            feedback_message = "문어 실패!"
             feedback_color = [255, 255, 0]
         elif result == 'game_end':
             feedback_message = "게임 종료!"
@@ -327,7 +327,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
             )
             
             # 계속 PC 턴 진행 (루프 계속)
-            print(f"[PC TURN] 성공, 다음 타겟으로 계속")
+            print(f"[문어] 성공, 다음 타겟으로 계속")
             core.wait(TRIAL_INTERVAL)
             continue
             
@@ -340,14 +340,14 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
                 board_renderer,
                 deck_renderer,
                 token_renderer,
-                message="PC 턴 종료",
+                message="문어 턴 종료",
                 color=[255, 255, 255],
                 duration=FEEDBACK_DURATION,
                 highlighted_pos=None,
             )
             
             # PC 턴 종료 (사용자 턴으로 전환됨)
-            print(f"[PC TURN] 실패, 턴 종료")
+            print(f"[문어] 실패, 턴 종료")
             return 'continue'
         
         elif result == 'game_end':
