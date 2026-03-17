@@ -139,7 +139,7 @@ class GameState:
         
         return self.board.get_condition(target_pos[0], target_pos[1])
     
-    def user_click_card(self, card_row, card_col):
+    def user_click_card(self, card_row, card_col, defer_success_move=False):
         """
         사용자가 메인 카드 클릭
         
@@ -147,6 +147,9 @@ class GameState:
             card_row (int): 카드 행
             card_col (int): 카드 열
         
+        Args:
+            defer_success_move (bool): True면 성공 시 즉시 토큰 이동하지 않고 호출자가 후처리
+
         Returns:
             str: 결과 ('success', 'failure', 'timeout', 'error')
         """
@@ -187,27 +190,45 @@ class GameState:
         self.trial_history.append(trial)
         
         if is_match:
-            
+            if defer_success_move:
+                print("성공! 피드백 후 토큰 이동 예정")
+                return 'success'
+
             # 성공: 토큰 이동
-            target_pos = self.get_target_position()
-            self.tokens.move_token(self.selected_token, target_pos)
-            self.user_move_count += 1
-            
-            print(f"성공! {self.selected_token}가 {target_pos}로 이동")
-            
-            # 승패 확인
-            if self.check_game_end():
+            move_result = self.complete_user_success_move()
+            if move_result == 'game_end':
                 return 'game_end'
-            
-            # phase는 GAME_PLAY 유지, selected_token도 유지
-            # → 같은 닭으로 다음 타겟 계속 진행
-            
+
             return 'success'
         else:
             # 실패: 턴 종료 (PC 턴으로 전환)
             print("실패! 턴 종료")
             self.end_user_turn()
             return 'failure'
+
+    def complete_user_success_move(self):
+        """
+        사용자 성공 후 토큰 이동 및 승패 확인
+
+        Returns:
+            str: 'success' 또는 'game_end'
+        """
+        if self.selected_token is None:
+            return 'error'
+
+        target_pos = self.get_target_position()
+        self.tokens.move_token(self.selected_token, target_pos)
+        self.user_move_count += 1
+
+        print(f"성공! {self.selected_token}가 {target_pos}로 이동")
+
+        # 승패 확인
+        if self.check_game_end():
+            return 'game_end'
+
+        # phase는 GAME_PLAY 유지, selected_token도 유지
+        # -> 같은 닭으로 다음 타겟 계속 진행
+        return 'success'
     
     def end_user_turn(self):
         """사용자 턴 종료 → PC 턴 시작"""
@@ -217,9 +238,12 @@ class GameState:
         self.selected_token = None  # 다음 사용자 턴을 위해 리셋
         print("사용자 턴 종료. PC 차례")
     
-    def pc_turn_step(self):
+    def pc_turn_step(self, defer_success_move=False):
         """
         PC 턴 1회 시도
+
+        Args:
+            defer_success_move (bool): True면 성공 시 즉시 토큰 이동하지 않고 호출자가 후처리
         
         Returns:
             tuple: (result, card_pos) - result는 'success', 'failure', 'game_end', card_pos는 (row, col)
@@ -252,14 +276,13 @@ class GameState:
         self.trial_history.append(trial)
         
         if is_match:
-            
+            if defer_success_move:
+                print("PC 성공! 피드백 후 토큰 이동 예정")
+                return ('success', selected_pos)
+
             # 성공: 문어 이동
-            self.tokens.move_token('octopus', target_pos)
-            self.pc_move_count += 1
-            print(f"PC 성공! Octopus가 {target_pos}로 이동")
-            
-            # 승패 확인
-            if self.check_game_end():
+            move_result = self.complete_pc_success_move()
+            if move_result == 'game_end':
                 return ('game_end', selected_pos)
             
             return ('success', selected_pos)
@@ -268,6 +291,23 @@ class GameState:
             print("PC 실패! 턴 종료")
             self.end_pc_turn()
             return ('failure', selected_pos)
+
+    def complete_pc_success_move(self):
+        """
+        PC 성공 후 토큰 이동 및 승패 확인
+
+        Returns:
+            str: 'success' 또는 'game_end'
+        """
+        target_pos = self.tokens.get_target_position('octopus')
+        self.tokens.move_token('octopus', target_pos)
+        self.pc_move_count += 1
+        print(f"PC 성공! Octopus가 {target_pos}로 이동")
+
+        if self.check_game_end():
+            return 'game_end'
+
+        return 'success'
     
     def end_pc_turn(self):
         """PC 턴 종료 → 사용자 턴 시작"""

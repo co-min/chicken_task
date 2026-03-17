@@ -173,7 +173,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                 card_row, card_col = card_pos
                 
                 # 카드 선택 처리
-                result = game_state.user_click_card(card_row, card_col)
+                result = game_state.user_click_card(card_row, card_col, defer_success_move=True)
                 print(f"[USER TURN] 카드 선택: {card_pos}, 결과: {result}")
                 
                 # 카드 뒤집기 애니메이션 (game_state.user_click_card에서 이미 flip 수행됨)
@@ -189,14 +189,21 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                         board_renderer,
                         deck_renderer,
                         token_renderer,
-                        message="성공! 닭이 이동했습니다",
+                        message="성공! 닭이 이동합니다",
                         color=PURPLE,
                         duration=FEEDBACK_DURATION,
                         highlighted_pos=None,
                     )
+
+                    # 성공 피드백 이후 토큰 이동
+                    move_result = game_state.complete_user_success_move()
                     
                     # 카드 뒤로 감추기 (hide_card 사용)
                     game_state.deck.hide_card(card_row, card_col)
+
+                    if move_result == 'game_end':
+                        game_state.selected_token = None
+                        return 'game_end'
                     
                     # 모든 피드백이 끝난 뒤 타이머 리셋
                     core.wait(TRIAL_INTERVAL)
@@ -280,7 +287,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
         core.wait(PC_THINK_TIME)
         
         # PC 카드 선택 및 실행 (NPC AI 사용, result와 card_pos 반환)
-        result, card_pos = game_state.pc_turn_step()
+        result, card_pos = game_state.pc_turn_step(defer_success_move=True)
         print(f"[PC TURN] 카드 선택: {card_pos}, 결과: {result}")
         
         # 1단계: 카드 뒂집기 애니메이션 (타겟 하이라이트 유지)
@@ -314,15 +321,21 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
         
         # 3단계: 결과에 따른 처리
         if result == 'success':
+            move_result = game_state.complete_pc_success_move()
+
             # 카드 숨기고 토큰 위치 업데이트된 화면 표시
             game_state.deck.hide_card(card_pos[0], card_pos[1])
+
+            if move_result == 'game_end':
+                return 'game_end'
+
             run_feedback_phase(
                 win,
                 ui_elements,
                 board_renderer,
                 deck_renderer,
                 token_renderer,
-                message=f"문어가 {pc_target_pos}로 이동했습니다",
+                message=f"문어가 {pc_target_pos}로 이동합니다",
                 color=PURPLE,
                 duration=FEEDBACK_DURATION,
                 highlighted_pos=None,
