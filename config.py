@@ -7,6 +7,13 @@ WIDTH = 1100 # 화면 너비
 HEIGHT = 1080 # 화면 높이
 BG_COLOR = [128, 128, 128]  # RGB 0-255 (gray)
 FULLSCREEN = True
+AUTO_DETECT_WINDOW_SIZE = True   # True면 화면 해상도를 감지해서 창 크기 자동 보정
+FORCE_WINDOWED_MODE = False       # True면 full screen 대신 창 모드로 강제 실행
+
+# PsychoPy monitor profile (임시 monitor 경고 방지)
+MONITOR_NAME = 'chicken_task_monitor'
+MONITOR_WIDTH_CM = 60.0          # 물리적 모니터 가로 길이(cm)
+MONITOR_DISTANCE_CM = 60.0       # 눈-모니터 거리(cm)
 
 # ==================== BOARD SETTINGS ====================
 BOARD_ROWS = 3

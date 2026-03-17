@@ -3,11 +3,20 @@
 # 통합 테스트 및 게임 실행
 
 import sys
-from psychopy import visual, core
+import tkinter as tk
+from psychopy import visual, core, logging, monitors
 
 # 프로젝트 모듈 import
 from config import (
-    WIDTH, HEIGHT, BG_COLOR, FULLSCREEN
+    WIDTH,
+    HEIGHT,
+    BG_COLOR,
+    FULLSCREEN,
+    AUTO_DETECT_WINDOW_SIZE,
+    FORCE_WINDOWED_MODE,
+    MONITOR_NAME,
+    MONITOR_WIDTH_CM,
+    MONITOR_DISTANCE_CM,
 )
 from game_func.game_state import GameState
 from view_func.board_renderer import BoardRenderer
@@ -15,6 +24,33 @@ from view_func.deck_renderer import DeckRenderer
 from view_func.token_renderer import TokenRenderer
 from view_func.ui_elements import UIElements
 from phase_func import run_all_phases
+
+
+# Font Manager 등 콘솔 warning 출력 축소
+logging.console.setLevel(logging.ERROR)
+
+
+def _detect_screen_size(fallback_size):
+    """Detect current screen size on Windows and fall back safely if unavailable."""
+    try:
+        root = tk.Tk()
+        root.withdraw()
+        size = [root.winfo_screenwidth(), root.winfo_screenheight()]
+        root.destroy()
+        return size
+    except Exception:
+        return list(fallback_size)
+
+
+def _build_monitor_profile(screen_size):
+    """Create a monitor profile to avoid temporary monitor warnings."""
+    monitor = monitors.Monitor(
+        MONITOR_NAME,
+        width=MONITOR_WIDTH_CM,
+        distance=MONITOR_DISTANCE_CM,
+    )
+    monitor.setSizePix(screen_size)
+    return monitor
 
 
 def main():
@@ -33,11 +69,21 @@ def main():
     print("=" * 60 + "\n")
     
     print("[1/4] PsychoPy 윈도우 생성 중...")
+
+    screen_size = _detect_screen_size([WIDTH, HEIGHT]) if AUTO_DETECT_WINDOW_SIZE else [WIDTH, HEIGHT]
+    win_size = [min(WIDTH, screen_size[0]), min(HEIGHT, screen_size[1])]
+    is_fullscreen = FULLSCREEN and not FORCE_WINDOWED_MODE
+    monitor_profile = _build_monitor_profile(screen_size)
+
+    print(f"  - 화면 감지 해상도: {screen_size[0]} x {screen_size[1]}")
+    print(f"  - 창 크기: {win_size[0]} x {win_size[1]} (fullscreen={is_fullscreen})")
+
     win = visual.Window(
-        size=[WIDTH, HEIGHT],
+        size=win_size,
         color=[c / 255 for c in BG_COLOR],  # PsychoPy는 -1~1 범위로 정규화
         colorSpace='rgb',
-        fullscr=FULLSCREEN,
+        fullscr=is_fullscreen,
+        monitor=monitor_profile,
         units='pix',
         allowGUI=True  # 마우스 커서 표시
     )
