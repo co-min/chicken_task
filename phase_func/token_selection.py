@@ -7,7 +7,6 @@ from psychopy import visual, core, event
 
 try:
     from ..config import (
-        KEY_CHASE, KEY_FLIGHT, KEY_CONFIRM, KEY_EXIT,
         WIDTH, HEIGHT, TEXT_COLOR, TEXT_SIZE,
         BUTTON_COLOR_NORMAL, BUTTON_COLOR_SELECTED,
         CHASE_BUTTON_POS, FLIGHT_BUTTON_POS,
@@ -16,7 +15,6 @@ try:
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from config import (
-        KEY_CHASE, KEY_FLIGHT, KEY_CONFIRM, KEY_EXIT,
         WIDTH, HEIGHT, TEXT_COLOR, TEXT_SIZE,
         BUTTON_COLOR_NORMAL, BUTTON_COLOR_SELECTED,
         CHASE_BUTTON_POS, FLIGHT_BUTTON_POS,
@@ -48,34 +46,12 @@ def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck
     selected_token = None  # 'chase' 또는 'flight'
     hovering = None  # 현재 마우스가 올라간 버튼
     
-    # 안내 문구 설정
-    ui_elements.instruction_text.text = "↑/↓ 키 또는 마우스로 닭을 선택하고, Enter 키로 확정하세요"
+    # 안내 문구 설정 (마우스 전용)
+    ui_elements.instruction_text.text = "마우스로 닭 버튼을 클릭해 선택하세요"
     ui_elements.message_text.text = "어떤 닭을 조종하시겠습니까?"
     
     # 메인 루프
     while True:
-        # 키보드 입력 확인
-        keys = event.getKeys()
-        
-        # ESC: 게임 종료
-        if KEY_EXIT in keys:
-            return 'exit'
-        
-        # 위쪽 화살표: Chase 선택
-        if KEY_CHASE in keys:
-            selected_token = 'chase'
-        
-        # 아래쪽 화살표: Flight 선택
-        if KEY_FLIGHT in keys:
-            selected_token = 'flight'
-        
-        # Enter: 선택 확정
-        if KEY_CONFIRM in keys:
-            if selected_token is not None:
-                # GameState에 선택 등록
-                game_state.select_token(selected_token)
-                return selected_token
-        
         # 마우스 위치 확인
         mouse_pos = mouse.getPos()
         hovering = None
@@ -86,9 +62,10 @@ def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck
             # 클릭 확인
             if mouse.getPressed()[0]:  # 왼쪽 버튼
                 selected_token = 'chase'
-                # 클릭 후 버튼이 떼어지기를 기다림
+                game_state.select_token(selected_token)
                 while mouse.getPressed()[0]:
-                    pass
+                    core.wait(0.01)
+                return selected_token
         
         # Flight 버튼 위에 있는지 확인
         elif _is_mouse_over_button(mouse_pos, FLIGHT_BUTTON_POS, TOKEN_BUTTON_WIDTH, TOKEN_BUTTON_HEIGHT):
@@ -96,9 +73,10 @@ def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck
             # 클릭 확인
             if mouse.getPressed()[0]:  # 왼쪽 버튼
                 selected_token = 'flight'
-                # 클릭 후 버튼이 떼어지기를 기다림
+                game_state.select_token(selected_token)
                 while mouse.getPressed()[0]:
-                    pass
+                    core.wait(0.01)
+                return selected_token
         
         # 화면 그리기
         _draw_selection_screen(
