@@ -123,3 +123,8 @@ AUTO_HIDE_CARDS = True        # 카드 자동 뒷면 복구 여부
 
 # ==================== GAME STATE ====================
 TOTAL_SCORE = 0               # 전체 점수 (게임 중 업데이트)
+
+
+# game_play.py의 run_feedback_phase 색상
+PURPLE = [180, 0, 255]
+DARK_GREY = [105, 105, 105]

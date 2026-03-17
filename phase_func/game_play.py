@@ -11,7 +11,8 @@ try:
         FEEDBACK_DURATION, TRIAL_INTERVAL, PC_THINK_TIME,
         WIDTH, HEIGHT, TEXT_COLOR,
         DECK_LEFT_MARGIN, DECK_TOP_MARGIN,
-        DECK_CARD_WIDTH, DECK_CARD_HEIGHT, DECK_CARD_SPACING
+        DECK_CARD_WIDTH, DECK_CARD_HEIGHT, DECK_CARD_SPACING,
+        PURPLE, DARK_GREY
     )
     from ..phase_func.token_selection import run_token_selection_phase
     from ..phase_func.feedback import run_feedback_phase
@@ -22,7 +23,8 @@ except ImportError:
         FEEDBACK_DURATION, TRIAL_INTERVAL, PC_THINK_TIME,
         WIDTH, HEIGHT, TEXT_COLOR,
         DECK_LEFT_MARGIN, DECK_TOP_MARGIN,
-        DECK_CARD_WIDTH, DECK_CARD_HEIGHT, DECK_CARD_SPACING
+        DECK_CARD_WIDTH, DECK_CARD_HEIGHT, DECK_CARD_SPACING,
+        PURPLE, DARK_GREY
     )
     from phase_func.token_selection import run_token_selection_phase
     from phase_func.feedback import run_feedback_phase
@@ -59,7 +61,7 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
             print("[GAME END] 플레이어 승리!")
             return 'victory'
         elif game_state.phase == game_state.PHASE_DEFEAT:
-            print("[GAME END] PC 승리 (플레이어 패배)")
+            print("[GAME END] 문어 승리 (플레이어 패배)")
             return 'defeat'
         
         # 현재 턴 확인 및 실행
@@ -75,7 +77,7 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
                 continue
             elif result == 'continue':
                 # 사용자 턴 종료 → PC 턴으로 전환됨
-                print(f"[TURN SWITCH] 사용자 → PC (턴 {game_state.turn_count})")
+                print(f"[TURN SWITCH] 사용자 → 문어 (턴 {game_state.turn_count})")
             
         elif game_state.current_turn == game_state.TURN_PC:
             # PC 턴 실행
@@ -145,7 +147,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                 deck_renderer,
                 token_renderer,
                 message="시간 초과! 턴 종료",
-                color=[255, 0, 0],
+                color=DARK_GREY,
                 duration=FEEDBACK_DURATION,
                 highlighted_pos=None,
             )
@@ -188,7 +190,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                         deck_renderer,
                         token_renderer,
                         message="성공! 닭이 이동했습니다",
-                        color=[0, 255, 0],
+                        color=PURPLE,
                         duration=FEEDBACK_DURATION,
                         highlighted_pos=None,
                     )
@@ -211,7 +213,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                         deck_renderer,
                         token_renderer,
                         message="실패! 턴 종료",
-                        color=[255, 0, 0],
+                        color=DARK_GREY,
                         duration=FEEDBACK_DURATION,
                         highlighted_pos=None,
                     )
@@ -257,18 +259,18 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
     
     # PC 턴 루프 (성공 시 계속 진행)
     while game_state.current_turn == game_state.TURN_PC:
-        print(f"[PC TURN] Octopus 카드 선택 시작 (턴 {game_state.turn_count})")
+        print(f"[문어] Octopus 카드 선택 시작 (턴 {game_state.turn_count})")
         
         # PC 타겟 위치 확인
         pc_target_pos = game_state.tokens.get_target_position('octopus')
         
         # 안내 문구 업데이트
-        ui_elements.instruction_text.text = f"PC 차례 - Octopus가 카드를 선택하는 중... (턴 {game_state.turn_count})"
+        ui_elements.instruction_text.text = f"문어 차례 - Octopus가 카드를 선택하는 중... (턴 {game_state.turn_count})"
         ui_elements.message_text.text = f"타겟: {pc_target_pos}"
         ui_elements.message_text.color = TEXT_COLOR
         
         # PC 턴에도 타이머 표시
-        ui_elements.timer_text.text = f"PC 턴"
+        ui_elements.timer_text.text = f"문어 턴"
         
         # 타겟 하이라이트와 함께 화면 그리기
         _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, pc_target_pos)
@@ -290,13 +292,13 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
         # 2단계: 결과 판정 표시
         if result == 'success':
             feedback_message = "문어 성공!"
-            feedback_color = [255, 100, 0]
+            feedback_color = PURPLE
         elif result == 'failure':
             feedback_message = "문어 실패!"
-            feedback_color = [255, 255, 0]
+            feedback_color = DARK_GREY
         elif result == 'game_end':
             feedback_message = "게임 종료!"
-            feedback_color = [255, 0, 0]
+            feedback_color = [0, 0, 0]
 
         run_feedback_phase(
             win,
@@ -321,7 +323,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
                 deck_renderer,
                 token_renderer,
                 message=f"문어가 {pc_target_pos}로 이동했습니다",
-                color=[255, 100, 0],
+                color=PURPLE,
                 duration=FEEDBACK_DURATION,
                 highlighted_pos=None,
             )
@@ -341,7 +343,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
                 deck_renderer,
                 token_renderer,
                 message="문어 턴 종료",
-                color=[255, 255, 255],
+                color=DARK_GREY,
                 duration=FEEDBACK_DURATION,
                 highlighted_pos=None,
             )
