@@ -71,7 +71,7 @@ class UIElements:
             win=self.win,
             text="",
             pos=(0, -HEIGHT / 2 + 120),
-            height=30,
+            height=25,
             color=TEXT_COLOR,
             colorSpace='rgb255'
         )
