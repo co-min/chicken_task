@@ -139,7 +139,7 @@ class UIElements:
             user_score: 유저 점수
             pc_score: PC 점수
         """
-        self.score_text.text = f"유저: {user_score}점 | PC: {pc_score}점"
+        self.score_text.text = f"내 점수: {user_score}점 | 문어 점수: {pc_score}점"
         self.score_text.draw()
     
     def draw_message(self, message):

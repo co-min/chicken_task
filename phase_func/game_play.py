@@ -89,7 +89,7 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
                 continue
             elif result == 'continue':
                 # PC 턴 종료 → 사용자 턴으로 전환됨
-                print(f"[TURN SWITCH] PC → 사용자 (턴 {game_state.turn_count})")
+                print(f"[TURN SWITCH] 문어 → 사용자 (턴 {game_state.turn_count})")
         
         # 프레임 대기
         core.wait(0.005)
