@@ -163,6 +163,20 @@ class UIElements:
         if instruction:
             self.instruction_text.text = instruction
             self.instruction_text.draw()
+
+    def set_user_turn_hud(self, selected_token, turn_count, timer_display_text):
+        """사용자 턴 HUD 텍스트/색상 갱신"""
+        self.instruction_text.text = f"메인 덱에서 조건에 맞는 카드를 클릭하세요 (턴 {turn_count})"
+        self.message_text.text = f"{selected_token.upper()} 닭을 조종 중..."
+        self.message_text.color = TEXT_COLOR
+        self.timer_text.text = timer_display_text
+
+    def set_pc_turn_hud(self, turn_count, target_pos, timer_label="문어 턴"):
+        """PC 턴 HUD 텍스트/색상 갱신"""
+        self.instruction_text.text = f"문어 차례 - Octopus가 카드를 선택하는 중... (턴 {turn_count})"
+        self.message_text.text = f"타겟: {target_pos}"
+        self.message_text.color = TEXT_COLOR
+        self.timer_text.text = timer_label
     
     def draw_token_choice_buttons(self, hovered=None, selected=None):
         """

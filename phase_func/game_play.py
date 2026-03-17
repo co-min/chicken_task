@@ -130,12 +130,12 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
         # 타겟 위치 업데이트 (매 루프마다)
         target_pos = game_state.get_target_position()
         
-        # 안내 문구 업데이트
-        ui_elements.instruction_text.text = f"메인 덱에서 조건에 맞는 카드를 클릭하세요 (턴 {game_state.turn_count})"
-        ui_elements.message_text.text = f"{game_state.selected_token.upper()} 닭을 조종 중..."
-        
-        # 타이머 업데이트
-        ui_elements.timer_text.text = game_state.timer.get_display_text()
+        # 사용자 턴 HUD 업데이트
+        ui_elements.set_user_turn_hud(
+            selected_token=game_state.selected_token,
+            turn_count=game_state.turn_count,
+            timer_display_text=game_state.timer.get_display_text(),
+        )
         
         # 시간 초과 확인
         if game_state.timer.is_expired():
@@ -271,13 +271,12 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
         # PC 타겟 위치 확인
         pc_target_pos = game_state.tokens.get_target_position('octopus')
         
-        # 안내 문구 업데이트
-        ui_elements.instruction_text.text = f"문어 차례 - Octopus가 카드를 선택하는 중... (턴 {game_state.turn_count})"
-        ui_elements.message_text.text = f"타겟: {pc_target_pos}"
-        ui_elements.message_text.color = TEXT_COLOR
-        
-        # PC 턴에도 타이머 표시
-        ui_elements.timer_text.text = f"문어 턴"
+        # PC 턴 HUD 업데이트
+        ui_elements.set_pc_turn_hud(
+            turn_count=game_state.turn_count,
+            target_pos=pc_target_pos,
+            timer_label="문어 턴",
+        )
         
         # 타겟 하이라이트와 함께 화면 그리기
         _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, pc_target_pos)

@@ -82,7 +82,7 @@ HIGHLIGHT_COLOR = [0, 255, 200]  # Mint color for target
 HIGHLIGHT_WIDTH = 4              # Border width
 
 # Text settings
-TEXT_COLOR = [255, 255, 255]     # White
+TEXT_COLOR = [0, 0, 0]     # Black
 TEXT_SIZE = 28                   # 1080x1080 화면에 맞춤
 
 # Button colors
