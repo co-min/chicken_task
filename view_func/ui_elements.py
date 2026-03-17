@@ -9,7 +9,7 @@ from config import (
     TEXT_COLOR, TEXT_SIZE,
     BUTTON_COLOR_NORMAL, BUTTON_COLOR_HOVER, BUTTON_COLOR_SELECTED,
     TOKEN_BUTTON_WIDTH, TOKEN_BUTTON_HEIGHT, TOKEN_BUTTON_TEXT_HEIGHT,
-    CHASE_BUTTON_POS, FLIGHT_BUTTON_POS, TOKEN_BUTTON_LINE_WIDTH
+    CHASE_BUTTON_POS, FLIGHT_BUTTON_POS, TOKEN_BUTTON_LINE_WIDTH,PURPLE,WHITE,
 )
 
 
@@ -28,6 +28,8 @@ class UIElements:
         self.score_text = None
         self.message_text = None
         self.instruction_text = None
+        self.start_cue_background = None
+        self.start_cue_text = None
         self.token_choice_buttons = {}
         
         self._create_ui_elements()
@@ -62,6 +64,26 @@ class UIElements:
             pos=(0, -300),
             height=24,
             color=[255, 255, 0],  # 노란색 (강조)
+            colorSpace='rgb255',
+            bold=True
+        )
+
+        self.start_cue_background = visual.Rect(
+            win=self.win,
+            width=320,
+            height=160,
+            pos=(0, 0),
+            fillColor=WHITE,
+            lineColor=WHITE,
+            colorSpace='rgb255'
+        )
+
+        self.start_cue_text = visual.TextStim(
+            win=self.win,
+            text="",
+            pos=(0, 0),
+            height=90,
+            color=PURPLE,
             colorSpace='rgb255',
             bold=True
         )
@@ -163,6 +185,12 @@ class UIElements:
         if instruction:
             self.instruction_text.text = instruction
             self.instruction_text.draw()
+
+    def draw_start_cue(self, message="시작!"):
+        """화면 중앙에 큰 시작 신호를 표시"""
+        self.start_cue_text.text = message
+        self.start_cue_background.draw()
+        self.start_cue_text.draw()
 
     def set_user_turn_hud(self, selected_token, turn_count, timer_display_text):
         """사용자 턴 HUD 텍스트/색상 갱신"""

@@ -74,7 +74,7 @@ TOKEN_TIME_WAIT = 1
 
 # ==================== PC AI SETTINGS ====================
 PC_SUCCESS_RATE = 0.6         # 60% 정답 확률
-PC_THINK_TIME = 1           # 초 (PC 선택까지 대기 시간)
+PC_THINK_TIME = 1.5           # 초 (PC 선택까지 대기 시간)
 
 # ==================== VISUAL SETTINGS ====================
 # Highlight colors
@@ -128,3 +128,4 @@ TOTAL_SCORE = 0               # 전체 점수 (게임 중 업데이트)
 # game_play.py의 run_feedback_phase 색상
 PURPLE = [180, 0, 255]
 DARK_GREY = [105, 105, 105]
+WHITE=[255,255,255]

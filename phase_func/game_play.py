@@ -30,6 +30,9 @@ except ImportError:
     from phase_func.feedback import run_feedback_phase
 
 
+START_CUE_DURATION = 0.8
+
+
 def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_renderer, token_renderer):
     """
     Phase 1+: 게임 플레이 단계
@@ -207,6 +210,17 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                     
                     # 모든 피드백이 끝난 뒤 타이머 리셋
                     core.wait(TRIAL_INTERVAL)
+                    _show_start_cue(
+                        win,
+                        ui_elements,
+                        board_renderer,
+                        deck_renderer,
+                        token_renderer,
+                        selected_token=game_state.selected_token,
+                        turn_count=game_state.turn_count,
+                        timer_display_text=game_state.timer.get_display_text(),
+                        target_pos=game_state.get_target_position(),
+                    )
                     game_state.timer.reset()
                     print(f"[USER TURN] 성공, 타이머 리셋, 다음 타겟으로 계속")
                     # 계속 루프를 진행하여 다음 타겟으로
@@ -413,3 +427,33 @@ def _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_ren
     ui_elements.score_text.draw()
     ui_elements.message_text.draw()
     ui_elements.instruction_text.draw()
+
+
+def _show_start_cue(
+    win,
+    ui_elements,
+    board_renderer,
+    deck_renderer,
+    token_renderer,
+    selected_token,
+    turn_count,
+    timer_display_text,
+    target_pos,
+):
+    """다음 시도를 시작하기 직전에 큰 시작 문구를 잠깐 표시"""
+    ui_elements.set_user_turn_hud(
+        selected_token=selected_token,
+        turn_count=turn_count,
+        timer_display_text=timer_display_text,
+    )
+    _draw_game_screen(
+        win,
+        ui_elements,
+        board_renderer,
+        deck_renderer,
+        token_renderer,
+        target_pos,
+    )
+    ui_elements.draw_start_cue("시작!")
+    win.flip()
+    core.wait(START_CUE_DURATION)
