@@ -1,6 +1,6 @@
 # npc_ai.py
 # Chicken Task - NPC AI Module
-# PC (Octopus) AI 로직 - 60% 정답률 알고리즘
+# PC (Octopus) AI 로직 - 동적 정답률 알고리즘
 
 import random
 import sys
@@ -19,7 +19,7 @@ class NPCAI:
     """
     NPC (Octopus) 인공지능 클래스
     
-    - 60% 정답률로 카드 선택
+    - 설정된 정답률로 카드 선택
     - 타겟 조건에 맞는 카드 또는 틀린 카드를 전략적으로 선택
     """
     
@@ -28,34 +28,189 @@ class NPCAI:
         NPC AI 초기화
         
         Args:
-            success_rate (float): 정답 확률 (0.0 ~ 1.0, 기본값 0.6)
+            success_rate (float): 정답 확률 (0.0 ~ 1.0, 기본값 1/deck)
         """
-        self.success_rate = success_rate
+        self.success_rate = self._clamp_rate(success_rate)
+        # 메모리는 참고만 하도록 비율 제어
+        self.reference_min_prob = 0.30
+        self.reference_max_prob = 0.75
+        self.reference_base_prob = 0.50
+        self.recent_hint_follow_prob = 0.70
+
+    def set_success_rate(self, success_rate):
+        """
+        NPC 정답 확률 동적 업데이트
+
+        Args:
+            success_rate (float): 새 정답 확률 (0.0 ~ 1.0)
+        """
+        self.success_rate = self._clamp_rate(success_rate)
+
+    def _clamp_rate(self, value, min_rate=0.0, max_rate=1.0):
+        """확률 값을 안전한 범위로 제한."""
+        return max(min_rate, min(max_rate, float(value)))
     
-    def select_card(self, deck, condition):
+    def select_card(self, deck, condition, memory_context=None):
         """
         PC가 선택할 카드 좌표 결정
         
         Args:
             deck: MainDeck 객체
             condition: 타겟 조건 (dict: {'color', 'shape', 'number'})
+            memory_context (dict or None): 문어의 관찰 메모리 컨텍스트
         
         Returns:
-            tuple: (card_pos, is_match) - 선택한 카드 위치와 매칭 여부
+            tuple: (card_pos, is_match) - 선택한 카드 위치와 실제 매칭 여부
         """
-        # 60% 확률로 정답 선택, 40% 확률로 오답 선택
+        # 현재 success_rate에 따라 정답/오답 모드 결정
         should_succeed = random.random() < self.success_rate
-        
+
+        avoid_positions = set()
+        if memory_context and not should_succeed:
+            recent_failed_pos = memory_context.get('recent_npc_failed_pos')
+            if recent_failed_pos is not None:
+                avoid_positions.add(tuple(recent_failed_pos))
+
         # 조건에 맞는 카드 또는 맞지 않는 카드 찾기
         matching_cards = self._find_cards_by_match(deck, condition, match=should_succeed)
+        filtered_matching_cards = self._filter_positions(matching_cards, avoid_positions)
+        if filtered_matching_cards:
+            matching_cards = filtered_matching_cards
+
+        # 직전 사용자 카드가 현재 타겟 정답이면, 성공 모드에서 우선 참고
+        if memory_context and should_succeed:
+            hint_pos = memory_context.get('recent_user_hint_pos')
+            if hint_pos and hint_pos in matching_cards and random.random() < self.recent_hint_follow_prob:
+                return (hint_pos, True)
+
+        # 메모리 기반 후보는 "참고"만 하고, 항상 따르지 않도록 혼합 선택
+        if memory_context and matching_cards:
+            memory_candidates = self._find_memory_candidates(
+                memory_context,
+                condition,
+                match=should_succeed,
+            )
+            if avoid_positions:
+                memory_candidates = [
+                    c for c in memory_candidates
+                    if c['pos'] not in avoid_positions
+                ]
+            if memory_candidates:
+                reference_prob = self._estimate_reference_probability(memory_candidates)
+                if not should_succeed:
+                    # 실패 모드에서는 메모리 맹종을 줄이고 탐색 비중을 높임
+                    reference_prob = min(reference_prob, 0.35)
+                card_pos = self._choose_mixed_candidate(
+                    memory_candidates,
+                    matching_cards,
+                    reference_prob,
+                )
+                selected_card = deck.get_card(card_pos[0], card_pos[1])
+                actual_match = check_match(condition, selected_card)
+                return (card_pos, actual_match)
         
         if matching_cards:
             card_pos = random.choice(matching_cards)
+            actual_match = should_succeed
         else:
             # fallback: 랜덤 선택
             card_pos = self._select_random_card(deck)
+            fallback_card = deck.get_card(card_pos[0], card_pos[1])
+            actual_match = check_match(condition, fallback_card)
         
-        return (card_pos, should_succeed)
+        return (card_pos, actual_match)
+
+    def _filter_positions(self, positions, avoid_positions):
+        """회피해야 할 위치를 제외한 후보 목록 반환."""
+        if not avoid_positions:
+            return positions
+        return [pos for pos in positions if pos not in avoid_positions]
+
+    def _estimate_reference_probability(self, memory_candidates):
+        """
+        메모리 후보 품질에 따라 참고 비율 계산.
+        - 사용자 관찰만 있는 정보는 덜 신뢰
+        - npc/both 정보 비중이 높을수록 참고 비율 상승
+        """
+        if not memory_candidates:
+            return self.reference_min_prob
+
+        avg_weight = sum(c['weight'] for c in memory_candidates) / len(memory_candidates)
+        npc_like_ratio = (
+            sum(1 for c in memory_candidates if c.get('source') in ('npc', 'both'))
+            / len(memory_candidates)
+        )
+
+        reference_prob = (
+            self.reference_base_prob
+            + 0.20 * (avg_weight - 0.5)
+            + 0.15 * (npc_like_ratio - 0.5)
+        )
+        return self._clamp_rate(reference_prob, self.reference_min_prob, self.reference_max_prob)
+
+    def _choose_mixed_candidate(self, memory_candidates, all_candidates, reference_prob):
+        """
+        메모리 후보와 비메모리 후보를 섞어서 선택.
+        """
+        memory_positions = {c['pos'] for c in memory_candidates}
+        non_memory_candidates = [pos for pos in all_candidates if pos not in memory_positions]
+
+        use_reference = random.random() < reference_prob
+        if use_reference or not non_memory_candidates:
+            return self._weighted_choice(memory_candidates)
+        return random.choice(non_memory_candidates)
+
+    def _find_memory_candidates(self, memory_context, condition, match=True):
+        """
+        메모리에서 조건에 맞는/맞지 않는 카드 후보 추출.
+
+        Returns:
+            list: [{'pos': (row, col), 'weight': float}, ...]
+        """
+        entries = memory_context.get('entries', [])
+        current_turn = memory_context.get('current_turn', 0)
+        recency_window = max(1, int(memory_context.get('recency_window', 6)))
+
+        candidates = []
+        for entry in entries:
+            card = entry.get('card')
+            if card is None:
+                continue
+
+            is_match = check_match(condition, card)
+            if is_match != match:
+                continue
+
+            confidence = self._clamp_rate(entry.get('confidence', 0.5), 0.0, 1.0)
+            last_seen_turn = int(entry.get('last_seen_turn', current_turn))
+            age = max(0, current_turn - last_seen_turn)
+            recency = max(0.0, 1.0 - (age / recency_window))
+            seen_count = max(1, int(entry.get('seen_count', 1)))
+            seen_bonus = min(1.0, seen_count / 3.0)
+
+            weight = (0.6 * confidence) + (0.3 * recency) + (0.1 * seen_bonus)
+            if weight > 0.0:
+                candidates.append({
+                    'pos': entry['pos'],
+                    'weight': weight,
+                    'source': entry.get('source', 'user'),
+                })
+
+        return candidates
+
+    def _weighted_choice(self, candidates):
+        """가중치 기반 랜덤 선택 (사람 같은 비결정성 유지)."""
+        total = sum(c['weight'] for c in candidates)
+        if total <= 0:
+            return random.choice(candidates)['pos']
+
+        pick = random.random() * total
+        upto = 0.0
+        for candidate in candidates:
+            upto += candidate['weight']
+            if upto >= pick:
+                return candidate['pos']
+        return candidates[-1]['pos']
     
     def _find_cards_by_match(self, deck, condition, match=True):
         """

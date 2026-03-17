@@ -53,6 +53,27 @@ class GameState:
         self.deck = MainDeck()
         self.tokens = TokenManager()
         self.npc_ai = NPCAI(success_rate=PC_SUCCESS_RATE)  # NPC AI
+
+        # 자동 적응형 AI 상태
+        self.base_random_rate = 1.0 / (self.deck.rows * self.deck.cols)
+        self.npc_rate_min = self.base_random_rate
+        self.npc_rate_max = 0.90
+        self.adaptive_alpha_up = 0.50
+        self.adaptive_alpha_down = 0.15
+        self.max_rate_step_up = 0.12
+        self.max_rate_step_down = 0.04
+        self.surge_bonus_scale = 0.20
+        self.user_window_size = 10
+        self.min_user_trials_for_adapt = 3
+
+        # 사용자 수행/선택 패턴 추적
+        self.user_accuracy_ewma = self.base_random_rate
+        self.user_ewma_alpha = 0.2
+        self.user_seen_cards = {}  # {(row, col): {'card', 'seen_count', 'last_seen_turn', 'confidence'}}
+        self.npc_seen_cards = {}   # {(row, col): {'card', 'seen_count', 'last_seen_turn', 'confidence'}}
+        self.user_choice_count = 0
+        self.user_repeat_count = 0
+        self.user_last_selected_pos = None
         
         # 게임 상태
         self.phase = self.PHASE_NOT_STARTED
@@ -67,6 +88,258 @@ class GameState:
         self.user_move_count = 0
         self.pc_move_count = 0
         self.trial_history = []  # 시행 결과 리스트
+
+    @staticmethod
+    def _clamp(value, min_value, max_value):
+        return max(min_value, min(max_value, value))
+
+    def _get_recent_user_trials(self):
+        """최근 사용자 시행만 추출 (PC 시행 제외)."""
+        user_trials = [
+            t for t in self.trial_history
+            if t.get('token') in ('chase', 'flight')
+        ]
+        return user_trials[-self.user_window_size:]
+
+    def _record_user_observation(self, pos, card, is_match):
+        """사용자 카드 선택/관찰 히스토리 업데이트."""
+        self.user_choice_count += 1
+        if self.user_last_selected_pos == pos:
+            self.user_repeat_count += 1
+        self.user_last_selected_pos = pos
+
+        self._record_observation(self.user_seen_cards, pos, card)
+
+        hit = 1.0 if is_match else 0.0
+        self.user_accuracy_ewma = ((1 - self.user_ewma_alpha) * self.user_accuracy_ewma) + (self.user_ewma_alpha * hit)
+
+    def _record_npc_observation(self, pos, card):
+        """문어가 직접 본 카드 정보 저장."""
+        self._record_observation(self.npc_seen_cards, pos, card)
+
+    def _record_observation(self, store, pos, card):
+        """공통 관찰 메모리 업데이트."""
+        seen_info = store.get(pos)
+        if seen_info is None:
+            store[pos] = {
+                'card': card,
+                'seen_count': 1,
+                'last_seen_turn': self.turn_count,
+                'confidence': 0.60,
+            }
+            return
+
+        seen_info['card'] = card
+        seen_info['seen_count'] += 1
+        seen_info['last_seen_turn'] = self.turn_count
+        seen_info['confidence'] = self._clamp(seen_info['confidence'] + 0.10, 0.0, 1.0)
+
+    def _build_npc_memory_context(self):
+        """
+        사용자+문어 관찰 메모리를 통합하여 NPC 선택 컨텍스트 구성.
+        """
+        merged = {}
+
+        for source, store in (('user', self.user_seen_cards), ('npc', self.npc_seen_cards)):
+            for pos, info in store.items():
+                existing = merged.get(pos)
+                if existing is None:
+                    merged[pos] = {
+                        'pos': pos,
+                        'card': info.get('card'),
+                        'confidence': float(info.get('confidence', 0.6)),
+                        'seen_count': int(info.get('seen_count', 1)),
+                        'last_seen_turn': int(info.get('last_seen_turn', self.turn_count)),
+                        'source': source,
+                    }
+                    continue
+
+                existing['card'] = info.get('card', existing['card'])
+                existing['confidence'] = max(existing['confidence'], float(info.get('confidence', 0.6)))
+                existing['seen_count'] += int(info.get('seen_count', 1))
+                existing['last_seen_turn'] = max(
+                    existing['last_seen_turn'],
+                    int(info.get('last_seen_turn', self.turn_count))
+                )
+                if existing['source'] != source:
+                    existing['source'] = 'both'
+
+        return {
+            'entries': list(merged.values()),
+            'current_turn': self.turn_count,
+            'recency_window': 6,
+        }
+
+    def _get_recent_user_hint_pos(self, condition):
+        """
+        직전 사용자 카드가 현재 조건 정답이면 해당 위치를 힌트로 반환.
+        """
+        for trial in reversed(self.trial_history):
+            if trial.get('token') not in ('chase', 'flight'):
+                continue
+
+            user_card = trial.get('selected_card')
+            if user_card is None:
+                return None
+
+            if check_match(condition, user_card):
+                return trial.get('selected_card_pos')
+            return None
+
+        return None
+
+    def _get_recent_npc_failed_pos(self):
+        """문어의 직전 오답 위치를 반환."""
+        for trial in reversed(self.trial_history):
+            if trial.get('token') != 'octopus':
+                continue
+            if not trial.get('is_match'):
+                return trial.get('selected_card_pos')
+            return None
+        return None
+
+    def _get_known_wrong_positions(self, condition):
+        """현재 조건 기준으로 메모리상 오답으로 알려진 위치 목록."""
+        known_wrong = set()
+        for store in (self.user_seen_cards, self.npc_seen_cards):
+            for pos, info in store.items():
+                card = info.get('card')
+                if card is None:
+                    continue
+                if not check_match(condition, card):
+                    known_wrong.add(pos)
+        return list(known_wrong)
+
+    def _estimate_condition_knowledge(self, condition):
+        """
+        사용자가 현재 조건에 맞는 카드를 얼마나 알고 있는지 추정.
+
+        Returns:
+            float: 0.0~1.0 지식 점수
+        """
+        if condition is None or not self.user_seen_cards:
+            return 0.0
+
+        known_total = len(self.user_seen_cards)
+        known_match_count = 0
+        for info in self.user_seen_cards.values():
+            if check_match(condition, info['card']):
+                known_match_count += 1
+
+        has_known_match = 1.0 if known_match_count > 0 else 0.0
+        match_density = known_match_count / known_total
+
+        # 일치 카드 존재 여부를 우선 반영하고, 밀도로 미세 조정
+        return self._clamp((0.7 * has_known_match) + (0.3 * match_density), 0.0, 1.0)
+
+    def _get_recent_miss_streak(self):
+        """최근 사용자 연속 오답 길이 계산."""
+        streak = 0
+        for trial in reversed(self._get_recent_user_trials()):
+            if trial.get('is_match'):
+                break
+            streak += 1
+        return streak
+
+    def _get_last_user_trial(self):
+        """가장 최근 사용자 시도 1개 반환."""
+        for trial in reversed(self.trial_history):
+            if trial.get('token') in ('chase', 'flight'):
+                return trial
+        return None
+
+    def _estimate_user_success_probability(self, next_condition):
+        """
+        다음 시도에서 사용자가 정답을 맞출 확률 추정.
+
+        사용자 정답률, 반응시간, 반복선택 성향, 관찰 카드 지식을 조합한다.
+        """
+        recent_trials = self._get_recent_user_trials()
+        if len(recent_trials) < self.min_user_trials_for_adapt:
+            return self.base_random_rate
+
+        recent_accuracy = sum(1 for t in recent_trials if t.get('is_match')) / len(recent_trials)
+
+        elapsed_times = [t.get('elapsed_time', TURN_TIME_LIMIT) for t in recent_trials]
+        mean_elapsed = sum(elapsed_times) / len(elapsed_times)
+        speed_score = self._clamp(1.0 - (mean_elapsed / TURN_TIME_LIMIT), 0.0, 1.0)
+
+        global_skill = (0.7 * self.user_accuracy_ewma) + (0.2 * recent_accuracy) + (0.1 * speed_score)
+        knowledge_score = self._estimate_condition_knowledge(next_condition)
+
+        repeat_rate = 0.0
+        if self.user_choice_count > 0:
+            repeat_rate = self.user_repeat_count / self.user_choice_count
+        novelty_score = 1.0 - repeat_rate
+
+        miss_streak = self._get_recent_miss_streak()
+        miss_penalty = 0.05 * min(miss_streak, 3)
+
+        # 사용자가 방금 잘한 턴을 빠르게 반영 (급상승 대응)
+        surge_bonus = 0.0
+        last_user_trial = self._get_last_user_trial()
+        if last_user_trial is not None and last_user_trial.get('is_match'):
+            last_elapsed = last_user_trial.get('elapsed_time', TURN_TIME_LIMIT)
+            last_speed = self._clamp(1.0 - (last_elapsed / TURN_TIME_LIMIT), 0.0, 1.0)
+            surge_bonus += self.surge_bonus_scale * (0.6 + 0.4 * last_speed)
+
+            # 최근 2연속 성공이면 추가 가중
+            recent_user_trials = self._get_recent_user_trials()
+            if len(recent_user_trials) >= 2 and recent_user_trials[-2].get('is_match'):
+                surge_bonus += 0.05
+
+        estimated = (
+            (0.55 * global_skill)
+            + (0.35 * knowledge_score)
+            + (0.10 * novelty_score)
+            + surge_bonus
+            - miss_penalty
+        )
+        return self._clamp(estimated, self.npc_rate_min, self.npc_rate_max)
+
+    def _estimate_user_skill(self):
+        """
+        최근 사용자 정확도/속도를 기반으로 실력 점수 추정.
+
+        Returns:
+            float or None: 0.0~1.0 범위의 실력 점수, 데이터 부족 시 None
+        """
+        recent_trials = self._get_recent_user_trials()
+        if len(recent_trials) < self.min_user_trials_for_adapt:
+            return None
+
+        correct_count = sum(1 for t in recent_trials if t.get('is_match'))
+        accuracy = correct_count / len(recent_trials)
+
+        elapsed_times = [t.get('elapsed_time', TURN_TIME_LIMIT) for t in recent_trials]
+        mean_elapsed = sum(elapsed_times) / len(elapsed_times)
+        speed_score = self._clamp(1.0 - (mean_elapsed / TURN_TIME_LIMIT), 0.0, 1.0)
+
+        # 정확도 중심으로 점수 산출 (정확도 80%, 속도 20%)
+        return 0.8 * accuracy + 0.2 * speed_score
+
+    def _update_adaptive_npc_rate(self):
+        """다음 사용자 성공확률 추정치를 따라 NPC 정답률을 조정."""
+        target_pos = self.tokens.get_target_position('octopus')
+        if target_pos is None:
+            return
+        next_condition = self.board.get_condition(target_pos[0], target_pos[1])
+
+        target_rate = self._estimate_user_success_probability(next_condition)
+
+        current_rate = self.npc_ai.success_rate
+        if target_rate >= current_rate:
+            adaptive_alpha = self.adaptive_alpha_up
+            max_rate_step = self.max_rate_step_up
+        else:
+            adaptive_alpha = self.adaptive_alpha_down
+            max_rate_step = self.max_rate_step_down
+
+        smoothed_rate = ((1 - adaptive_alpha) * current_rate) + (adaptive_alpha * target_rate)
+        delta = smoothed_rate - current_rate
+        delta = self._clamp(delta, -max_rate_step, max_rate_step)
+
+        self.npc_ai.set_success_rate(current_rate + delta)
     
     def start_game(self):
         """게임 시작"""
@@ -188,6 +461,7 @@ class GameState:
             'elapsed_time': elapsed_time  # 이번 시도에 걸린 시간
         }
         self.trial_history.append(trial)
+        self._record_user_observation((card_row, card_col), card, is_match)
         
         if is_match:
             if defer_success_move:
@@ -236,6 +510,7 @@ class GameState:
         self.current_turn = self.TURN_PC
         self.phase = self.PHASE_GAME_PLAY
         self.selected_token = None  # 다음 사용자 턴을 위해 리셋
+        self._update_adaptive_npc_rate()
         print("사용자 턴 종료. PC 차례")
     
     def pc_turn_step(self, defer_success_move=False):
@@ -254,9 +529,17 @@ class GameState:
         # 타겟 확인
         target_pos = self.tokens.get_target_position('octopus')
         condition = self.board.get_condition(target_pos[0], target_pos[1])
+        memory_context = self._build_npc_memory_context()
+        memory_context['recent_user_hint_pos'] = self._get_recent_user_hint_pos(condition)
+        memory_context['recent_npc_failed_pos'] = self._get_recent_npc_failed_pos()
+        memory_context['known_wrong_positions'] = self._get_known_wrong_positions(condition)
         
-        # NPC AI를 통해 카드 선택 (60% 정답률) - 매칭 결과도 함께 반환받음
-        selected_pos, is_match = self.npc_ai.select_card(self.deck, condition)
+        # NPC AI를 통해 카드 선택 (동적 확률 + 기억 기반)
+        selected_pos, is_match = self.npc_ai.select_card(
+            self.deck,
+            condition,
+            memory_context=memory_context,
+        )
         
         # 카드 뒤집기
         self.deck.flip_card(selected_pos[0], selected_pos[1])
@@ -274,6 +557,7 @@ class GameState:
             'elapsed_time': 0
         }
         self.trial_history.append(trial)
+        self._record_npc_observation(selected_pos, card)
         
         if is_match:
             if defer_success_move:
@@ -368,6 +652,13 @@ class GameState:
         self.user_move_count = 0
         self.pc_move_count = 0
         self.trial_history = []
+        self.user_accuracy_ewma = self.base_random_rate
+        self.user_seen_cards = {}
+        self.npc_seen_cards = {}
+        self.user_choice_count = 0
+        self.user_repeat_count = 0
+        self.user_last_selected_pos = None
+        self.npc_ai.set_success_rate(self.base_random_rate)
         
         print("게임 리셋 완료")
     
@@ -385,6 +676,9 @@ class GameState:
             'user_moves': self.user_move_count,
             'pc_moves': self.pc_move_count,
             'total_trials': len(self.trial_history),
+            'user_seen_cards': len(self.user_seen_cards),
+            'npc_seen_cards': len(self.npc_seen_cards),
+            'npc_success_rate': round(self.npc_ai.success_rate, 4),
             'token_positions': self.tokens.get_all_positions()
         }
 

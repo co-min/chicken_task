@@ -73,7 +73,7 @@ TRIAL_INTERVAL = 1          # 초 (시행 간 간격)
 TOKEN_TIME_WAIT = 1
 
 # ==================== PC AI SETTINGS ====================
-PC_SUCCESS_RATE = 0.6         # 60% 정답 확률
+PC_SUCCESS_RATE = 1 / TOTAL_CARDS  # 초기 정답 확률: 메인 덱 카드 수의 역수
 PC_THINK_TIME = 1.5           # 초 (PC 선택까지 대기 시간)
 
 # ==================== VISUAL SETTINGS ====================
