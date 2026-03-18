@@ -93,13 +93,14 @@ def initiate():
     
     return visual_opt, device_opt, game_opt, save_directory
 
-def initiate_eyelink(win, subject_id):
+def initiate_eyelink(win, subject_id, save_dir=None):
     """
     Initialize EyeLink eye tracker (optional)
     
     Args:
         win: PsychoPy window
         subject_id (str): Subject ID
+        save_dir (str, optional): Local directory for EDF download target
         
     Returns:
         tuple: (tracker, genv) or (None, None) if not used
@@ -110,28 +111,26 @@ def initiate_eyelink(win, subject_id):
     print("Initializing EyeLink...")
     
     try:
-        # Set EyeLink options
-        eye_opt = set_eye_opt()
-        
         # Connect to EyeLink
         tracker = pylink.EyeLink("100.1.1.1")
-        
-        # Open EDF file
+
+        # EyeLink host EDF name
         edf_fname = subject_id[:8] + ".edf"
-        tracker.openDataFile(edf_fname)
-        
-        # Configure tracker
-        tracker.sendCommand("screen_pixel_coords = 0 0 %d %d" % 
-                          (eye_opt['screen_width'] - 1, eye_opt['screen_height'] - 1))
-        tracker.sendMessage("DISPLAY_COORDS 0 0 %d %d" % 
-                           (eye_opt['screen_width'] - 1, eye_opt['screen_height'] - 1))
+
+        # If not provided, keep EDF output under project Data/<subject_id>
+        if save_dir is None:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            save_dir = define_save_directory(base_dir, subject_id)
+
+        # set_eyelink.py에서 set_eye_opt 호출 -> 설정 및 보정 처리
+        # Configure tracker, open EDF, and run calibration in one place
+        tracker = set_eye_opt(tracker, save_dir=save_dir, edf_name=edf_fname, win=win)
+        if tracker is None:
+            raise RuntimeError("EyeLink setup failed")
         
         # Set up graphics environment
         genv = EyeLinkCoreGraphicsPsychoPy(tracker, win)
         pylink.openGraphicsEx(genv)
-        
-        # Calibrate
-        tracker.doTrackerSetup()
         
         print("[OK] EyeLink initialized successfully")
         return tracker, genv
