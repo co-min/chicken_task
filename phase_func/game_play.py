@@ -12,10 +12,12 @@ try:
         WIDTH, HEIGHT, TEXT_COLOR,
         DECK_LEFT_MARGIN, DECK_TOP_MARGIN,
         DECK_CARD_WIDTH, DECK_CARD_HEIGHT, DECK_CARD_SPACING,
-        PURPLE, DARK_GREY
+        PURPLE, DARK_GREY,
+        FRAME_MARKER_POS, FRAME_MARKER_SIZE,
     )
     from ..phase_func.token_selection import run_token_selection_phase
     from ..phase_func.feedback import run_feedback_phase
+    from ..view_func.frame_marker import draw_white_marker
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from config import (
@@ -24,16 +26,18 @@ except ImportError:
         WIDTH, HEIGHT, TEXT_COLOR,
         DECK_LEFT_MARGIN, DECK_TOP_MARGIN,
         DECK_CARD_WIDTH, DECK_CARD_HEIGHT, DECK_CARD_SPACING,
-        PURPLE, DARK_GREY
+        PURPLE, DARK_GREY,
+        FRAME_MARKER_POS, FRAME_MARKER_SIZE,
     )
     from phase_func.token_selection import run_token_selection_phase
     from phase_func.feedback import run_feedback_phase
+    from view_func.frame_marker import draw_white_marker
 
 
 START_CUE_DURATION = 0.8
 
 
-def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_renderer, token_renderer):
+def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_renderer, token_renderer, subject_id='default'):
     """
     Phase 1+: 게임 플레이 단계
     사용자와 PC가 교대로 턴을 진행하며 게임을 플레이
@@ -49,6 +53,7 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
         board_renderer: BoardRenderer 인스턴스
         deck_renderer: DeckRenderer 인스턴스
         token_renderer: TokenRenderer 인스턴스
+        subject_id (str): 피험자 ID (프레임 로그 저장에 사용)
     
     Returns:
         str: 게임 종료 이유 ('victory', 'defeat', 'exit')
@@ -427,6 +432,7 @@ def _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_ren
     ui_elements.score_text.draw()
     ui_elements.message_text.draw()
     ui_elements.instruction_text.draw()
+    draw_white_marker(win, FRAME_MARKER_POS, FRAME_MARKER_SIZE)
 
 
 def _show_start_cue(

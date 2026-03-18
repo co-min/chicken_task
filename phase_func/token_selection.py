@@ -10,19 +10,27 @@ try:
         WIDTH, HEIGHT, TEXT_COLOR, TEXT_SIZE,
         BUTTON_COLOR_NORMAL, BUTTON_COLOR_SELECTED,
         CHASE_BUTTON_POS, FLIGHT_BUTTON_POS,
-        TOKEN_BUTTON_WIDTH, TOKEN_BUTTON_HEIGHT
+        TOKEN_BUTTON_WIDTH, TOKEN_BUTTON_HEIGHT,
+        FRAME_MARKER_POS, FRAME_MARKER_SIZE,
+        SAVE_FRAME_LOG,
     )
+    from ..view_func.frame_marker import draw_white_marker
+    from ..save_func.save_frame_log import save_frame_log_token_selection
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from config import (
         WIDTH, HEIGHT, TEXT_COLOR, TEXT_SIZE,
         BUTTON_COLOR_NORMAL, BUTTON_COLOR_SELECTED,
         CHASE_BUTTON_POS, FLIGHT_BUTTON_POS,
-        TOKEN_BUTTON_WIDTH, TOKEN_BUTTON_HEIGHT
+        TOKEN_BUTTON_WIDTH, TOKEN_BUTTON_HEIGHT,
+        FRAME_MARKER_POS, FRAME_MARKER_SIZE,
+        SAVE_FRAME_LOG,
     )
+    from view_func.frame_marker import draw_white_marker
+    from save_func.save_frame_log import save_frame_log_token_selection
 
 
-def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck_renderer, token_renderer):
+def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck_renderer, token_renderer, subject_id='default'):
     """
     Phase 0: 닭 선택 단계
     사용자가 Chase 또는 Flight 중 어떤 닭을 조종할지 선택
@@ -166,3 +174,4 @@ def _draw_selection_screen(win, ui_elements, board_renderer, deck_renderer, toke
     # 안내 문구 및 메시지 그리기
     ui_elements.instruction_text.draw()
     ui_elements.message_text.draw()
+    draw_white_marker(win, FRAME_MARKER_POS, FRAME_MARKER_SIZE)

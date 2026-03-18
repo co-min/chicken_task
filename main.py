@@ -59,15 +59,22 @@ def main():
     
     게임 흐름:
     1. 윈도우 및 게임 컴포넌트 초기화
-    2. phase 오케스트레이터 실행
-    3. 결과 요약 및 정리
+    2. subject_id 입력
+    3. phase 오케스트레이터 실행
+    4. 결과 요약 및 정리
     """
     
-    # ==================== 1. 윈도우 생성 ====================
+    # ==================== 0. 피험자 ID 입력 ====================
     print("\n" + "=" * 60)
     print("Chicken Task - 게임 시작")
     print("=" * 60 + "\n")
     
+    subject_id = input("피험자 ID를 입력하세요 (기본값: 'default'): ").strip()
+    if not subject_id:
+        subject_id = 'default'
+    print(f"✓ 피험자 ID: {subject_id}\n")
+    
+    # ==================== 1. 윈도우 생성 ====================
     print("[1/4] PsychoPy 윈도우 생성 중...")
 
     screen_size = _detect_screen_size([WIDTH, HEIGHT]) if AUTO_DETECT_WINDOW_SIZE else [WIDTH, HEIGHT]
@@ -117,7 +124,8 @@ def main():
 
     result = run_all_phases(
         win, game_state, ui_elements,
-        board_renderer, deck_renderer, token_renderer
+        board_renderer, deck_renderer, token_renderer,
+        subject_id=subject_id
     )
 
     print("-" * 60)

@@ -2,16 +2,20 @@
 
 import sys
 from pathlib import Path
-from psychopy import visual, event
+from psychopy import visual, core, event
 
 try:
-	from ..config import TEXT_COLOR
+	from ..config import TEXT_COLOR, FRAME_MARKER_POS, FRAME_MARKER_SIZE, SAVE_FRAME_LOG
+	from ..view_func.frame_marker import draw_white_marker
+	from ..save_func.save_frame_log import save_frame_log_ending
 except ImportError:
 	sys.path.insert(0, str(Path(__file__).parent.parent))
-	from config import TEXT_COLOR
+	from config import TEXT_COLOR, FRAME_MARKER_POS, FRAME_MARKER_SIZE, SAVE_FRAME_LOG
+	from view_func.frame_marker import draw_white_marker
+	from save_func.save_frame_log import save_frame_log_ending
 
 
-def run_ending_phase(win, ui_elements, game_state, result):
+def run_ending_phase(win, ui_elements, game_state, result, subject_id='default'):
 	"""
 	게임 종료 화면.
 
@@ -52,11 +56,40 @@ def run_ending_phase(win, ui_elements, game_state, result):
 		colorSpace='rgb255'
 	)
 
-	ui_elements.instruction_text.draw()
-	ui_elements.message_text.draw()
-	stats_text.draw()
-	exit_text.draw()
-	win.flip()
-	event.waitKeys()
+	# === 로깅 변수 초기화 ===
+	frame_count = 0
+	frame_log = []
+	clock = core.Clock()
+	prev_flip_time = None
+
+	while True:
+		ui_elements.instruction_text.draw()
+		ui_elements.message_text.draw()
+		stats_text.draw()
+		exit_text.draw()
+		draw_white_marker(win, FRAME_MARKER_POS, FRAME_MARKER_SIZE)
+		win.flip()
+
+		flip_time = clock.getTime()
+		dt = 0.0 if prev_flip_time is None else (flip_time - prev_flip_time)
+		prev_flip_time = flip_time
+
+		if SAVE_FRAME_LOG:
+			frame_log.append({
+				'phase': 'ending',
+				'frame_count': frame_count,
+				'time': flip_time,
+				'dt': dt,
+				'marker_on': True,
+			})
+		frame_count += 1
+
+		keys = event.getKeys()
+		if keys:
+			break
+
+	if SAVE_FRAME_LOG:
+		print(f"  - ending frame log: {len(frame_log)} frames")
+		save_frame_log_ending(frame_log, subject_id)
 
 	print("  ✓ 종료 화면 표시 완료")

@@ -129,3 +129,8 @@ TOTAL_SCORE = 0               # 전체 점수 (게임 중 업데이트)
 PURPLE = [180, 0, 255]
 DARK_GREY = [105, 105, 105]
 WHITE=[255,255,255]
+
+
+# Frame
+FRAME_MARKER_POS = (-520, 500)      # 좌상단 근처 (units='pix')
+FRAME_MARKER_SIZE = (32, 32)        # (width, height)
