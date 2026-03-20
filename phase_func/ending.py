@@ -8,11 +8,13 @@ try:
 	from ..config import TEXT_COLOR, FRAME_MARKER_POS, FRAME_MARKER_SIZE, SAVE_FRAME_LOG
 	from ..view_func.frame_marker import draw_white_marker
 	from ..save_func.save_frame_log import save_frame_log_ending
+	from ..save_func.save_results import save_all_results
 except ImportError:
 	sys.path.insert(0, str(Path(__file__).parent.parent))
 	from config import TEXT_COLOR, FRAME_MARKER_POS, FRAME_MARKER_SIZE, SAVE_FRAME_LOG
 	from view_func.frame_marker import draw_white_marker
 	from save_func.save_frame_log import save_frame_log_ending
+	from save_func.save_results import save_all_results
 
 
 def run_ending_phase(win, ui_elements, game_state, result, subject_id='default'):
@@ -91,5 +93,8 @@ def run_ending_phase(win, ui_elements, game_state, result, subject_id='default')
 	if SAVE_FRAME_LOG:
 		print(f"  - ending frame log: {len(frame_log)} frames")
 		save_frame_log_ending(frame_log, subject_id)
+	
+	# 게임 결과 저장
+	save_all_results(game_state, subject_id)
 
 	print("  ✓ 종료 화면 표시 완료")

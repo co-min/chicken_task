@@ -114,6 +114,7 @@ USE_EYELINK = 0               # 0: 미사용, 1: 사용
 
 # ==================== DATA SAVING ====================
 SAVE_FRAME_LOG = True         # 프레임별 로그 저장 여부
+SAVE_RESULTS = True           # 게임 결과 CSV 저장 여부
 SAVE_GAME_STATE = True        # 게임 상태 스냅샷 저장 여부
 
 # ==================== DEBUG SETTINGS ====================
