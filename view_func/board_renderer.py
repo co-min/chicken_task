@@ -4,7 +4,6 @@
 from psychopy import visual
 import os
 from config import (
-    BOARD_ROWS, BOARD_COLS,
     BOARD_LEFT_MARGIN, BOARD_TOP_MARGIN,
     BOARD_CARD_WIDTH, BOARD_CARD_HEIGHT, BOARD_CARD_SPACING,
     WIDTH, HEIGHT,
@@ -17,6 +16,7 @@ from utils.card_matcher import get_condition_text
 # 이미지 경로
 STIMULI_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'stimuli')
 CONDITION_CARDS_DIR = os.path.join(STIMULI_DIR, 'condition_cards')
+CARD_BACK_PATH = os.path.join(STIMULI_DIR, 'ui', 'card_back.png')
 
 
 class BoardRenderer:
@@ -39,11 +39,11 @@ class BoardRenderer:
     
     def _create_visuals(self):
         """모든 카드의 비주얼 요소를 생성"""
-        for row in range(BOARD_ROWS):
+        for row in range(self.board.rows):
             row_images = []
             row_highlights = []
             
-            for col in range(BOARD_COLS):
+            for col in range(self.board.cols):
                 # 화면 좌표 계산 (PsychoPy는 중앙이 원점)
                 x = self._get_card_x(col)
                 y = self._get_card_y(row)
@@ -118,6 +118,9 @@ class BoardRenderer:
         Returns:
             이미지 파일 경로
         """
+        if condition is None:
+            return CARD_BACK_PATH
+
         cond_type = condition['type']
         cond_value = condition['value']
         
@@ -137,8 +140,8 @@ class BoardRenderer:
         Args:
             highlighted_pos: 하이라이트할 위치 (row, col) 튜플 또는 None
         """
-        for row in range(BOARD_ROWS):
-            for col in range(BOARD_COLS):
+        for row in range(self.board.rows):
+            for col in range(self.board.cols):
                 # 카드 이미지 그리기
                 self.card_images[row][col].draw()
                 
@@ -158,8 +161,8 @@ class BoardRenderer:
         """
         mx, my = mouse_pos
         
-        for row in range(BOARD_ROWS):
-            for col in range(BOARD_COLS):
+        for row in range(self.board.rows):
+            for col in range(self.board.cols):
                 image = self.card_images[row][col]
                 
                 # 카드 영역 체크 (contains() 메서드 사용)

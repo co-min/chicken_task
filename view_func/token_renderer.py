@@ -28,34 +28,25 @@ class TokenRenderer:
         self.token_manager = token_manager
         
         # 토큰 비주얼 요소
-        self.chase_stim = None
-        self.octopus_stim = None
-        self.flight_stim = None
+        self.token_stims = {}
         
         self._create_visuals()
     
     def _create_visuals(self):
         """토큰 비주얼 생성"""
-        # Chase (위쪽 닭) - 이미지
-        self.chase_stim = visual.ImageStim(
-            win=self.win,
-            image=os.path.join(TOKENS_DIR, 'chase.png'),
-            size=(TOKEN_SIZE, TOKEN_SIZE)
-        )
-        
-        # Octopus (PC 문어) - 이미지
-        self.octopus_stim = visual.ImageStim(
-            win=self.win,
-            image=os.path.join(TOKENS_DIR, 'octopus.png'),
-            size=(TOKEN_SIZE, TOKEN_SIZE)
-        )
-        
-        # Flight (아래쪽 닭) - 이미지
-        self.flight_stim = visual.ImageStim(
-            win=self.win,
-            image=os.path.join(TOKENS_DIR, 'flight.png'),
-            size=(TOKEN_SIZE, TOKEN_SIZE)
-        )
+        image_name_by_token = {
+            'chase': 'chase.png',
+            'octopus': 'octopus.png',
+            'flight': 'flight.png',
+        }
+
+        for token_name in self.token_manager.tokens:
+            file_name = image_name_by_token.get(token_name, 'octopus.png')
+            self.token_stims[token_name] = visual.ImageStim(
+                win=self.win,
+                image=os.path.join(TOKENS_DIR, file_name),
+                size=(TOKEN_SIZE, TOKEN_SIZE)
+            )
     
     def _get_card_center(self, row, col):
         """
@@ -79,28 +70,17 @@ class TokenRenderer:
     
     def draw(self):
         """토큰들을 화면에 그리기"""
-        # 각 토큰의 현재 위치 가져오기
-        chase_pos = self.token_manager.get_token('chase').get_position()
-        octopus_pos = self.token_manager.get_token('octopus').get_position()
-        flight_pos = self.token_manager.get_token('flight').get_position()
-        
-        # Chase 그리기
-        if chase_pos:
-            x, y = self._get_card_center(chase_pos[0], chase_pos[1])
-            self.chase_stim.pos = (x, y)
-            self.chase_stim.draw()
-        
-        # Octopus 그리기
-        if octopus_pos:
-            x, y = self._get_card_center(octopus_pos[0], octopus_pos[1])
-            self.octopus_stim.pos = (x, y)
-            self.octopus_stim.draw()
-        
-        # Flight 그리기
-        if flight_pos:
-            x, y = self._get_card_center(flight_pos[0], flight_pos[1])
-            self.flight_stim.pos = (x, y)
-            self.flight_stim.draw()
+        all_positions = self.token_manager.get_all_positions()
+        for token_name, token_pos in all_positions.items():
+            if token_pos is None:
+                continue
+            stim = self.token_stims.get(token_name)
+            if stim is None:
+                continue
+
+            x, y = self._get_card_center(token_pos[0], token_pos[1])
+            stim.pos = (x, y)
+            stim.draw()
     
     def draw_with_animation(self, progress=1.0):
         """

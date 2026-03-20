@@ -61,15 +61,56 @@ class TokenManager:
     순환 경로: 1-1 → 1-9 → 2-1 → 2-9 → 3-1 → 3-9 → 1-1
     """
     
-    def __init__(self):
+    def __init__(self, mode_profile=None, board=None):
         """토큰 관리자 초기화"""
-        # 3개 토큰 생성
-        self.chase = Token('chase', CHASE_START_POS)
-        self.octopus = Token('octopus', OCTOPUS_START_POS)
-        self.flight = Token('flight', FLIGHT_START_POS)
-        
+        self.mode_profile = mode_profile or {}
         self.rows = BOARD_ROWS
         self.cols = BOARD_COLS
+        self.track_positions = []
+        if board is not None:
+            self.rows = board.rows
+            self.cols = board.cols
+            self.track_positions = list(getattr(board, 'track_positions', []))
+
+        if not self.track_positions:
+            self.track_positions = [
+                (row, col)
+                for row in range(self.rows)
+                for col in range(self.cols)
+            ]
+
+        token_count = int(self.mode_profile.get('token_count', 3))
+        token_count = max(3, token_count)
+
+        base_token_names = ['chase', 'octopus', 'flight']
+        extra_token_names = [f'extra_{idx}' for idx in range(max(0, token_count - 3))]
+        self.token_order = base_token_names + extra_token_names
+
+        start_positions = self._build_evenly_spaced_positions(token_count)
+        self.tokens = {}
+        for idx, token_name in enumerate(self.token_order):
+            self.tokens[token_name] = Token(token_name, start_positions[idx])
+
+        self.chase = self.tokens.get('chase')
+        self.octopus = self.tokens.get('octopus')
+        self.flight = self.tokens.get('flight')
+
+    def _build_evenly_spaced_positions(self, token_count):
+        """트랙 길이에 맞춰 토큰 시작 위치를 균등 간격으로 생성."""
+        track_len = len(self.track_positions)
+        if track_len == 0:
+            return [(0, 0)] * token_count
+
+        used = set()
+        positions = []
+        for idx in range(token_count):
+            start_idx = (idx * track_len) // token_count
+            while start_idx in used:
+                start_idx = (start_idx + 1) % track_len
+            used.add(start_idx)
+            positions.append(self.track_positions[start_idx])
+
+        return positions
     
     def get_token(self, token_name):
         """
@@ -81,13 +122,7 @@ class TokenManager:
         Returns:
             Token: 토큰 객체
         """
-        if token_name == 'chase':
-            return self.chase
-        elif token_name == 'octopus':
-            return self.octopus
-        elif token_name == 'flight':
-            return self.flight
-        return None
+        return self.tokens.get(token_name)
     
     def get_all_positions(self):
         """
@@ -97,9 +132,8 @@ class TokenManager:
             dict: {토큰_이름: (row, col)}
         """
         return {
-            'chase': self.chase.get_position(),
-            'octopus': self.octopus.get_position(),
-            'flight': self.flight.get_position()
+            token_name: token.get_position()
+            for token_name, token in self.tokens.items()
         }
     
     def get_next_position(self, current_pos):
@@ -113,22 +147,12 @@ class TokenManager:
         Returns:
             tuple: 다음 위치 (row, col)
         """
-        row, col = current_pos
-        
-        # 다음 칸으로 이동
-        next_col = col + 1
-        next_row = row
-        
-        # 열 끝에 도달하면 다음 행으로
-        if next_col >= self.cols:
-            next_col = 0
-            next_row = row + 1
-        
-        # 마지막 행 끝에 도달하면 처음으로 순환
-        if next_row >= self.rows:
-            next_row = 0
-        
-        return (next_row, next_col)
+        if current_pos not in self.track_positions:
+            return self.track_positions[0]
+
+        current_idx = self.track_positions.index(current_pos)
+        next_idx = (current_idx + 1) % len(self.track_positions)
+        return self.track_positions[next_idx]
     
     def get_target_position(self, token_name):
         """
@@ -230,9 +254,8 @@ class TokenManager:
     
     def reset_all(self):
         """모든 토큰 리셋"""
-        self.chase.reset()
-        self.octopus.reset()
-        self.flight.reset()
+        for token in self.tokens.values():
+            token.reset()
     
     def print_status(self):
         """토큰 상태 출력 (디버깅용)"""

@@ -9,7 +9,6 @@ try:
     from ..config import (
         KEY_EXIT, CARD_FLIP_DURATION,
         FEEDBACK_DURATION, TRIAL_INTERVAL, PC_THINK_TIME,
-        BOARD_ROWS, BOARD_COLS,
         WIDTH, HEIGHT, TEXT_COLOR,
         DECK_LEFT_MARGIN, DECK_TOP_MARGIN,
         DECK_CARD_WIDTH, DECK_CARD_HEIGHT, DECK_CARD_SPACING,
@@ -22,7 +21,6 @@ except ImportError:
     from config import (
         KEY_EXIT, CARD_FLIP_DURATION,
         FEEDBACK_DURATION, TRIAL_INTERVAL, PC_THINK_TIME,
-        BOARD_ROWS, BOARD_COLS,
         WIDTH, HEIGHT, TEXT_COLOR,
         DECK_LEFT_MARGIN, DECK_TOP_MARGIN,
         DECK_CARD_WIDTH, DECK_CARD_HEIGHT, DECK_CARD_SPACING,
@@ -172,7 +170,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
             mouse_pos = mouse.getPos()
             
             # 클릭한 카드 위치 확인
-            card_pos = _get_clicked_card(mouse_pos)
+            card_pos = _get_clicked_card(mouse_pos, game_state.deck.rows, game_state.deck.cols)
             
             if card_pos is not None:
                 card_row, card_col = card_pos
@@ -387,7 +385,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
     return 'continue'
 
 
-def _get_clicked_card(mouse_pos):
+def _get_clicked_card(mouse_pos, deck_rows, deck_cols):
     """
     마우스 클릭 위치에서 카드 인덱스 계산
     
@@ -402,8 +400,8 @@ def _get_clicked_card(mouse_pos):
     screen_y = HEIGHT / 2 - mouse_pos[1]
     
     # 덱 영역 확인
-    for row in range(BOARD_ROWS):
-        for col in range(BOARD_COLS):
+    for row in range(deck_rows):
+        for col in range(deck_cols):
             left = DECK_LEFT_MARGIN + col * (DECK_CARD_WIDTH + DECK_CARD_SPACING)
             right = left + DECK_CARD_WIDTH
             top = DECK_TOP_MARGIN + row * (DECK_CARD_HEIGHT + DECK_CARD_SPACING)

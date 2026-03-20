@@ -53,9 +53,9 @@ class GameState:
         self.selected_mode = self.available_modes.get(self.selected_mode_id, self.available_modes[DEFAULT_GAME_MODE])
 
         # 게임 컴포넌트
-        self.board = ConditionBoard()
-        self.deck = MainDeck()
-        self.tokens = TokenManager()
+        self.board = ConditionBoard(mode_profile=self.selected_mode)
+        self.deck = MainDeck(mode_profile=self.selected_mode)
+        self.tokens = TokenManager(mode_profile=self.selected_mode, board=self.board)
         self.npc_ai = NPCAI(success_rate=PC_SUCCESS_RATE)  # NPC AI
 
         print(f"[MODE] selected={self.selected_mode_id}, profile={self.selected_mode}")
@@ -107,6 +107,13 @@ class GameState:
         else:
             self.selected_mode_id = DEFAULT_GAME_MODE
             self.selected_mode = self.available_modes[DEFAULT_GAME_MODE]
+
+        self.board = ConditionBoard(mode_profile=self.selected_mode)
+        self.deck = MainDeck(mode_profile=self.selected_mode)
+        self.tokens = TokenManager(mode_profile=self.selected_mode, board=self.board)
+        self.base_random_rate = 1.0 / max(1, (self.deck.rows * self.deck.cols))
+        self.npc_rate_min = self.base_random_rate
+        self.npc_ai.set_success_rate(self.base_random_rate)
         print(f"[MODE] updated={self.selected_mode_id}")
 
     def _get_recent_user_trials(self):
@@ -654,9 +661,9 @@ class GameState:
     
     def reset(self):
         """게임 리셋"""
-        self.board = ConditionBoard()
-        self.deck = MainDeck()
-        self.tokens.reset_all()
+        self.board = ConditionBoard(mode_profile=self.selected_mode)
+        self.deck = MainDeck(mode_profile=self.selected_mode)
+        self.tokens = TokenManager(mode_profile=self.selected_mode, board=self.board)
         
         self.phase = self.PHASE_NOT_STARTED
         self.current_turn = self.TURN_USER

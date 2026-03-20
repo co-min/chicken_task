@@ -4,7 +4,6 @@
 from psychopy import visual
 import os
 from config import (
-    BOARD_ROWS, BOARD_COLS,
     DECK_LEFT_MARGIN, DECK_TOP_MARGIN,
     DECK_CARD_WIDTH, DECK_CARD_HEIGHT, DECK_CARD_SPACING,
     WIDTH, HEIGHT,
@@ -44,12 +43,12 @@ class DeckRenderer:
         # 뒷면 이미지 경로
         card_back_path = os.path.join(UI_DIR, 'card_back.png')
         
-        for row in range(BOARD_ROWS):
+        for row in range(self.deck.rows):
             row_backs = []
             row_fronts = []
             row_highlights = []
             
-            for col in range(BOARD_COLS):
+            for col in range(self.deck.cols):
                 # 화면 좌표 계산
                 x = self._get_card_x(col)
                 y = self._get_card_y(row)
@@ -129,8 +128,8 @@ class DeckRenderer:
         Args:
             highlighted_pos: 하이라이트할 위치 (row, col) 튜플 또는 None
         """
-        for row in range(BOARD_ROWS):
-            for col in range(BOARD_COLS):
+        for row in range(self.deck.rows):
+            for col in range(self.deck.cols):
                 is_face_up = self.deck.is_face_up(row, col)
                 
                 if is_face_up:
@@ -156,8 +155,8 @@ class DeckRenderer:
         """
         mx, my = mouse_pos
         
-        for row in range(BOARD_ROWS):
-            for col in range(BOARD_COLS):
+        for row in range(self.deck.rows):
+            for col in range(self.deck.cols):
                 rect = self.card_backs[row][col]
                 
                 if rect.contains((mx, my)):

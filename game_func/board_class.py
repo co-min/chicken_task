@@ -3,6 +3,7 @@
 # 9가지 조건 × 3회 반복 = 27장, 항상 앞면
 
 import random
+import math
 import sys
 from pathlib import Path
 
@@ -25,11 +26,23 @@ class ConditionBoard:
     - 순환 경로: 1-1 → 1-9 → 2-1 → 2-9 → 3-1 → 3-9 → 1-1
     """
     
-    def __init__(self):
+    def __init__(self, mode_profile=None):
         """운동장 보드 초기화"""
-        self.rows = BOARD_ROWS  # 3
-        self.cols = BOARD_COLS  # 9
-        self.total_cards = self.rows * self.cols  # 27
+        self.mode_profile = mode_profile or {}
+        self.track_length = int(self.mode_profile.get('track_length', BOARD_ROWS * BOARD_COLS))
+        self.rows = int(self.mode_profile.get('board_rows', BOARD_ROWS))
+        default_cols = int(math.ceil(self.track_length / max(1, self.rows)))
+        self.cols = int(self.mode_profile.get('board_cols', default_cols))
+        self.total_cards = self.track_length
+
+        # 토큰 이동 순서로 사용할 위치 목록 (row-major)
+        all_positions = [
+            (row, col)
+            for row in range(self.rows)
+            for col in range(self.cols)
+        ]
+        self.track_positions = all_positions[:self.track_length]
+        self._track_index_by_pos = {pos: idx for idx, pos in enumerate(self.track_positions)}
         
         # 조건 카드 풀 생성 및 셔플
         self.conditions = self._create_conditions()
@@ -43,32 +56,22 @@ class ConditionBoard:
             list: 조건 딕셔너리 리스트
                   [{'type': 'color', 'value': 'red'}, ...]
         """
-        conditions = []
-        
-        # 색상 조건 (3가지 × 3회 = 9장)
+        base_conditions = []
+
         for color in COLORS:
-            for _ in range(3):
-                conditions.append({
-                    'type': 'color',
-                    'value': color
-                })
-        
-        # 모양 조건 (3가지 × 3회 = 9장)
+            base_conditions.append({'type': 'color', 'value': color})
         for shape in SHAPES:
-            for _ in range(3):
-                conditions.append({
-                    'type': 'shape',
-                    'value': shape
-                })
-        
-        # 숫자 조건 (3가지 × 3회 = 9장)
+            base_conditions.append({'type': 'shape', 'value': shape})
         for number in NUMBERS:
-            for _ in range(3):
-                conditions.append({
-                    'type': 'number',
-                    'value': number
-                })
-        
+            base_conditions.append({'type': 'number', 'value': number})
+
+        conditions = []
+        while len(conditions) < self.total_cards:
+            for condition in base_conditions:
+                conditions.append(dict(condition))
+                if len(conditions) >= self.total_cards:
+                    break
+
         return conditions
     
     def _shuffle_and_layout(self):
@@ -83,14 +86,11 @@ class ConditionBoard:
         random.shuffle(shuffled)
         
         # 2D 배열로 변환
-        board = []
+        board = [[None for _ in range(self.cols)] for _ in range(self.rows)]
         idx = 0
-        for row in range(self.rows):
-            row_cards = []
-            for col in range(self.cols):
-                row_cards.append(shuffled[idx])
-                idx += 1
-            board.append(row_cards)
+        for row, col in self.track_positions:
+            board[row][col] = shuffled[idx]
+            idx += 1
         
         return board
     
@@ -121,19 +121,12 @@ class ConditionBoard:
         Returns:
             tuple: (next_row, next_col)
         """
-        next_col = current_col + 1
-        next_row = current_row
-        
-        # 열 끝에 도달하면 다음 행으로
-        if next_col >= self.cols:
-            next_col = 0
-            next_row = current_row + 1
-        
-        # 마지막 행 끝에 도달하면 처음으로 순환
-        if next_row >= self.rows:
-            next_row = 0
-        
-        return (next_row, next_col)
+        current_pos = (current_row, current_col)
+        if current_pos not in self._track_index_by_pos:
+            return self.track_positions[0]
+
+        next_idx = (self._track_index_by_pos[current_pos] + 1) % len(self.track_positions)
+        return self.track_positions[next_idx]
     
     def get_all_conditions(self):
         """

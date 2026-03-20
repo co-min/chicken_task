@@ -24,11 +24,12 @@ class MainDeck:
     - 클릭 시 5초간 앞면 노출 → 자동 뒷면 복구
     """
     
-    def __init__(self):
+    def __init__(self, mode_profile=None):
         """메인 덱 초기화"""
-        self.rows = BOARD_ROWS  # 3
-        self.cols = BOARD_COLS  # 9
-        self.total_cards = self.rows * self.cols  # 27
+        self.mode_profile = mode_profile or {}
+        self.rows = int(self.mode_profile.get('deck_rows', BOARD_ROWS))
+        self.cols = int(self.mode_profile.get('deck_cols', BOARD_COLS))
+        self.total_cards = self.rows * self.cols
         
         # 카드 조합 생성 및 셔플
         self.cards = self._create_cards()
@@ -48,17 +49,24 @@ class MainDeck:
             list: 카드 딕셔너리 리스트
                   [{'color': 'red', 'shape': 'square', 'number': 1}, ...]
         """
-        cards = []
-        
+        base_cards = []
+
         for color in COLORS:
             for shape in SHAPES:
                 for number in NUMBERS:
-                    cards.append({
+                    base_cards.append({
                         'color': color,
                         'shape': shape,
                         'number': number
                     })
-        
+
+        cards = []
+        while len(cards) < self.total_cards:
+            for card in base_cards:
+                cards.append(dict(card))
+                if len(cards) >= self.total_cards:
+                    break
+
         return cards
     
     def _shuffle_and_layout(self):

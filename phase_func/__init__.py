@@ -28,6 +28,20 @@ def run_all_phases(
 
 	if selected_mode_id is not None:
 		game_state.set_selected_mode(selected_mode_id)
+		board_renderer.board = game_state.board
+		board_renderer.card_images = []
+		board_renderer.highlights = []
+		board_renderer._create_visuals()
+
+		deck_renderer.deck = game_state.deck
+		deck_renderer.card_backs = []
+		deck_renderer.card_fronts = []
+		deck_renderer.highlights = []
+		deck_renderer._create_visuals()
+
+		token_renderer.token_manager = game_state.tokens
+		token_renderer.token_stims = {}
+		token_renderer._create_visuals()
 		print(f"  - 시작 모드 선택: {selected_mode_id}")
 
 	print("[4/5] 튜토리얼 phase...")
