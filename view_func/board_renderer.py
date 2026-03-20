@@ -4,14 +4,11 @@
 from psychopy import visual
 import os
 from config import (
-    BOARD_LEFT_MARGIN, BOARD_TOP_MARGIN,
+    BOARD_DECK_CENTER_GAP, BOARD_TOP_MARGIN,
     BOARD_CARD_WIDTH, BOARD_CARD_HEIGHT, BOARD_CARD_SPACING,
     WIDTH, HEIGHT,
-    COLOR_RGB,
-    TEXT_SIZE,
     HIGHLIGHT_COLOR, HIGHLIGHT_WIDTH
 )
-from utils.card_matcher import get_condition_text
 
 # 이미지 경로
 STIMULI_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'stimuli')
@@ -32,51 +29,40 @@ class BoardRenderer:
         self.board = board
         
         # 카드 비주얼 요소 생성
-        self.card_images = []  # 카드 이미지
-        self.highlights = []   # 하이라이트 테두리
+        self.card_images = {}  # {(row, col): ImageStim}
+        self.highlights = {}   # {(row, col): Rect}
         
         self._create_visuals()
     
     def _create_visuals(self):
         """모든 카드의 비주얼 요소를 생성"""
-        for row in range(self.board.rows):
-            row_images = []
-            row_highlights = []
-            
-            for col in range(self.board.cols):
-                # 화면 좌표 계산 (PsychoPy는 중앙이 원점)
-                x = self._get_card_x(col)
-                y = self._get_card_y(row)
-                
-                # 조건에 맞는 이미지 파일 경로 가져오기
-                condition = self.board.get_condition(row, col)
-                image_path = self._get_condition_image_path(condition)
-                
-                # 카드 이미지
-                card_image = visual.ImageStim(
-                    win=self.win,
-                    image=image_path,
-                    pos=(x, y),
-                    size=(BOARD_CARD_WIDTH, BOARD_CARD_HEIGHT)
-                )
-                row_images.append(card_image)
-                
-                # 하이라이트 (평소에는 안 보임)
-                highlight = visual.Rect(
-                    win=self.win,
-                    width=BOARD_CARD_WIDTH + HIGHLIGHT_WIDTH * 2,
-                    height=BOARD_CARD_HEIGHT + HIGHLIGHT_WIDTH * 2,
-                    pos=(x, y),
-                    fillColor=None,
-                    lineColor=HIGHLIGHT_COLOR,
-                    lineWidth=HIGHLIGHT_WIDTH,
-                    colorSpace='rgb255',
-                    autoDraw=False
-                )
-                row_highlights.append(highlight)
-            
-            self.card_images.append(row_images)
-            self.highlights.append(row_highlights)
+        for row, col in self.board.track_positions:
+            x = self._get_card_x(col)
+            y = self._get_card_y(row)
+
+            condition = self.board.get_condition(row, col)
+            image_path = self._get_condition_image_path(condition)
+
+            card_image = visual.ImageStim(
+                win=self.win,
+                image=image_path,
+                pos=(x, y),
+                size=(BOARD_CARD_WIDTH, BOARD_CARD_HEIGHT)
+            )
+            self.card_images[(row, col)] = card_image
+
+            highlight = visual.Rect(
+                win=self.win,
+                width=BOARD_CARD_WIDTH + HIGHLIGHT_WIDTH * 2,
+                height=BOARD_CARD_HEIGHT + HIGHLIGHT_WIDTH * 2,
+                pos=(x, y),
+                fillColor=None,
+                lineColor=HIGHLIGHT_COLOR,
+                lineWidth=HIGHLIGHT_WIDTH,
+                colorSpace='rgb255',
+                autoDraw=False
+            )
+            self.highlights[(row, col)] = highlight
     
     def _get_card_x(self, col):
         """
@@ -88,7 +74,9 @@ class BoardRenderer:
         Returns:
             x 좌표 (픽셀, 중앙 기준)
         """
-        left_x = BOARD_LEFT_MARGIN + col * (BOARD_CARD_WIDTH + BOARD_CARD_SPACING)
+        board_total_width = self.board.cols * BOARD_CARD_WIDTH + (self.board.cols - 1) * BOARD_CARD_SPACING
+        left_margin = (WIDTH // 2) - BOARD_DECK_CENTER_GAP // 2 - board_total_width
+        left_x = left_margin + col * (BOARD_CARD_WIDTH + BOARD_CARD_SPACING)
         center_x = left_x + BOARD_CARD_WIDTH / 2
         # PsychoPy는 중앙이 (0, 0)이므로 변환
         return center_x - WIDTH / 2
@@ -140,14 +128,11 @@ class BoardRenderer:
         Args:
             highlighted_pos: 하이라이트할 위치 (row, col) 튜플 또는 None
         """
-        for row in range(self.board.rows):
-            for col in range(self.board.cols):
-                # 카드 이미지 그리기
-                self.card_images[row][col].draw()
-                
-                # 하이라이트 그리기 (해당 위치인 경우만)
-                if highlighted_pos and highlighted_pos == (row, col):
-                    self.highlights[row][col].draw()
+        for pos in self.board.track_positions:
+            self.card_images[pos].draw()
+
+            if highlighted_pos and highlighted_pos == pos:
+                self.highlights[pos].draw()
     
     def get_clicked_position(self, mouse_pos):
         """
@@ -161,13 +146,11 @@ class BoardRenderer:
         """
         mx, my = mouse_pos
         
-        for row in range(self.board.rows):
-            for col in range(self.board.cols):
-                image = self.card_images[row][col]
-                
-                # 카드 영역 체크 (contains() 메서드 사용)
-                if image.contains((mx, my)):
-                    return (row, col)
+        for pos in self.board.track_positions:
+            image = self.card_images[pos]
+
+            if image.contains((mx, my)):
+                return pos
         
         return None
 
@@ -183,6 +166,7 @@ if __name__ == "__main__":
     from psychopy import core
     from game_func.board_class import ConditionBoard
     from set_opts.set_visual_opt import set_visual_opt
+    from utils.card_matcher import get_condition_text
     
     print("\n### BoardRenderer 테스트 ###\n")
     

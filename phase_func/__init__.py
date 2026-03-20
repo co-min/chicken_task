@@ -29,8 +29,8 @@ def run_all_phases(
 	if selected_mode_id is not None:
 		game_state.set_selected_mode(selected_mode_id)
 		board_renderer.board = game_state.board
-		board_renderer.card_images = []
-		board_renderer.highlights = []
+		board_renderer.card_images = {}
+		board_renderer.highlights = {}
 		board_renderer._create_visuals()
 
 		deck_renderer.deck = game_state.deck

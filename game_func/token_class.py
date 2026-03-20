@@ -6,10 +6,10 @@ import sys
 from pathlib import Path
 
 try:
-    from ..config import BOARD_ROWS, BOARD_COLS, CHASE_START_POS, OCTOPUS_START_POS, FLIGHT_START_POS
+    from ..config import BOARD_ROWS, BOARD_COLS
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent.parent))
-    from config import BOARD_ROWS, BOARD_COLS, CHASE_START_POS, OCTOPUS_START_POS, FLIGHT_START_POS
+    from config import BOARD_ROWS, BOARD_COLS
 
 
 class Token:

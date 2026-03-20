@@ -7,11 +7,8 @@ from config import (
     DECK_LEFT_MARGIN, DECK_TOP_MARGIN,
     DECK_CARD_WIDTH, DECK_CARD_HEIGHT, DECK_CARD_SPACING,
     WIDTH, HEIGHT,
-    COLOR_RGB,
-    TEXT_SIZE,
     HIGHLIGHT_COLOR, HIGHLIGHT_WIDTH
 )
-from utils.card_matcher import get_card_text
 
 # 이미지 경로
 STIMULI_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'stimuli')
@@ -176,6 +173,7 @@ if __name__ == "__main__":
     from psychopy import core
     from game_func.deck_class import MainDeck
     from set_opts.set_visual_opt import set_visual_opt
+    from utils.card_matcher import get_card_text
     
     print("\n### DeckRenderer 테스트 ###\n")
     

@@ -18,7 +18,7 @@ MONITOR_DISTANCE_CM = 60.0       # 눈-모니터 거리(cm)
 # ==================== BOARD SETTINGS ====================
 BOARD_ROWS = 3
 BOARD_COLS = 9
-TOTAL_CARDS = 27  # 3 x 9
+TOTAL_CARDS = BOARD_ROWS * BOARD_COLS  # 레거시 기본(모드 선택 전) 카드 수
 
 # Layout margins - 보드/덱을 화면 중앙 기준으로 좌우 배치
 BOARD_DECK_CENTER_GAP = 20
@@ -44,11 +44,6 @@ DECK_LEFT_MARGIN = (WIDTH // 2) + BOARD_DECK_CENTER_GAP // 2
 DECK_TOP_MARGIN = BOARD_DECK_TOP_MARGIN
 
 # ==================== TOKEN SETTINGS ====================
-# Initial positions (0-indexed: row, col)
-CHASE_START_POS = (0, 0)      # 1행 1열 (문어를 쫓는 닭)
-OCTOPUS_START_POS = (1, 0)    # 2행 1열 (PC)
-FLIGHT_START_POS = (2, 0)     # 3행 1열 (문어로부터 도망치는 닭)
-
 TOKEN_SIZE = 56  # pixels (1080x1080 화면에 맞춤)
 
 
@@ -73,7 +68,8 @@ TRIAL_INTERVAL = 1          # 초 (시행 간 간격)
 TOKEN_TIME_WAIT = 1
 
 # ==================== PC AI SETTINGS ====================
-PC_SUCCESS_RATE = 1 / TOTAL_CARDS  # 초기 정답 확률: 메인 덱 카드 수의 역수
+# 레거시 기본 정답률(모드 선택 전). 실제 게임 실행 시에는 mode 기반 deck 크기로 재계산됨.
+PC_SUCCESS_RATE = 1 / TOTAL_CARDS
 PC_THINK_TIME = 1.5           # 초 (PC 선택까지 대기 시간)
 
 # ==================== VISUAL SETTINGS ====================
@@ -159,7 +155,7 @@ GAME_MODES = {
     'selection3': {
         'mode_id': 'selection3',
         'display_name': '선택 3',
-        'track_length': 21,
+        'track_length': 24,
         'deck_rows': 2,
         'deck_cols': 6,
         'token_count': 3,
@@ -176,4 +172,37 @@ GAME_MODES = {
         'ruleset_id': 'rules_4token',
         'preview_image': 'selection/selection4.png',
     },
+}
+
+
+# 모드별 1차원 트랙 좌표 테이블 (index 순서 = 이동 순서)
+GAME_MODE_TRACK_TABLES = {
+    # 9x5 외곽 경로: 24칸
+    'selection1': [
+        (0, 0), (0, 1), (0, 2), (0, 3), (0, 4), (0, 5), (0, 6), (0, 7), (0, 8),
+        (1, 8), (2, 8), (3, 8), (4, 8),
+        (4, 7), (4, 6), (4, 5), (4, 4), (4, 3), (4, 2), (4, 1), (4, 0),
+        (3, 0), (2, 0), (1, 0),
+    ],
+    # 선택2: 24칸
+    'selection2': [
+        (0, 0), (0, 1), (0, 2), (0, 3), (0, 4), (0, 5), (0, 6), (0, 7), (0, 8),
+        (1, 8), (2, 8), (3, 8), (4, 8),
+        (4, 7), (4, 6), (4, 5), (4, 4), (4, 3), (4, 2), (4, 1), (4, 0),
+        (3, 0), (2, 0), (1, 0),
+    ],
+    # 선택3: 24칸(21칸 특수 경로 제거)
+    'selection3': [
+        (0, 0), (0, 1), (0, 2), (0, 3), (0, 4), (0, 5), (0, 6), (0, 7), (0, 8),
+        (1, 8), (2, 8), (3, 8), (4, 8),
+        (4, 7), (4, 6), (4, 5), (4, 4), (4, 3), (4, 2), (4, 1), (4, 0),
+        (3, 0), (2, 0), (1, 0),
+    ],
+    # 10x6 외곽 경로: 28칸
+    'selection4': [
+        (0, 0), (0, 1), (0, 2), (0, 3), (0, 4), (0, 5), (0, 6), (0, 7), (0, 8), (0, 9),
+        (1, 9), (2, 9), (3, 9), (4, 9), (5, 9),
+        (5, 8), (5, 7), (5, 6), (5, 5), (5, 4), (5, 3), (5, 2), (5, 1), (5, 0),
+        (4, 0), (3, 0), (2, 0), (1, 0),
+    ],
 }

@@ -9,11 +9,11 @@ from pathlib import Path
 
 # 상대 import (모듈로 import될 때) 또는 절대 import (직접 실행될 때)
 try:
-    from ..config import BOARD_ROWS, BOARD_COLS, COLORS, SHAPES, NUMBERS
+    from ..config import BOARD_ROWS, BOARD_COLS, COLORS, SHAPES, NUMBERS, GAME_MODE_TRACK_TABLES
 except ImportError:
     # 직접 실행할 때: 부모 디렉토리를 sys.path에 추가
     sys.path.insert(0, str(Path(__file__).parent.parent))
-    from config import BOARD_ROWS, BOARD_COLS, COLORS, SHAPES, NUMBERS
+    from config import BOARD_ROWS, BOARD_COLS, COLORS, SHAPES, NUMBERS, GAME_MODE_TRACK_TABLES
 
 
 class ConditionBoard:
@@ -29,19 +29,33 @@ class ConditionBoard:
     def __init__(self, mode_profile=None):
         """운동장 보드 초기화"""
         self.mode_profile = mode_profile or {}
-        self.track_length = int(self.mode_profile.get('track_length', BOARD_ROWS * BOARD_COLS))
-        self.rows = int(self.mode_profile.get('board_rows', BOARD_ROWS))
-        default_cols = int(math.ceil(self.track_length / max(1, self.rows)))
-        self.cols = int(self.mode_profile.get('board_cols', default_cols))
-        self.total_cards = self.track_length
+        mode_id = self.mode_profile.get('mode_id')
+        configured_track = list(GAME_MODE_TRACK_TABLES.get(mode_id, []))
 
-        # 토큰 이동 순서로 사용할 위치 목록 (row-major)
-        all_positions = [
-            (row, col)
-            for row in range(self.rows)
-            for col in range(self.cols)
-        ]
-        self.track_positions = all_positions[:self.track_length]
+        # 좌표 중복만 방지 (길이는 테이블 자체를 소스 오브 트루스로 사용)
+        if configured_track and len(set(configured_track)) != len(configured_track):
+            raise ValueError(f"Duplicate coordinates found in track table for mode '{mode_id}'")
+
+        if configured_track:
+            self.track_positions = configured_track
+            self.track_length = len(self.track_positions)
+            self.total_cards = self.track_length
+            self.rows = max(pos[0] for pos in self.track_positions) + 1
+            self.cols = max(pos[1] for pos in self.track_positions) + 1
+        else:
+            self.track_length = int(self.mode_profile.get('track_length', BOARD_ROWS * BOARD_COLS))
+            self.rows = int(self.mode_profile.get('board_rows', BOARD_ROWS))
+            default_cols = int(math.ceil(self.track_length / max(1, self.rows)))
+            self.cols = int(self.mode_profile.get('board_cols', default_cols))
+            self.total_cards = self.track_length
+
+            all_positions = [
+                (row, col)
+                for row in range(self.rows)
+                for col in range(self.cols)
+            ]
+            self.track_positions = all_positions[:self.track_length]
+
         self._track_index_by_pos = {pos: idx for idx, pos in enumerate(self.track_positions)}
         
         # 조건 카드 풀 생성 및 셔플

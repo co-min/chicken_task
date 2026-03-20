@@ -14,7 +14,7 @@ try:
     from game_func.npc_ai import NPCAI
     from utils.timer import GameTimer
     from utils.card_matcher import check_match
-    from ..config import TURN_TIME_LIMIT, PC_SUCCESS_RATE, PC_THINK_TIME, DEFAULT_GAME_MODE, GAME_MODES
+    from ..config import TURN_TIME_LIMIT, PC_THINK_TIME, DEFAULT_GAME_MODE, GAME_MODES
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from game_func.board_class import ConditionBoard
@@ -23,7 +23,7 @@ except ImportError:
     from game_func.npc_ai import NPCAI
     from utils.timer import GameTimer
     from utils.card_matcher import check_match
-    from config import TURN_TIME_LIMIT, PC_SUCCESS_RATE, PC_THINK_TIME, TOKEN_TIME_WAIT, DEFAULT_GAME_MODE, GAME_MODES
+    from config import TURN_TIME_LIMIT, PC_THINK_TIME, TOKEN_TIME_WAIT, DEFAULT_GAME_MODE, GAME_MODES
 
 
 class GameState:
@@ -56,12 +56,14 @@ class GameState:
         self.board = ConditionBoard(mode_profile=self.selected_mode)
         self.deck = MainDeck(mode_profile=self.selected_mode)
         self.tokens = TokenManager(mode_profile=self.selected_mode, board=self.board)
-        self.npc_ai = NPCAI(success_rate=PC_SUCCESS_RATE)  # NPC AI
+
+        # mode 기반 deck 크기 기준의 기본 랜덤 정답률
+        self.base_random_rate = 1.0 / max(1, (self.deck.rows * self.deck.cols))
+        self.npc_ai = NPCAI(success_rate=self.base_random_rate)  # NPC AI
 
         print(f"[MODE] selected={self.selected_mode_id}, profile={self.selected_mode}")
 
         # 자동 적응형 AI 상태
-        self.base_random_rate = 1.0 / (self.deck.rows * self.deck.cols)
         self.npc_rate_min = self.base_random_rate
         self.npc_rate_max = 0.90
         self.adaptive_alpha_up = 0.50
