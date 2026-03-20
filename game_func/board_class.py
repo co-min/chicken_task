@@ -5,6 +5,7 @@
 import random
 import math
 import sys
+from collections import defaultdict
 from pathlib import Path
 
 # 상대 import (모듈로 import될 때) 또는 절대 import (직접 실행될 때)
@@ -120,13 +121,85 @@ class ConditionBoard:
     def _shuffle_and_layout(self):
         """
         조건을 섞어서 1D 리스트로 반환 (track_positions 순서대로)
+        - 순환 트랙 기준 인접 카드(마지막↔첫 카드 포함) 중복 금지
         
         Returns:
             list: 1D 조건 리스트
         """
-        shuffled = self.conditions.copy()
-        random.shuffle(shuffled)
-        return shuffled[:self.track_length]
+        cards = self.conditions[:self.track_length]
+        if len(cards) <= 1:
+            return cards
+
+        def cond_key(condition):
+            return (condition.get('type'), condition.get('value'))
+
+        def has_circular_adjacent_duplicate(seq):
+            seq_len = len(seq)
+            for i in range(seq_len):
+                if cond_key(seq[i]) == cond_key(seq[(i + 1) % seq_len]):
+                    return True
+            return False
+
+        # 1) 빠른 확률적 시도: 대부분의 경우 매우 빠르게 성공
+        max_random_attempts = 1000
+        for _ in range(max_random_attempts):
+            shuffled = cards.copy()
+            random.shuffle(shuffled)
+            if not has_circular_adjacent_duplicate(shuffled):
+                return shuffled
+
+        # 2) 확률적 시도가 모두 실패하면, 키 기준으로 안정 재배치 시도
+        #    (분포에 따라 원형 인접 중복 제거가 수학적으로 불가능할 수 있음)
+        buckets = defaultdict(list)
+        for card in cards:
+            buckets[cond_key(card)].append(card)
+
+        key_counts = {k: len(v) for k, v in buckets.items()}
+        n = len(cards)
+        max_count = max(key_counts.values()) if key_counts else 0
+        if max_count > n // 2:
+            raise ValueError(
+                "Cannot layout circular board without consecutive duplicate conditions "
+                f"(max same condition count={max_count}, total={n})."
+            )
+
+        # 남은 수가 많은 조건 우선으로 배치 (동률은 랜덤)
+        for _ in range(200):
+            remaining = key_counts.copy()
+            order = []
+
+            for idx in range(n):
+                prev_key = order[-1] if order else None
+                first_key = order[0] if order else None
+
+                candidates = []
+                for key, cnt in remaining.items():
+                    if cnt <= 0:
+                        continue
+                    if prev_key is not None and key == prev_key:
+                        continue
+                    if idx == n - 1 and first_key is not None and key == first_key:
+                        continue
+                    candidates.append((key, cnt))
+
+                if not candidates:
+                    order = []
+                    break
+
+                random.shuffle(candidates)
+                candidates.sort(key=lambda x: x[1], reverse=True)
+                chosen_key = candidates[0][0]
+                order.append(chosen_key)
+                remaining[chosen_key] -= 1
+
+            if len(order) == n:
+                arranged = []
+                local_buckets = {k: v.copy() for k, v in buckets.items()}
+                for key in order:
+                    arranged.append(local_buckets[key].pop())
+                return arranged
+
+        raise ValueError("Failed to generate board without circular adjacent duplicate conditions.")
     
     def get_condition(self, row, col):
         """
