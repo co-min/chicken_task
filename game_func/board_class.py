@@ -1,6 +1,6 @@
 # board_class.py
 # Chicken Task - Condition Board (운동장 조건 카드)
-# 9가지 조건 × 3회 반복 = 27장, 항상 앞면
+# 8가지 단일 조건 × 3회 반복 = 24장, 항상 앞면
 
 import random
 import math
@@ -9,118 +9,140 @@ from pathlib import Path
 
 # 상대 import (모듈로 import될 때) 또는 절대 import (직접 실행될 때)
 try:
-    from ..config import BOARD_ROWS, BOARD_COLS, COLORS, SHAPES, NUMBERS, GAME_MODE_TRACK_TABLES
+    from ..config import BOARD_ROWS, BOARD_COLS, COLORS, SHAPES, NUMBERS
 except ImportError:
     # 직접 실행할 때: 부모 디렉토리를 sys.path에 추가
     sys.path.insert(0, str(Path(__file__).parent.parent))
-    from config import BOARD_ROWS, BOARD_COLS, COLORS, SHAPES, NUMBERS, GAME_MODE_TRACK_TABLES
+    from config import BOARD_ROWS, BOARD_COLS, COLORS, SHAPES, NUMBERS
 
 
 class ConditionBoard:
     """
-    운동장 조건 카드 보드
-    - 3행 × 9열 = 27장
-    - 각 카드는 단일 조건 1개 (색상/모양/숫자)
-    - 9가지 조건 × 3회 반복
+    운동장 조건 카드 보드 (ㅁ자 형태 트랙)
+    - 모드 기반 격자(기본 selection1/2: 5행 × 9열)에서 외곽 순환
+    - 24칸 순환 트랙: 상단(9) → 우측(4) → 하단(8) → 좌측(3)
+    - 각 카드는 단일 조건 1개 ({'type': ..., 'value': ...})
+    - 8가지 조건(색상3+모양3+숫자2) × 3회 반복 = 24장
     - 항상 앞면 보임
-    - 순환 경로: 1-1 → 1-9 → 2-1 → 2-9 → 3-1 → 3-9 → 1-1
     """
     
     def __init__(self, mode_profile=None):
         """운동장 보드 초기화"""
         self.mode_profile = mode_profile or {}
-        mode_id = self.mode_profile.get('mode_id')
-        configured_track = list(GAME_MODE_TRACK_TABLES.get(mode_id, []))
-
-        # 좌표 중복만 방지 (길이는 테이블 자체를 소스 오브 트루스로 사용)
-        if configured_track and len(set(configured_track)) != len(configured_track):
-            raise ValueError(f"Duplicate coordinates found in track table for mode '{mode_id}'")
-
-        if configured_track:
-            self.track_positions = configured_track
-            self.track_length = len(self.track_positions)
-            self.total_cards = self.track_length
-            self.rows = max(pos[0] for pos in self.track_positions) + 1
-            self.cols = max(pos[1] for pos in self.track_positions) + 1
-        else:
-            self.track_length = int(self.mode_profile.get('track_length', BOARD_ROWS * BOARD_COLS))
-            self.rows = int(self.mode_profile.get('board_rows', BOARD_ROWS))
-            default_cols = int(math.ceil(self.track_length / max(1, self.rows)))
-            self.cols = int(self.mode_profile.get('board_cols', default_cols))
-            self.total_cards = self.track_length
-
-            all_positions = [
-                (row, col)
-                for row in range(self.rows)
-                for col in range(self.cols)
-            ]
-            self.track_positions = all_positions[:self.track_length]
-
+        
+        # 모드 프로필에서 보드 설정 가져오기
+        self.track_length = int(self.mode_profile.get('track_length', BOARD_ROWS * BOARD_COLS))
+        self.rows = int(self.mode_profile.get('board_rows', BOARD_ROWS))
+        self.cols = int(self.mode_profile.get('board_cols', BOARD_COLS))
+        self.total_cards = self.track_length
+        
+        # ㅁ자 형태 순환 트랙 자동 생성
+        self.track_positions = self._generate_rectangular_track()
+        
         self._track_index_by_pos = {pos: idx for idx, pos in enumerate(self.track_positions)}
         
         # 조건 카드 풀 생성 및 셔플
         self.conditions = self._create_conditions()
         self.board = self._shuffle_and_layout()
     
+    def _generate_rectangular_track(self):
+        """
+        ㅁ자 형태 순환 트랙 자동 생성 (외곽 테두리)
+        상단 전체 → 우측 아래 → 하단 역순 → 좌측 위(모서리 제외)
+        
+        Returns:
+            list: (row, col) 좌표 리스트
+        """
+        track = []
+        
+        # 상단 (좌→우): row 0, col 0 ~ cols-1
+        for col in range(self.cols):
+            if len(track) >= self.track_length:
+                break
+            track.append((0, col))
+        
+        # 우측 (상→하): col cols-1, row 1 ~ rows-1
+        for row in range(1, self.rows):
+            if len(track) >= self.track_length:
+                break
+            track.append((row, self.cols - 1))
+        
+        # 하단 (우→좌): row rows-1, col cols-2 ~ 0
+        for col in range(self.cols - 2, -1, -1):
+            if len(track) >= self.track_length:
+                break
+            track.append((self.rows - 1, col))
+        
+        # 좌측 (하→상): col 0, row rows-2 ~ 1 (모서리 제외)
+        for row in range(self.rows - 2, 0, -1):
+            if len(track) >= self.track_length:
+                break
+            track.append((row, 0))
+        
+        return track
+    
     def _create_conditions(self):
         """
-        27개 조건 생성: 9가지 × 3회
+        GAME_MODE 설정에 따른 단일 조건 카드 생성
+        - 색상 카드: {'type': 'color', 'value': ...}
+        - 모양 카드: {'type': 'shape', 'value': ...}
+        - 숫자 카드: {'type': 'number', 'value': ...}
+
+        기본(selection1/2): 3 + 3 + 2 = 8가지 조건
         
         Returns:
             list: 조건 딕셔너리 리스트
-                  [{'type': 'color', 'value': 'red'}, ...]
         """
+        # 모드 프로필에서 사용할 속성 가져오기
+        colors = self.mode_profile.get('colors', COLORS)
+        shapes = self.mode_profile.get('shapes', SHAPES)
+        numbers = self.mode_profile.get('numbers', NUMBERS)
+        
+        # 단일 속성 조건 생성 (조합 카드가 아님)
         base_conditions = []
-
-        for color in COLORS:
+        for color in colors:
             base_conditions.append({'type': 'color', 'value': color})
-        for shape in SHAPES:
+        for shape in shapes:
             base_conditions.append({'type': 'shape', 'value': shape})
-        for number in NUMBERS:
+        for number in numbers:
             base_conditions.append({'type': 'number', 'value': number})
+
+        # 필요한 개수만큼 반복하여 정확히 total_cards 구성
+        if not base_conditions:
+            return []
 
         conditions = []
         while len(conditions) < self.total_cards:
-            for condition in base_conditions:
-                conditions.append(dict(condition))
-                if len(conditions) >= self.total_cards:
-                    break
+            conditions.extend(base_conditions)
 
-        return conditions
+        return conditions[:self.total_cards]
     
     def _shuffle_and_layout(self):
         """
-        조건을 섞어서 3×9 보드에 배치
+        조건을 섞어서 1D 리스트로 반환 (track_positions 순서대로)
         
         Returns:
-            list: 2D 배열 [row][col]
+            list: 1D 조건 리스트
         """
-        # 셔플
         shuffled = self.conditions.copy()
         random.shuffle(shuffled)
-        
-        # 2D 배열로 변환
-        board = [[None for _ in range(self.cols)] for _ in range(self.rows)]
-        idx = 0
-        for row, col in self.track_positions:
-            board[row][col] = shuffled[idx]
-            idx += 1
-        
-        return board
+        return shuffled[:self.track_length]
     
     def get_condition(self, row, col):
         """
-        특정 위치의 조건 가져오기
+        특정 위치(row, col)의 조건 가져오기
         
         Args:
-            row (int): 행 (0-2)
-            col (int): 열 (0-8)
+            row (int): 행
+            col (int): 열
         
         Returns:
-            dict: 조건 {'type': ..., 'value': ...} 또는 None
+            dict: 조건 또는 None (트랙에 없는 위치)
         """
-        if 0 <= row < self.rows and 0 <= col < self.cols:
-            return self.board[row][col]
+        pos = (row, col)
+        if pos in self._track_index_by_pos:
+            idx = self._track_index_by_pos[pos]
+            return self.board[idx]
         return None
     
     def get_next_position(self, current_row, current_col):
@@ -144,33 +166,32 @@ class ConditionBoard:
     
     def get_all_conditions(self):
         """
-        모든 조건을 평탄화된 리스트로 반환
+        모든 조건을 1D 리스트로 반환
         
         Returns:
-            list: 27개 조건 [row0_col0, row0_col1, ...]
+            list: track_length개 조건
         """
-        flat = []
-        for row in range(self.rows):
-            for col in range(self.cols):
-                flat.append(self.board[row][col])
-        return flat
+        return self.board
     
     def print_board(self):
-        """보드 출력 (디버깅용)"""
+        """보드 출력 (디버깅용, ㅁ자 형태)"""
         print("=" * 80)
-        print("운동장 조건 카드 보드 (Condition Board)")
+        print("운동장 조건 카드 보드 (ㅁ자 순환 트랙)")
         print("=" * 80)
         
-        for row in range(self.rows):
-            print(f"\n행 {row + 1}:")
-            for col in range(self.cols):
-                condition = self.board[row][col]
-                ctype = condition['type']
-                cvalue = condition['value']
-                print(f"  [{row},{col}] {ctype}:{cvalue}", end="  ")
-            print()
+        for idx, pos in enumerate(self.track_positions):
+            row, col = pos
+            condition = self.board[idx]
+            cond_type = condition.get('type', '?')
+            cond_value = condition.get('value', '?')
+            
+            # 행이 바뀔 때마다 줄바꿈
+            if idx > 0 and pos[0] != self.track_positions[idx-1][0]:
+                print()
+            
+            print(f"  [{row},{col}] {cond_type}:{cond_value}", end="  ")
         
-        print("=" * 80)
+        print("\n" + "=" * 80)
 
 
 # ==================== 테스트 코드 ====================
@@ -184,16 +205,16 @@ if __name__ == "__main__":
     # 조건 가져오기 테스트
     print("\n### get_condition 테스트 ###")
     print(f"[0,0]: {board.get_condition(0, 0)}")
-    print(f"[1,4]: {board.get_condition(1, 4)}")
-    print(f"[2,8]: {board.get_condition(2, 8)}")
+    print(f"[1,8]: {board.get_condition(1, 8)}")
+    print(f"[2,0]: {board.get_condition(2, 0)}")
     
     # 다음 위치 계산 테스트
     print("\n### 순환 경로 테스트 ###")
     test_positions = [
-        (0, 0),   # 1-1 → 1-2
-        (0, 8),   # 1-9 → 2-1
-        (1, 8),   # 2-9 → 3-1
-        (2, 8),   # 3-9 → 1-1 (순환)
+        (0, 0),   # 상단 시작
+        (0, 8),   # 상단 끝
+        (1, 8),   # 우측
+        (2, 0),   # 좌측 끝
     ]
     
     for pos in test_positions:
@@ -203,24 +224,19 @@ if __name__ == "__main__":
     # 조건 분포 확인
     print("\n### 조건 분포 확인 ###")
     all_conds = board.get_all_conditions()
+    print(f"총 조건 수: {len(all_conds)}")
     
-    color_count = {}
-    shape_count = {}
-    number_count = {}
+    type_count = {}
+    value_count = {}
     
     for cond in all_conds:
-        if cond['type'] == 'color':
-            key = cond['value']
-            color_count[key] = color_count.get(key, 0) + 1
-        elif cond['type'] == 'shape':
-            key = cond['value']
-            shape_count[key] = shape_count.get(key, 0) + 1
-        elif cond['type'] == 'number':
-            key = cond['value']
-            number_count[key] = number_count.get(key, 0) + 1
-    
-    print(f"색상 (각 3회): {color_count}")
-    print(f"모양 (각 3회): {shape_count}")
-    print(f"숫자 (각 3회): {number_count}")
+        cond_type = cond.get('type')
+        cond_value = cond.get('value')
+
+        type_count[cond_type] = type_count.get(cond_type, 0) + 1
+        value_count[cond_value] = value_count.get(cond_value, 0) + 1
+
+    print(f"타입 분포: {type_count}")
+    print(f"값 분포: {value_count}")
     
     print("\n[OK] ConditionBoard 테스트 완료!")

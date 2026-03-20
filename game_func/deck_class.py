@@ -43,23 +43,32 @@ class MainDeck:
     
     def _create_cards(self):
         """
-        27가지 조합 생성 (3×3×3)
+        GAME_MODE 설정에 따른 카드 생성
+        각 모드에서 지정한 색상/모양/숫자의 조합만 사용
+        
+        기본: 색상(3) × 모양(3) × 숫자 개수 형태
         
         Returns:
             list: 카드 딕셔너리 리스트
                   [{'color': 'red', 'shape': 'square', 'number': 1}, ...]
         """
+        # 모드 프로필에서 사용할 속성 가져오기
+        colors = self.mode_profile.get('colors', COLORS)
+        shapes = self.mode_profile.get('shapes', SHAPES)
+        numbers = self.mode_profile.get('numbers', NUMBERS)
+        
+        # 모든 조합 생성
         base_cards = []
-
-        for color in COLORS:
-            for shape in SHAPES:
-                for number in NUMBERS:
+        for color in colors:
+            for shape in shapes:
+                for number in numbers:
                     base_cards.append({
                         'color': color,
                         'shape': shape,
                         'number': number
                     })
 
+        # 필요한 개수만큼 반복하여 충분한 풀 생성
         cards = []
         while len(cards) < self.total_cards:
             for card in base_cards:

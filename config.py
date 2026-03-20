@@ -48,8 +48,9 @@ TOKEN_SIZE = 56  # pixels (1080x1080 화면에 맞춤)
 
 
 # ==================== CARD ATTRIBUTES ====================
-# 9가지 조건 (각 3번 반복 = 27장)
-COLORS = ['red', 'blue', 'green']
+# 기본 27가지 조건: 색상(3) × 모양(3) × 숫자(3)
+# 각 GAME_MODE에서는 이 중 부분집합을 선택해서 사용
+COLORS = ['red', 'green', 'blue']
 SHAPES = ['square', 'triangle', 'circle']
 NUMBERS = [1, 2, 3]
 
@@ -130,79 +131,38 @@ WHITE=[255,255,255]
 # ==================== GAME MODE SELECTION (PHASE 1) ====================
 DEFAULT_GAME_MODE = 'selection1'
 
-# 1차 구현: 선택값 전달/저장만 사용하고, 세부 규칙/레이아웃 분기는 후속 PR에서 적용
+# 각 게임 모드는 3×3×3 조건 풀에서 선택적으로 부분집합을 사용
 GAME_MODES = {
     'selection1': {
         'mode_id': 'selection1',
         'display_name': '선택 1',
         'track_length': 24,
+        'board_rows': 5,
+        'board_cols': 9,
         'deck_rows': 3,
         'deck_cols': 6,
         'token_count': 3,
         'ruleset_id': 'rules_3token',
         'preview_image': 'selection/selection1.png',
+        'colors': ['red', 'green', 'blue'],        # 사용할 색상
+        'shapes': ['square', 'triangle', 'circle'],  # 사용할 모양
+        'numbers': [1, 2],                          # 사용할 숫자
     },
     'selection2': {
         'mode_id': 'selection2',
         'display_name': '선택 2',
         'track_length': 24,
+        'board_rows': 5,
+        'board_cols': 9,
         'deck_rows': 3,
         'deck_cols': 6,
         'token_count': 4,
         'ruleset_id': 'rules_4token',
         'preview_image': 'selection/selection2.png',
+        'colors': ['red', 'green', 'blue'],        # 사용할 색상
+        'shapes': ['square', 'triangle', 'circle'],  # 사용할 모양
+        'numbers': [1, 2],                          # 사용할 숫자
     },
-    'selection3': {
-        'mode_id': 'selection3',
-        'display_name': '선택 3',
-        'track_length': 24,
-        'deck_rows': 2,
-        'deck_cols': 6,
-        'token_count': 3,
-        'ruleset_id': 'rules_3token',
-        'preview_image': 'selection/selection3.png',
-    },
-    'selection4': {
-        'mode_id': 'selection4',
-        'display_name': '선택 4',
-        'track_length': 28,
-        'deck_rows': 2,
-        'deck_cols': 6,
-        'token_count': 4,
-        'ruleset_id': 'rules_4token',
-        'preview_image': 'selection/selection4.png',
-    },
-}
-
-
-# 모드별 1차원 트랙 좌표 테이블 (index 순서 = 이동 순서)
-GAME_MODE_TRACK_TABLES = {
-    # 9x5 외곽 경로: 24칸
-    'selection1': [
-        (0, 0), (0, 1), (0, 2), (0, 3), (0, 4), (0, 5), (0, 6), (0, 7), (0, 8),
-        (1, 8), (2, 8), (3, 8), (4, 8),
-        (4, 7), (4, 6), (4, 5), (4, 4), (4, 3), (4, 2), (4, 1), (4, 0),
-        (3, 0), (2, 0), (1, 0),
-    ],
-    # 선택2: 24칸
-    'selection2': [
-        (0, 0), (0, 1), (0, 2), (0, 3), (0, 4), (0, 5), (0, 6), (0, 7), (0, 8),
-        (1, 8), (2, 8), (3, 8), (4, 8),
-        (4, 7), (4, 6), (4, 5), (4, 4), (4, 3), (4, 2), (4, 1), (4, 0),
-        (3, 0), (2, 0), (1, 0),
-    ],
-    # 선택3: 24칸(21칸 특수 경로 제거)
-    'selection3': [
-        (0, 0), (0, 1), (0, 2), (0, 3), (0, 4), (0, 5), (0, 6), (0, 7), (0, 8),
-        (1, 8), (2, 8), (3, 8), (4, 8),
-        (4, 7), (4, 6), (4, 5), (4, 4), (4, 3), (4, 2), (4, 1), (4, 0),
-        (3, 0), (2, 0), (1, 0),
-    ],
-    # 10x6 외곽 경로: 28칸
-    'selection4': [
-        (0, 0), (0, 1), (0, 2), (0, 3), (0, 4), (0, 5), (0, 6), (0, 7), (0, 8), (0, 9),
-        (1, 9), (2, 9), (3, 9), (4, 9), (5, 9),
-        (5, 8), (5, 7), (5, 6), (5, 5), (5, 4), (5, 3), (5, 2), (5, 1), (5, 0),
-        (4, 0), (3, 0), (2, 0), (1, 0),
-    ],
+    # selection3, 4는 나중에 추가
+    # 예: 'colors': ['red', 'blue'], 'shapes': ['rectangle', 'circle'], 'numbers': [1, 2, 3]
 }

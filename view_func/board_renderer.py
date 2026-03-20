@@ -99,9 +99,10 @@ class BoardRenderer:
     def _get_condition_image_path(self, condition):
         """
         조건에 맞는 이미지 파일 경로 반환
+        단일 속성 카드(type/value) 사용
         
         Args:
-            condition: {'type': str, 'value': str/int}
+            condition: {'type': 'color'|'shape'|'number', 'value': str|int}
         
         Returns:
             이미지 파일 경로
@@ -109,15 +110,17 @@ class BoardRenderer:
         if condition is None:
             return CARD_BACK_PATH
 
-        cond_type = condition['type']
-        cond_value = condition['value']
-        
+        cond_type = condition.get('type')
+        cond_value = condition.get('value')
+
         if cond_type == 'color':
             filename = f"color_{cond_value}.png"
         elif cond_type == 'shape':
             filename = f"shape_{cond_value}.png"
-        else:  # number
+        elif cond_type == 'number':
             filename = f"number_{cond_value}.png"
+        else:
+            return CARD_BACK_PATH
         
         return os.path.join(CONDITION_CARDS_DIR, filename)
     
