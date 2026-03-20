@@ -21,10 +21,14 @@ def run_all_phases(
 		str: 최종 결과 ('victory', 'defeat', 'exit')
 	"""
 	print("\n[3/5] 시작 phase...")
-	start_result = run_starting_phase(win, ui_elements)
+	start_result, selected_mode_id = run_starting_phase(win, ui_elements)
 	if start_result == 'exit':
 		run_ending_phase(win, ui_elements, game_state, 'exit')
 		return 'exit'
+
+	if selected_mode_id is not None:
+		game_state.set_selected_mode(selected_mode_id)
+		print(f"  - 시작 모드 선택: {selected_mode_id}")
 
 	print("[4/5] 튜토리얼 phase...")
 	tutorial_result = run_tutorial_phase(win, ui_elements)

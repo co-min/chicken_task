@@ -14,7 +14,7 @@ try:
     from game_func.npc_ai import NPCAI
     from utils.timer import GameTimer
     from utils.card_matcher import check_match
-    from ..config import TURN_TIME_LIMIT, PC_SUCCESS_RATE, PC_THINK_TIME
+    from ..config import TURN_TIME_LIMIT, PC_SUCCESS_RATE, PC_THINK_TIME, DEFAULT_GAME_MODE, GAME_MODES
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from game_func.board_class import ConditionBoard
@@ -23,7 +23,7 @@ except ImportError:
     from game_func.npc_ai import NPCAI
     from utils.timer import GameTimer
     from utils.card_matcher import check_match
-    from config import TURN_TIME_LIMIT, PC_SUCCESS_RATE, PC_THINK_TIME, TOKEN_TIME_WAIT
+    from config import TURN_TIME_LIMIT, PC_SUCCESS_RATE, PC_THINK_TIME, TOKEN_TIME_WAIT, DEFAULT_GAME_MODE, GAME_MODES
 
 
 class GameState:
@@ -46,13 +46,19 @@ class GameState:
     TURN_USER = 'user'
     TURN_PC = 'pc'
     
-    def __init__(self):
+    def __init__(self, selected_mode_id=None):
         """게임 상태 초기화"""
+        self.available_modes = GAME_MODES
+        self.selected_mode_id = selected_mode_id or DEFAULT_GAME_MODE
+        self.selected_mode = self.available_modes.get(self.selected_mode_id, self.available_modes[DEFAULT_GAME_MODE])
+
         # 게임 컴포넌트
         self.board = ConditionBoard()
         self.deck = MainDeck()
         self.tokens = TokenManager()
         self.npc_ai = NPCAI(success_rate=PC_SUCCESS_RATE)  # NPC AI
+
+        print(f"[MODE] selected={self.selected_mode_id}, profile={self.selected_mode}")
 
         # 자동 적응형 AI 상태
         self.base_random_rate = 1.0 / (self.deck.rows * self.deck.cols)
@@ -92,6 +98,16 @@ class GameState:
     @staticmethod
     def _clamp(value, min_value, max_value):
         return max(min_value, min(max_value, value))
+
+    def set_selected_mode(self, selected_mode_id):
+        """시작 phase에서 선택된 모드 ID를 저장."""
+        if selected_mode_id in self.available_modes:
+            self.selected_mode_id = selected_mode_id
+            self.selected_mode = self.available_modes[selected_mode_id]
+        else:
+            self.selected_mode_id = DEFAULT_GAME_MODE
+            self.selected_mode = self.available_modes[DEFAULT_GAME_MODE]
+        print(f"[MODE] updated={self.selected_mode_id}")
 
     def _get_recent_user_trials(self):
         """최근 사용자 시행만 추출 (PC 시행 제외)."""
@@ -673,6 +689,8 @@ class GameState:
             'phase': self.phase,
             'turn': self.current_turn,
             'turn_count': self.turn_count,
+            'selected_mode_id': self.selected_mode_id,
+            'selected_mode': self.selected_mode,
             'user_moves': self.user_move_count,
             'pc_moves': self.pc_move_count,
             'total_trials': len(self.trial_history),

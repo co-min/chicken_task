@@ -129,3 +129,51 @@ TOTAL_SCORE = 0               # 전체 점수 (게임 중 업데이트)
 PURPLE = [180, 0, 255]
 DARK_GREY = [105, 105, 105]
 WHITE=[255,255,255]
+
+
+# ==================== GAME MODE SELECTION (PHASE 1) ====================
+DEFAULT_GAME_MODE = 'selection1'
+
+# 1차 구현: 선택값 전달/저장만 사용하고, 세부 규칙/레이아웃 분기는 후속 PR에서 적용
+GAME_MODES = {
+    'selection1': {
+        'mode_id': 'selection1',
+        'display_name': '선택 1',
+        'track_length': 24,
+        'deck_rows': 3,
+        'deck_cols': 6,
+        'token_count': 3,
+        'ruleset_id': 'rules_3token',
+        'preview_image': 'selection/selection1.png',
+    },
+    'selection2': {
+        'mode_id': 'selection2',
+        'display_name': '선택 2',
+        'track_length': 24,
+        'deck_rows': 3,
+        'deck_cols': 6,
+        'token_count': 4,
+        'ruleset_id': 'rules_4token',
+        'preview_image': 'selection/selection2.png',
+    },
+    'selection3': {
+        'mode_id': 'selection3',
+        'display_name': '선택 3',
+        'track_length': 21,
+        'deck_rows': 2,
+        'deck_cols': 6,
+        'token_count': 3,
+        'ruleset_id': 'rules_3token',
+        'preview_image': 'selection/selection3.png',
+    },
+    'selection4': {
+        'mode_id': 'selection4',
+        'display_name': '선택 4',
+        'track_length': 28,
+        'deck_rows': 2,
+        'deck_cols': 6,
+        'token_count': 4,
+        'ruleset_id': 'rules_4token',
+        'preview_image': 'selection/selection4.png',
+    },
+}

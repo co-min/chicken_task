@@ -9,6 +9,7 @@ try:
     from ..config import (
         KEY_EXIT, CARD_FLIP_DURATION,
         FEEDBACK_DURATION, TRIAL_INTERVAL, PC_THINK_TIME,
+        BOARD_ROWS, BOARD_COLS,
         WIDTH, HEIGHT, TEXT_COLOR,
         DECK_LEFT_MARGIN, DECK_TOP_MARGIN,
         DECK_CARD_WIDTH, DECK_CARD_HEIGHT, DECK_CARD_SPACING,
@@ -21,6 +22,7 @@ except ImportError:
     from config import (
         KEY_EXIT, CARD_FLIP_DURATION,
         FEEDBACK_DURATION, TRIAL_INTERVAL, PC_THINK_TIME,
+        BOARD_ROWS, BOARD_COLS,
         WIDTH, HEIGHT, TEXT_COLOR,
         DECK_LEFT_MARGIN, DECK_TOP_MARGIN,
         DECK_CARD_WIDTH, DECK_CARD_HEIGHT, DECK_CARD_SPACING,
@@ -400,8 +402,8 @@ def _get_clicked_card(mouse_pos):
     screen_y = HEIGHT / 2 - mouse_pos[1]
     
     # 덱 영역 확인
-    for row in range(3):  # BOARD_ROWS
-        for col in range(9):  # BOARD_COLS
+    for row in range(BOARD_ROWS):
+        for col in range(BOARD_COLS):
             left = DECK_LEFT_MARGIN + col * (DECK_CARD_WIDTH + DECK_CARD_SPACING)
             right = left + DECK_CARD_WIDTH
             top = DECK_TOP_MARGIN + row * (DECK_CARD_HEIGHT + DECK_CARD_SPACING)
