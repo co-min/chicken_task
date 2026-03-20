@@ -31,20 +31,128 @@ class NPCAI:
             success_rate (float): 정답 확률 (0.0 ~ 1.0, 기본값 1/deck)
         """
         self.success_rate = self._clamp_rate(success_rate)
+        self.last_effective_success_rate = self.success_rate
         # 메모리는 참고만 하도록 비율 제어
         self.reference_min_prob = 0.30
-        self.reference_max_prob = 0.75
-        self.reference_base_prob = 0.50
+        self.reference_max_prob = 0.80
+        self.reference_base_prob = 0.55
         self.recent_hint_follow_prob = 0.70
+        self.context_blend_ratio = 0.60
+        self.turn_max_rate_swing = 0.14
+        self.player_parity_bias = 0.02
+        self.min_edge_over_user = 0.02
+        self.max_edge_over_user = 0.07
 
-    def set_success_rate(self, success_rate):
+    def set_success_rate(self, success_rate, sync_effective=False):
         """
         NPC 정답 확률 동적 업데이트
 
         Args:
             success_rate (float): 새 정답 확률 (0.0 ~ 1.0)
+            sync_effective (bool): True면 last_effective_success_rate도 동기화
         """
         self.success_rate = self._clamp_rate(success_rate)
+        if sync_effective:
+            self.last_effective_success_rate = self.success_rate
+
+    def _resolve_dynamic_tuning(self, memory_context):
+        """
+        최근 사용자 로그 기반으로 턴별 튜닝 파라미터 계산.
+        Returns:
+            tuple: (blend_ratio, max_rate_swing)
+        """
+        blend_ratio = self.context_blend_ratio
+        max_rate_swing = self.turn_max_rate_swing
+
+        if not memory_context:
+            return (blend_ratio, max_rate_swing)
+
+        trials_count = int(memory_context.get('user_recent_trials_count', 0) or 0)
+        variability = memory_context.get('user_performance_variability')
+        trend_score = memory_context.get('user_trend_score')
+        target_rate = memory_context.get('npc_target_success_rate')
+
+        if trials_count < 3:
+            blend_ratio -= 0.20
+            max_rate_swing -= 0.03
+        elif trials_count < 6:
+            blend_ratio -= 0.10
+            max_rate_swing -= 0.02
+
+        if variability is not None:
+            variability = self._clamp_rate(variability, 0.0, 1.0)
+            # 로그 변동성이 낮을수록 사용자 수준을 더 빠르게 추종
+            blend_ratio += 0.08 * (0.5 - variability)
+            max_rate_swing += 0.05 * (0.5 - variability)
+
+        if trend_score is not None:
+            trend_score = self._clamp_rate(trend_score, -1.0, 1.0)
+            # 최근 급상승/급하락이면 반응 속도를 조금 높임
+            blend_ratio += 0.03 * trend_score
+            max_rate_swing += 0.03 * abs(trend_score)
+
+        if target_rate is not None:
+            target_rate = self._clamp_rate(target_rate, 0.0, 1.0)
+            distance = abs(target_rate - self.last_effective_success_rate)
+            max_rate_swing += 0.25 * distance
+
+        blend_ratio = self._clamp_rate(blend_ratio, 0.40, 0.78)
+        max_rate_swing = self._clamp_rate(max_rate_swing, 0.04, 0.16)
+        return (blend_ratio, max_rate_swing)
+
+    def _resolve_effective_success_rate(self, memory_context):
+        """
+        이번 턴의 유효 정답률 계산.
+        - game_state에서 전달한 사용자 수행 추정치가 있으면 우선 반영
+        - 턴 간 급격한 점프를 제한해 체감 난이도 안정화
+        """
+        effective_rate = self.success_rate
+        blend_ratio, max_rate_swing = self._resolve_dynamic_tuning(memory_context)
+        min_rate = 0.0
+        max_rate = 1.0
+
+        if memory_context:
+            min_rate = self._clamp_rate(memory_context.get('npc_rate_min', 0.0), 0.0, 1.0)
+            max_rate = self._clamp_rate(memory_context.get('npc_rate_max', 1.0), min_rate, 1.0)
+
+            target_rate = memory_context.get('npc_target_success_rate')
+            if target_rate is not None:
+                target_rate = self._clamp_rate(target_rate, min_rate, max_rate)
+                effective_rate = (
+                    (1.0 - blend_ratio) * effective_rate
+                    + (blend_ratio * target_rate)
+                )
+
+            # 최근 사용자 정확도/실력값을 소폭 반영해 체감 동기화 강화
+            user_skill = memory_context.get('user_skill_score')
+            if user_skill is not None:
+                user_skill = self._clamp_rate(user_skill, 0.0, 1.0)
+                effective_rate += 0.04 * (user_skill - 0.5)
+
+            recent_user_accuracy = memory_context.get('recent_user_accuracy')
+            if recent_user_accuracy is not None:
+                recent_user_accuracy = self._clamp_rate(recent_user_accuracy, 0.0, 1.0)
+                effective_rate += 0.02 * (recent_user_accuracy - 0.5)
+
+            # 사용자와 비슷하거나 약간 우위 성능을 유지하기 위한 완만한 보정
+            effective_rate += self.player_parity_bias
+            if target_rate is not None:
+                trials_count = int(memory_context.get('user_recent_trials_count', 0) or 0)
+                edge_scale = self._clamp_rate((trials_count - 3) / 8.0, 0.0, 1.0)
+                edge = self.min_edge_over_user + ((self.max_edge_over_user - self.min_edge_over_user) * edge_scale)
+                parity_floor = self._clamp_rate(target_rate + edge, min_rate, max_rate)
+                effective_rate = max(effective_rate, parity_floor)
+
+        # 턴마다 변동폭을 제한해 급격한 난이도 출렁임 방지
+        delta = effective_rate - self.last_effective_success_rate
+        if delta > max_rate_swing:
+            effective_rate = self.last_effective_success_rate + max_rate_swing
+        elif delta < -max_rate_swing:
+            effective_rate = self.last_effective_success_rate - max_rate_swing
+
+        effective_rate = self._clamp_rate(effective_rate, min_rate, max_rate)
+        self.last_effective_success_rate = effective_rate
+        return effective_rate
 
     def _clamp_rate(self, value, min_rate=0.0, max_rate=1.0):
         """확률 값을 안전한 범위로 제한."""
@@ -62,8 +170,10 @@ class NPCAI:
         Returns:
             tuple: (card_pos, is_match) - 선택한 카드 위치와 실제 매칭 여부
         """
-        # 현재 success_rate에 따라 정답/오답 모드 결정
-        should_succeed = random.random() < self.success_rate
+        effective_rate = self._resolve_effective_success_rate(memory_context)
+
+        # 이번 턴 유효 정답률에 따라 정답/오답 모드 결정
+        should_succeed = random.random() < effective_rate
 
         avoid_positions = set()
         if memory_context and not should_succeed:
@@ -97,9 +207,18 @@ class NPCAI:
                 ]
             if memory_candidates:
                 reference_prob = self._estimate_reference_probability(memory_candidates)
+                user_skill = memory_context.get('user_skill_score') if memory_context else None
+                if user_skill is not None:
+                    user_skill = self._clamp_rate(user_skill, 0.0, 1.0)
+                    reference_prob += 0.12 * (user_skill - 0.5)
+                    reference_prob = self._clamp_rate(
+                        reference_prob,
+                        self.reference_min_prob,
+                        self.reference_max_prob,
+                    )
                 if not should_succeed:
                     # 실패 모드에서는 메모리 맹종을 줄이고 탐색 비중을 높임
-                    reference_prob = min(reference_prob, 0.35)
+                    reference_prob = min(reference_prob, 0.4)
                 card_pos = self._choose_mixed_candidate(
                     memory_candidates,
                     matching_cards,

@@ -115,7 +115,7 @@ class GameState:
         self.tokens = TokenManager(mode_profile=self.selected_mode, board=self.board)
         self.base_random_rate = 1.0 / max(1, (self.deck.rows * self.deck.cols))
         self.npc_rate_min = self.base_random_rate
-        self.npc_ai.set_success_rate(self.base_random_rate)
+        self.npc_ai.set_success_rate(self.base_random_rate, sync_effective=True)
         print(f"[MODE] updated={self.selected_mode_id}")
 
     def _get_recent_user_trials(self):
@@ -125,6 +125,45 @@ class GameState:
             if t.get('token') in ('chase', 'flight')
         ]
         return user_trials[-self.user_window_size:]
+
+    def _summarize_recent_user_performance(self, recent_trials):
+        """최근 사용자 로그에서 정확도/변동성/추세 신호를 요약."""
+        if not recent_trials:
+            return {
+                'count': 0,
+                'accuracy': None,
+                'variability': None,
+                'trend_score': 0.0,
+            }
+
+        hits = [1.0 if trial.get('is_match') else 0.0 for trial in recent_trials]
+        count = len(hits)
+        accuracy = sum(hits) / count
+
+        hit_variance = sum((hit - accuracy) ** 2 for hit in hits) / count
+        hit_std = hit_variance ** 0.5
+
+        elapsed_times = [trial.get('elapsed_time', TURN_TIME_LIMIT) for trial in recent_trials]
+        normalized_elapsed = [self._clamp(t / TURN_TIME_LIMIT, 0.0, 1.0) for t in elapsed_times]
+        mean_elapsed = sum(normalized_elapsed) / count
+        elapsed_variance = sum((t - mean_elapsed) ** 2 for t in normalized_elapsed) / count
+        elapsed_std = elapsed_variance ** 0.5
+
+        variability = self._clamp((0.65 * hit_std) + (0.35 * elapsed_std), 0.0, 1.0)
+
+        trend_score = 0.0
+        if count >= 2:
+            trend_score = hits[-1] - hits[-2]
+        if count >= 3:
+            trend_score = (0.7 * trend_score) + (0.3 * (hits[-2] - hits[-3]))
+        trend_score = self._clamp(trend_score, -1.0, 1.0)
+
+        return {
+            'count': count,
+            'accuracy': accuracy,
+            'variability': variability,
+            'trend_score': trend_score,
+        }
 
     def _record_user_observation(self, pos, card, is_match):
         """사용자 카드 선택/관찰 히스토리 업데이트."""
@@ -159,7 +198,7 @@ class GameState:
         seen_info['last_seen_turn'] = self.turn_count
         seen_info['confidence'] = self._clamp(seen_info['confidence'] + 0.10, 0.0, 1.0)
 
-    def _build_npc_memory_context(self):
+    def _build_npc_memory_context(self, condition=None):
         """
         사용자+문어 관찰 메모리를 통합하여 NPC 선택 컨텍스트 구성.
         """
@@ -189,10 +228,30 @@ class GameState:
                 if existing['source'] != source:
                     existing['source'] = 'both'
 
+        recent_trials = self._get_recent_user_trials()
+        recent_summary = self._summarize_recent_user_performance(recent_trials)
+        recent_user_accuracy = recent_summary['accuracy']
+
+        user_skill_score = self._estimate_user_skill()
+        if user_skill_score is None:
+            user_skill_score = self.user_accuracy_ewma
+
+        npc_target_success_rate = None
+        if condition is not None:
+            npc_target_success_rate = self._estimate_user_success_probability(condition)
+
         return {
             'entries': list(merged.values()),
             'current_turn': self.turn_count,
             'recency_window': 6,
+            'recent_user_accuracy': recent_user_accuracy,
+            'user_recent_trials_count': recent_summary['count'],
+            'user_performance_variability': recent_summary['variability'],
+            'user_trend_score': recent_summary['trend_score'],
+            'user_skill_score': user_skill_score,
+            'npc_target_success_rate': npc_target_success_rate,
+            'npc_rate_min': self.npc_rate_min,
+            'npc_rate_max': self.npc_rate_max,
         }
 
     def _get_recent_user_hint_pos(self, condition):
@@ -554,7 +613,7 @@ class GameState:
         # 타겟 확인
         target_pos = self.tokens.get_target_position('octopus')
         condition = self.board.get_condition(target_pos[0], target_pos[1])
-        memory_context = self._build_npc_memory_context()
+        memory_context = self._build_npc_memory_context(condition)
         memory_context['recent_user_hint_pos'] = self._get_recent_user_hint_pos(condition)
         memory_context['recent_npc_failed_pos'] = self._get_recent_npc_failed_pos()
         memory_context['known_wrong_positions'] = self._get_known_wrong_positions(condition)
@@ -683,7 +742,7 @@ class GameState:
         self.user_choice_count = 0
         self.user_repeat_count = 0
         self.user_last_selected_pos = None
-        self.npc_ai.set_success_rate(self.base_random_rate)
+        self.npc_ai.set_success_rate(self.base_random_rate, sync_effective=True)
         
         print("게임 리셋 완료")
     
