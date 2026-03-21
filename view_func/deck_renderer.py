@@ -4,8 +4,10 @@
 from psychopy import visual
 import os
 from config import (
-    DECK_LEFT_MARGIN, DECK_TOP_MARGIN,
+    BOARD_DECK_CENTER_GAP,
     DECK_CARD_WIDTH, DECK_CARD_HEIGHT, DECK_CARD_SPACING,
+    DECK_X_OFFSET,
+    CHASE_BUTTON_POS, TOKEN_BUTTON_HEIGHT,
     WIDTH, HEIGHT,
     HIGHLIGHT_COLOR, HIGHLIGHT_WIDTH
 )
@@ -91,13 +93,19 @@ class DeckRenderer:
     
     def _get_card_x(self, col):
         """카드의 x 좌표 계산 (PsychoPy 좌표계)"""
-        left_x = DECK_LEFT_MARGIN + col * (DECK_CARD_WIDTH + DECK_CARD_SPACING)
+        left_margin = (WIDTH / 2) + (BOARD_DECK_CENTER_GAP / 2) + DECK_X_OFFSET
+        left_x = left_margin + col * (DECK_CARD_WIDTH + DECK_CARD_SPACING)
         center_x = left_x + DECK_CARD_WIDTH / 2
         return center_x - WIDTH / 2
     
     def _get_card_y(self, row):
         """카드의 y 좌표 계산 (PsychoPy 좌표계)"""
-        top_y = DECK_TOP_MARGIN + row * (DECK_CARD_HEIGHT + DECK_CARD_SPACING)
+        deck_total_height = self.deck.rows * DECK_CARD_HEIGHT + (self.deck.rows - 1) * DECK_CARD_SPACING
+        button_top_psy = CHASE_BUTTON_POS[1] + (TOKEN_BUTTON_HEIGHT / 2)
+        button_top_screen = (HEIGHT / 2) - button_top_psy
+        play_area_bottom_screen = max(0, button_top_screen - 20)
+        top_margin = max(0, (play_area_bottom_screen - deck_total_height) / 2)
+        top_y = top_margin + row * (DECK_CARD_HEIGHT + DECK_CARD_SPACING)
         center_y = top_y + DECK_CARD_HEIGHT / 2
         return HEIGHT / 2 - center_y
     

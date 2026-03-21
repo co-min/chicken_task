@@ -45,6 +45,13 @@ def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck
     # 선택 상태
     selected_token = None  # 'chase' 또는 'flight'
     hovering = None  # 현재 마우스가 올라간 버튼
+
+    # 토큰 선택 단계에서는 안내 문구를 버튼 위쪽으로 고정 배치
+    original_instruction_pos = ui_elements.instruction_text.pos
+    original_message_pos = ui_elements.message_text.pos
+    button_top = CHASE_BUTTON_POS[1] + (TOKEN_BUTTON_HEIGHT / 2)
+    ui_elements.instruction_text.pos = (0, button_top + 25)
+    ui_elements.message_text.pos = (0, button_top + 50)
     
     # 안내 문구 설정 (마우스 전용)
     ui_elements.instruction_text.text = "마우스로 닭 버튼을 클릭해 선택하세요"
@@ -65,6 +72,8 @@ def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck
                 game_state.select_token(selected_token)
                 while mouse.getPressed()[0]:
                     core.wait(0.01)
+                ui_elements.instruction_text.pos = original_instruction_pos
+                ui_elements.message_text.pos = original_message_pos
                 return selected_token
         
         # Flight 버튼 위에 있는지 확인
@@ -76,6 +85,8 @@ def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck
                 game_state.select_token(selected_token)
                 while mouse.getPressed()[0]:
                     core.wait(0.01)
+                ui_elements.instruction_text.pos = original_instruction_pos
+                ui_elements.message_text.pos = original_message_pos
                 return selected_token
         
         # 화면 그리기

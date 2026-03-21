@@ -4,8 +4,10 @@
 from psychopy import visual
 import os
 from config import (
-    BOARD_DECK_CENTER_GAP, BOARD_TOP_MARGIN,
+    BOARD_DECK_CENTER_GAP,
+    BOARD_Y_OFFSET,
     BOARD_CARD_WIDTH, BOARD_CARD_HEIGHT, BOARD_CARD_SPACING,
+    CHASE_BUTTON_POS, TOKEN_BUTTON_HEIGHT,
     WIDTH, HEIGHT,
     HIGHLIGHT_COLOR, HIGHLIGHT_WIDTH
 )
@@ -75,7 +77,7 @@ class BoardRenderer:
             x 좌표 (픽셀, 중앙 기준)
         """
         board_total_width = self.board.cols * BOARD_CARD_WIDTH + (self.board.cols - 1) * BOARD_CARD_SPACING
-        left_margin = (WIDTH // 2) - BOARD_DECK_CENTER_GAP // 2 - board_total_width
+        left_margin = (WIDTH / 2) - (BOARD_DECK_CENTER_GAP / 2) - board_total_width
         left_x = left_margin + col * (BOARD_CARD_WIDTH + BOARD_CARD_SPACING)
         center_x = left_x + BOARD_CARD_WIDTH / 2
         # PsychoPy는 중앙이 (0, 0)이므로 변환
@@ -91,7 +93,12 @@ class BoardRenderer:
         Returns:
             y 좌표 (픽셀, 중앙 기준)
         """
-        top_y = BOARD_TOP_MARGIN + row * (BOARD_CARD_HEIGHT + BOARD_CARD_SPACING)
+        board_total_height = self.board.rows * BOARD_CARD_HEIGHT + (self.board.rows - 1) * BOARD_CARD_SPACING
+        button_top_psy = CHASE_BUTTON_POS[1] + (TOKEN_BUTTON_HEIGHT / 2)
+        button_top_screen = (HEIGHT / 2) - button_top_psy
+        play_area_bottom_screen = max(0, button_top_screen - 20)
+        top_margin = max(0, (play_area_bottom_screen - board_total_height) / 2 + BOARD_Y_OFFSET)
+        top_y = top_margin + row * (BOARD_CARD_HEIGHT + BOARD_CARD_SPACING)
         center_y = top_y + BOARD_CARD_HEIGHT / 2
         # PsychoPy는 위쪽이 양수, 아래쪽이 음수 (반전)
         return HEIGHT / 2 - center_y

@@ -22,7 +22,7 @@ TOTAL_CARDS = BOARD_ROWS * BOARD_COLS  # 레거시 기본(모드 선택 전) 카
 
 # Layout margins - 보드/덱을 화면 중앙 기준으로 좌우 배치
 BOARD_DECK_CENTER_GAP = 20
-BOARD_DECK_TOP_MARGIN = 250
+BOARD_DECK_TOP_MARGIN = 90
 
 # 카드 크기
 BOARD_CARD_WIDTH = 80
@@ -33,6 +33,7 @@ BOARD_CARD_SPACING = 1.5
 BOARD_TOTAL_WIDTH = BOARD_COLS * BOARD_CARD_WIDTH + (BOARD_COLS - 1) * BOARD_CARD_SPACING
 BOARD_LEFT_MARGIN = (WIDTH // 2) - BOARD_DECK_CENTER_GAP // 2 - BOARD_TOTAL_WIDTH
 BOARD_TOP_MARGIN = BOARD_DECK_TOP_MARGIN
+BOARD_Y_OFFSET = 20  # 운동장 보드 아래로 미세 이동 (+면 아래)
 
 # Deck position (right side) - 1080x1080 화면 최적화
 DECK_CARD_WIDTH = 80
@@ -42,6 +43,7 @@ DECK_CARD_SPACING = 1.5
 DECK_TOTAL_WIDTH = BOARD_COLS * DECK_CARD_WIDTH + (BOARD_COLS - 1) * DECK_CARD_SPACING
 DECK_LEFT_MARGIN = (WIDTH // 2) + BOARD_DECK_CENTER_GAP // 2
 DECK_TOP_MARGIN = BOARD_DECK_TOP_MARGIN
+DECK_X_OFFSET = 72  # 메인 덱 우측 미세 이동 (+면 오른쪽)
 
 # ==================== TOKEN SETTINGS ====================
 TOKEN_SIZE = 56  # pixels (1080x1080 화면에 맞춤)
@@ -91,14 +93,14 @@ BUTTON_COLOR_SELECTED = [0, 200, 200]  # Mint
 TOKEN_BUTTON_WIDTH = 300
 TOKEN_BUTTON_HEIGHT = 95
 TOKEN_BUTTON_TEXT_HEIGHT = 30
-CHASE_BUTTON_POS = (-170, -160)      # (x, y)
-FLIGHT_BUTTON_POS = (170, -160)      # (x, y)
+CHASE_BUTTON_POS = (-170, -320)      # (x, y)
+FLIGHT_BUTTON_POS = (170, -320)      # (x, y)
 TOKEN_BUTTON_LINE_WIDTH = 4
+MESSAGE_Y_OFFSET = -30  # 메시지 문구 아래로 미세 이동 (+면 위, -면 아래)
 
 # ==================== KEY MAPPINGS ====================
 KEY_CHASE = 'left'            # chase 선택 (왼쪽 버튼)
 KEY_FLIGHT = 'right'          # flight 선택 (오른쪽 버튼)
-KEY_CONFIRM = 'return'        # 선택 확정
 KEY_EXIT = 'escape'           # 게임 종료
 
 

@@ -9,6 +9,7 @@ from config import (
     TEXT_COLOR, TEXT_SIZE,
     BUTTON_COLOR_NORMAL, BUTTON_COLOR_HOVER, BUTTON_COLOR_SELECTED,
     TOKEN_BUTTON_WIDTH, TOKEN_BUTTON_HEIGHT, TOKEN_BUTTON_TEXT_HEIGHT,
+    MESSAGE_Y_OFFSET,
     CHASE_BUTTON_POS, FLIGHT_BUTTON_POS, TOKEN_BUTTON_LINE_WIDTH,PURPLE,WHITE,
 )
 
@@ -33,15 +34,20 @@ class UIElements:
         self.token_choice_buttons = {}
         
         self._create_ui_elements()
+        self._user_message_height = self.message_text.height
+        self._user_instruction_height = self.instruction_text.height
+        self._pc_text_scale = 0.8
     
     def _create_ui_elements(self):
         """모든 UI 요소 생성"""
+        message_base_y = -360 + MESSAGE_Y_OFFSET
+
         # 타이머 (상단 중앙) - 화면에 맞춤
         self.timer_text = visual.TextStim(
             win=self.win,
             text="00:15",
-            pos=(0, HEIGHT / 2 - 100),
-            height=50,
+            pos=(0, HEIGHT / 2 - 70),
+            height=45,
             color=TEXT_COLOR,
             colorSpace='rgb255',
             bold=True
@@ -61,7 +67,7 @@ class UIElements:
         self.message_text = visual.TextStim(
             win=self.win,
             text="",
-            pos=(0, -300),
+            pos=(0, message_base_y),
             height=24,
             color=[255, 255, 0],  # 노란색 (강조)
             colorSpace='rgb255',
@@ -89,10 +95,12 @@ class UIElements:
         )
         
         # 안내 문구 (하단)
+        instruction_gap = 14
+        instruction_y = message_base_y - (self.message_text.height / 2) - instruction_gap - (25 / 2)
         self.instruction_text = visual.TextStim(
             win=self.win,
             text="",
-            pos=(0, -HEIGHT / 2 + 120),
+            pos=(0, instruction_y),
             height=25,
             color=TEXT_COLOR,
             colorSpace='rgb255'
@@ -194,6 +202,8 @@ class UIElements:
 
     def set_user_turn_hud(self, selected_token, turn_count, timer_display_text):
         """사용자 턴 HUD 텍스트/색상 갱신"""
+        self.message_text.height = self._user_message_height
+        self.instruction_text.height = self._user_instruction_height
         self.instruction_text.text = f"메인 덱에서 조건에 맞는 카드를 클릭하세요 (턴 {turn_count})"
         self.message_text.text = f"{selected_token.upper()} 닭을 조종 중..."
         self.message_text.color = TEXT_COLOR
@@ -201,6 +211,8 @@ class UIElements:
 
     def set_pc_turn_hud(self, turn_count, target_pos, timer_label="문어 턴"):
         """PC 턴 HUD 텍스트/색상 갱신"""
+        self.message_text.height = self._user_message_height * self._pc_text_scale
+        self.instruction_text.height = self._user_instruction_height * self._pc_text_scale
         self.instruction_text.text = f"문어 차례 - Octopus가 카드를 선택하는 중... (턴 {turn_count})"
         self.message_text.text = f"타겟: {target_pos}"
         self.message_text.color = TEXT_COLOR
