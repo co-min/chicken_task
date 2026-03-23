@@ -34,14 +34,14 @@ class NPCAI:
         self.last_effective_success_rate = self.success_rate
         # 메모리는 참고만 하도록 비율 제어
         self.reference_min_prob = 0.30
-        self.reference_max_prob = 0.80
+        self.reference_max_prob = 0.75
         self.reference_base_prob = 0.55
         self.recent_hint_follow_prob = 0.70
-        self.context_blend_ratio = 0.60
-        self.turn_max_rate_swing = 0.14
-        self.player_parity_bias = 0.02
+        self.context_blend_ratio = 0.58
+        self.turn_max_rate_swing = 0.13
+        self.player_parity_bias = 0.18
         self.min_edge_over_user = 0.02
-        self.max_edge_over_user = 0.07
+        self.max_edge_over_user = 0.06
 
     def set_success_rate(self, success_rate, sync_effective=False):
         """
