@@ -93,55 +93,100 @@ def initiate():
     
     return visual_opt, device_opt, game_opt, save_directory
 
-def initiate_eyelink(win, subject_id, save_dir=None):
+def initiate_eyelink(win, save_directory, edf_name="test.edf"):
     """
-    Initialize EyeLink eye tracker (optional)
-    
+    Initialize EyeLink connection and calibration.
+
     Args:
-        win: PsychoPy window
-        subject_id (str): Subject ID
-        save_dir (str, optional): Local directory for EDF download target
-        
+        win: PsychoPy window object
+        save_directory (str): Directory to save EDF files
+        edf_name (str, optional): Name of EDF file. Default is "test.edf".
+
     Returns:
-        tuple: (tracker, genv) or (None, None) if not used
+        el_tracker: pylink.EyeLink object if connected, otherwise None
     """
-    if not USE_EYELINK:
-        return None, None
-    
-    print("Initializing EyeLink...")
-    
+    print("Checking for EyeLink tracker connection...")
+
     try:
-        # Connect to EyeLink
-        tracker = pylink.EyeLink("100.1.1.1")
+        # Try to connect to EyeLink
+        if USE_EYELINK == 0:
+            el_tracker = None  # Skip connection when disabled
+        else:
+            el_tracker = pylink.EyeLink("100.1.1.1")  # Default EyeLink IP
+    except (RuntimeError, ModuleNotFoundError):
+        print("⚠ EyeLink tracker not detected. EyeLink functionality will be disabled.")
+        return None
 
-        # EyeLink host EDF name
-        edf_fname = subject_id[:8] + ".edf"
+    print("EyeLink tracker detected. Initializing...")
 
-        # If not provided, keep EDF output under project Data/<subject_id>
-        if save_dir is None:
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            save_dir = define_save_directory(base_dir, subject_id)
+    os.makedirs(save_directory, exist_ok=True)
 
-        # set_eyelink.py에서 set_eye_opt 호출 -> 설정 및 보정 처리
-        # Configure tracker, open EDF, and run calibration in one place
-        tracker = set_eye_opt(tracker, save_dir=save_dir, edf_name=edf_fname, win=win)
-        if tracker is None:
-            raise RuntimeError("EyeLink setup failed")
+    edf_name = "test.edf"
+
+    # EyeLink configuration
+    if el_tracker:
+        try:
+            el_tracker.openDataFile(edf_name)
+        except RuntimeError as err:
+            print("ERROR: ", err)
+            if el_tracker.isConnected():
+                el_tracker.close()
+
+        preamble_text = "RECORDED BY %s" % os.path.basename(__file__)
+        el_tracker.sendCommand("add_file_preamble_text '%s'" % preamble_text)
+        el_tracker.setOfflineMode()
+
+        vstr = el_tracker.getTrackerVersionString()
+        eyelink_ver = int(vstr.split()[-1].split('.')[0])
+        print("Running experiment on %s, version %d" % (vstr, eyelink_ver))
+
+        el_tracker.sendCommand("file_event_filter = LEFT,RIGHT,FIXATION,SACCADE,BLINK,MESSAGE,BUTTON")
+        el_tracker.sendCommand("file_sample_data  = LEFT,RIGHT,GAZE,AREA,GAZERES,STATUS")
+
+        # Send screen resolution info from PsychoPy window
+        scn_width, scn_height = win.size
+
+        el_tracker.sendCommand(f"screen_pixel_coords = 0 0 {scn_width-1} {scn_height-1}")
+        el_tracker.sendMessage(f"DISPLAY_COORDS 0 0 {scn_width-1} {scn_height-1}")
+
+        # === Calibration (safe for multi-monitor setups) ===
+        try:
+            print("Starting EyeLink calibration on monitor...")
+            
+            print(el_tracker.isConnected())
+            genv = EyeLinkCoreGraphicsPsychoPy(el_tracker, win)
+            print(genv)
+            pylink.openGraphicsEx(genv)
+            print("Calibration in progress...")
+
+            el_tracker.doTrackerSetup()  # Defaults to primary monitor if None
+            print("Calibration complete.")
+        except RuntimeError:
+            print("⚠ EyeLink calibration skipped.")
         
-        # Set up graphics environment
-        genv = EyeLinkCoreGraphicsPsychoPy(tracker, win)
-        pylink.openGraphicsEx(genv)
-        
-        print("[OK] EyeLink initialized successfully")
-        return tracker, genv
-        
-    except Exception as e:
-        print(f"[ERROR] EyeLink initialization failed: {e}")
-        print("Continuing without eye tracking...")
-        return None, None
+    else:
+        print("EyeLink not detected.")
 
-if __name__ == "__main__":
-    # Test initialization
-    visual_opt, device_opt, game_opt, save_dir = initiate()
-    print("\nTest complete!")
-    print(f"Save directory: {save_dir}")
+    return el_tracker
+    
+
+    
+
+
+# if el_tracker:
+#             el_tracker.setOfflineMode()
+#             el_tracker.startRecording(1, 1, 1, 1)
+#             el_tracker.sendMessage("TRIAL_START")
+#             pylink.pumpDelay(100)
+
+# if el_tracker:  # EyeLink 연결된 경우만
+#         try:
+#             el_tracker.stopRecording()
+#             pylink.pumpDelay(100)  # 안전하게 flush
+#             el_tracker.closeDataFile()
+#             edf_local_path = os.path.join(save_directory, "test.edf")
+#             el_tracker.receiveDataFile("test.edf", edf_local_path)
+#             el_tracker.close()
+#             print(f"EDF 파일 저장 완료: {edf_local_path}")
+#         except RuntimeError as e:
+#             print(f"EDF 저장 중 오류: {e}")
