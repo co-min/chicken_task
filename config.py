@@ -20,33 +20,46 @@ BOARD_ROWS = 3
 BOARD_COLS = 9
 TOTAL_CARDS = BOARD_ROWS * BOARD_COLS  # 레거시 기본(모드 선택 전) 카드 수
 
-# Layout margins - 보드/덱을 화면 중앙 기준으로 좌우 배치
-BOARD_DECK_CENTER_GAP = 20
-BOARD_DECK_TOP_MARGIN = 90
+# Layout - 보드/덱 위치 (1100x1080 기준, AUTO_DETECT_WINDOW_SIZE=True 시 자동 스케일)
+#
+# 설계 원칙:
+#   1) 덱 총 height = 보드 총 height  →  deck_h = (5×board_h + 2×sp) / 3
+#   2) 덱 가로세로 비율 = 0.68 (deck_w = deck_h × 0.68)
+#   3) 카드 간격 확장 (아이트래커 AOI 분리)
+#   4) 레이아웃은 auto-scale 후 화면 가운데 정렬
+#
+# 기준 검증 (1100×1080, sp=5):
+#   board_h=73, deck_h=(5×73+2×5)/3=125, deck_w=125×0.68=85
+#   board: 9×52+8×5=508,  deck: 6×85+5×5=535,  gap=50
+#   총: 2+508+50+535+2=1097 ≤ 1100 ✓
+#   board height: 5×73+4×5=385,  deck height: 3×125+2×5=385 ✓ (동일)
+BOARD_DECK_CENTER_GAP = 50    # 보드↔덱 사이 여백 (아이트래커 기준)
+BOARD_DECK_TOP_MARGIN = 120   # 상단 HUD 아래 여백 (HUD 텍스트 겹침 방지)
 
-# 카드 크기
-BOARD_CARD_WIDTH = 90
-BOARD_CARD_HEIGHT = 120
-
-BOARD_CARD_SPACING = 3
+# 보드 카드 크기 (비율 52:73 = 0.712 ≈ 원본 68:95)
+BOARD_CARD_WIDTH = 52
+BOARD_CARD_HEIGHT = 73
+BOARD_CARD_SPACING = 5        # 아이트래커 AOI 분리용 간격
 
 BOARD_TOTAL_WIDTH = BOARD_COLS * BOARD_CARD_WIDTH + (BOARD_COLS - 1) * BOARD_CARD_SPACING
-BOARD_LEFT_MARGIN = (WIDTH // 2) - BOARD_DECK_CENTER_GAP // 2 - BOARD_TOTAL_WIDTH
+BOARD_LEFT_EDGE = 2           # 운동장 보드 왼쪽 시작 위치 (화면 좌측 기준 px)
+BOARD_LEFT_MARGIN = BOARD_LEFT_EDGE  # 레거시 alias
 BOARD_TOP_MARGIN = BOARD_DECK_TOP_MARGIN
-BOARD_Y_OFFSET = 20  # 운동장 보드 아래로 미세 이동 (+면 아래)
+BOARD_Y_OFFSET = 0
 
-# Deck position (right side) - 1080x1080 화면 최적화
-DECK_CARD_WIDTH = 95    
-DECK_CARD_HEIGHT = 130
-DECK_CARD_SPACING = 5
+# 덱 카드 크기 (비율 85:125 = 0.68 ✓, 총 height = 보드 총 height)
+DECK_CARD_WIDTH = 85
+DECK_CARD_HEIGHT = 125
+DECK_CARD_SPACING = 5         # 아이트래커 AOI 분리용 간격
 
 DECK_TOTAL_WIDTH = BOARD_COLS * DECK_CARD_WIDTH + (BOARD_COLS - 1) * DECK_CARD_SPACING
-DECK_LEFT_MARGIN = (WIDTH // 2) + BOARD_DECK_CENTER_GAP // 2 + 30
+DECK_LEFT_EDGE = BOARD_LEFT_EDGE + BOARD_TOTAL_WIDTH + BOARD_DECK_CENTER_GAP  # = 2+508+50=560
+DECK_LEFT_MARGIN = DECK_LEFT_EDGE  # 레거시 alias
 DECK_TOP_MARGIN = BOARD_DECK_TOP_MARGIN
-DECK_X_OFFSET = 72  # 메인 덱 우측 미세 이동 (+면 오른쪽)
+DECK_X_OFFSET = 0
 
 # ==================== TOKEN SETTINGS ====================
-TOKEN_SIZE = 56  # pixels (1080x1080 화면에 맞춤)
+TOKEN_SIZE = 43  # pixels (보드 카드 73px 기준, 56×73/95≈43)
 
 
 # ==================== CARD ATTRIBUTES ====================
@@ -73,7 +86,7 @@ TOKEN_TIME_WAIT = 1
 # ==================== PC AI SETTINGS ====================
 # 레거시 기본 정답률(모드 선택 전). 실제 게임 실행 시에는 mode 기반 deck 크기로 재계산됨.
 PC_SUCCESS_RATE = 1 / TOTAL_CARDS
-PC_THINK_TIME = 1.5           # 초 (PC 선택까지 대기 시간)
+PC_THINK_TIME = 1.8           # 초 (PC 선택까지 대기 시간)
 
 # ==================== VISUAL SETTINGS ====================
 # Highlight colors
@@ -93,10 +106,10 @@ BUTTON_COLOR_SELECTED = [0, 200, 200]  # Mint
 TOKEN_BUTTON_WIDTH = 300
 TOKEN_BUTTON_HEIGHT = 95
 TOKEN_BUTTON_TEXT_HEIGHT = 30
-CHASE_BUTTON_POS = (-170, -390)      # (x, y)
-FLIGHT_BUTTON_POS = (170, -390)      # (x, y)
+CHASE_BUTTON_POS = (-170, -430)      # (x, y)
+FLIGHT_BUTTON_POS = (170, -430)      # (x, y)
 TOKEN_BUTTON_LINE_WIDTH = 4
-MESSAGE_Y_OFFSET = -30  # 메시지 문구 아래로 미세 이동 (+면 위, -면 아래)
+MESSAGE_Y_OFFSET = -70  # 메시지 문구 위치 (+면 위, -면 아래) → 버튼과 같은 y 레벨
 
 # ==================== KEY MAPPINGS ====================
 KEY_CHASE = 'left'            # chase 선택 (왼쪽 버튼)
@@ -170,3 +183,97 @@ GAME_MODES = {
     # selection3, 4는 나중에 추가
     # 예: 'colors': ['red', 'blue'], 'shapes': ['rectangle', 'circle'], 'numbers': [1, 2, 3]
 }
+
+
+# ==================== AUTO SCREEN SCALE ====================
+
+def _apply_screen_scale():
+    """
+    실제 화면 해상도에 맞게 카드/레이아웃 크기를 자동 조정.
+    기준 설계: WIDTH=1100, HEIGHT=1080.
+
+    스케일 결정 원칙:
+      - 수직(s_vert): 버튼 위치 고정 → 버튼 위 공간에 카드가 최대한 들어오도록
+      - 수평(s_horiz): 화면 너비 기준 카드+보드+덱이 꽉 차도록
+      - 균일 스케일(비율 유지): s = min(s_vert, s_horiz)
+      - 레이아웃은 화면 가운데 정렬
+    """
+    global WIDTH, HEIGHT
+    global BOARD_CARD_WIDTH, BOARD_CARD_HEIGHT, BOARD_CARD_SPACING
+    global BOARD_TOTAL_WIDTH, BOARD_LEFT_EDGE, BOARD_LEFT_MARGIN, BOARD_TOP_MARGIN, BOARD_Y_OFFSET
+    global BOARD_DECK_CENTER_GAP, BOARD_DECK_TOP_MARGIN
+    global DECK_CARD_WIDTH, DECK_CARD_HEIGHT, DECK_CARD_SPACING
+    global DECK_TOTAL_WIDTH, DECK_LEFT_EDGE, DECK_LEFT_MARGIN, DECK_TOP_MARGIN, DECK_X_OFFSET
+    global TOKEN_SIZE, TEXT_SIZE, HIGHLIGHT_WIDTH
+
+    try:
+        import tkinter as _tk
+        _r = _tk.Tk()
+        _r.withdraw()
+        actual_w = _r.winfo_screenwidth()
+        actual_h = _r.winfo_screenheight()
+        _r.destroy()
+    except Exception:
+        return
+
+    _BOARD_ROWS_GAME = 5  # GAME_MODES 기준 보드 행 수 (selection1/2)
+    _DECK_COLS_GAME  = 6  # GAME_MODES 기준 덱 열 수 (selection1/2)
+
+    # 수직 스케일 한계: 버튼 고정 위치 기준 카드 영역 최대 높이
+    # CHASE_BUTTON_POS[1]=-430 → 버튼 중심의 screen y = actual_h/2 + 430
+    _btn_center_screen_y = actual_h / 2 + abs(CHASE_BUTTON_POS[1])
+    _btn_top_y = _btn_center_screen_y - TOKEN_BUTTON_HEIGHT / 2 - 5  # 5px 안전 여유
+
+    _design_card_area_h = (BOARD_DECK_TOP_MARGIN
+                           + _BOARD_ROWS_GAME * BOARD_CARD_HEIGHT
+                           + (_BOARD_ROWS_GAME - 1) * BOARD_CARD_SPACING)
+
+    # 수평 스케일 한계: 좌우 2px 여백, 보드+간격+덱이 actual_w에 맞도록
+    _deck_design_w = _DECK_COLS_GAME * DECK_CARD_WIDTH + (_DECK_COLS_GAME - 1) * DECK_CARD_SPACING
+    _design_layout_w = BOARD_TOTAL_WIDTH + BOARD_DECK_CENTER_GAP + _deck_design_w
+
+    s_vert  = _btn_top_y / _design_card_area_h
+    s_horiz = (actual_w - 4) / _design_layout_w
+    s = max(0.5, min(s_vert, s_horiz))
+
+    # 카드 크기 스케일
+    BOARD_CARD_WIDTH   = round(BOARD_CARD_WIDTH  * s)
+    BOARD_CARD_HEIGHT  = round(BOARD_CARD_HEIGHT * s)
+    BOARD_CARD_SPACING = max(2, round(BOARD_CARD_SPACING * s))
+    BOARD_DECK_CENTER_GAP = round(BOARD_DECK_CENTER_GAP * s)
+    BOARD_DECK_TOP_MARGIN = round(BOARD_DECK_TOP_MARGIN * s)
+
+    DECK_CARD_WIDTH   = round(DECK_CARD_WIDTH  * s)
+    DECK_CARD_HEIGHT  = round(DECK_CARD_HEIGHT * s)
+    DECK_CARD_SPACING = max(3, round(DECK_CARD_SPACING * s))
+
+    TOKEN_SIZE      = round(TOKEN_SIZE * s)
+    TEXT_SIZE       = max(12, round(TEXT_SIZE * s))
+    HIGHLIGHT_WIDTH = max(2, round(HIGHLIGHT_WIDTH * s))
+
+    # WIDTH / HEIGHT를 실제 화면 해상도로 업데이트
+    WIDTH  = actual_w
+    HEIGHT = actual_h
+
+    # 파생 상수 재계산 (레이아웃 가운데 정렬)
+    BOARD_TOTAL_WIDTH = BOARD_COLS * BOARD_CARD_WIDTH + (BOARD_COLS - 1) * BOARD_CARD_SPACING
+    _deck_actual_w    = _DECK_COLS_GAME * DECK_CARD_WIDTH + (_DECK_COLS_GAME - 1) * DECK_CARD_SPACING
+    _total_layout     = BOARD_TOTAL_WIDTH + BOARD_DECK_CENTER_GAP + _deck_actual_w
+    BOARD_LEFT_EDGE   = max(2, (WIDTH - _total_layout) // 2)
+    BOARD_LEFT_MARGIN = BOARD_LEFT_EDGE
+    BOARD_TOP_MARGIN  = BOARD_DECK_TOP_MARGIN
+    BOARD_Y_OFFSET    = 0
+
+    DECK_LEFT_EDGE   = BOARD_LEFT_EDGE + BOARD_TOTAL_WIDTH + BOARD_DECK_CENTER_GAP
+    DECK_TOTAL_WIDTH = BOARD_COLS * DECK_CARD_WIDTH + (BOARD_COLS - 1) * DECK_CARD_SPACING
+    DECK_LEFT_MARGIN = DECK_LEFT_EDGE
+    DECK_TOP_MARGIN  = BOARD_DECK_TOP_MARGIN
+    DECK_X_OFFSET    = 0
+
+    print(f"[config] 화면 해상도 {actual_w}×{actual_h} 감지 → 스케일 {s:.3f} 적용")
+    print(f"[config] 보드 카드 {BOARD_CARD_WIDTH}×{BOARD_CARD_HEIGHT}, 덱 카드 {DECK_CARD_WIDTH}×{DECK_CARD_HEIGHT}")
+    print(f"[config] 레이아웃 너비 {_total_layout}px, BOARD_LEFT_EDGE={BOARD_LEFT_EDGE}px")
+
+
+if AUTO_DETECT_WINDOW_SIZE:
+    _apply_screen_scale()

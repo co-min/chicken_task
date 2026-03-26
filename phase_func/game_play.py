@@ -10,10 +10,8 @@ try:
         KEY_EXIT, CARD_FLIP_DURATION,
         FEEDBACK_DURATION, TRIAL_INTERVAL, PC_THINK_TIME,
         WIDTH, HEIGHT, TEXT_COLOR,
-        BOARD_DECK_CENTER_GAP,
+        DECK_LEFT_EDGE, BOARD_DECK_TOP_MARGIN,
         DECK_CARD_WIDTH, DECK_CARD_HEIGHT, DECK_CARD_SPACING,
-        DECK_X_OFFSET,
-        CHASE_BUTTON_POS, TOKEN_BUTTON_HEIGHT,
         PURPLE, DARK_GREY
     )
     from ..phase_func.token_selection import run_token_selection_phase
@@ -24,10 +22,8 @@ except ImportError:
         KEY_EXIT, CARD_FLIP_DURATION,
         FEEDBACK_DURATION, TRIAL_INTERVAL, PC_THINK_TIME,
         WIDTH, HEIGHT, TEXT_COLOR,
-        BOARD_DECK_CENTER_GAP,
+        DECK_LEFT_EDGE, BOARD_DECK_TOP_MARGIN,
         DECK_CARD_WIDTH, DECK_CARD_HEIGHT, DECK_CARD_SPACING,
-        DECK_X_OFFSET,
-        CHASE_BUTTON_POS, TOKEN_BUTTON_HEIGHT,
         PURPLE, DARK_GREY
     )
     from phase_func.token_selection import run_token_selection_phase
@@ -392,35 +388,26 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
 def _get_clicked_card(mouse_pos, deck_rows, deck_cols):
     """
     마우스 클릭 위치에서 카드 인덱스 계산
-    
+
     Args:
         mouse_pos: (x, y) 마우스 좌표 (PsychoPy 좌표계)
-    
+
     Returns:
         tuple: (row, col) 또는 None (클릭한 카드가 없음)
     """
-    # PsychoPy 좌표를 화면 좌표로 변환
     screen_x = mouse_pos[0] + WIDTH / 2
     screen_y = HEIGHT / 2 - mouse_pos[1]
-    
-    deck_total_height = deck_rows * DECK_CARD_HEIGHT + (deck_rows - 1) * DECK_CARD_SPACING
-    left_margin = (WIDTH / 2) + (BOARD_DECK_CENTER_GAP / 2) + DECK_X_OFFSET
-    button_top_psy = CHASE_BUTTON_POS[1] + (TOKEN_BUTTON_HEIGHT / 2)
-    button_top_screen = (HEIGHT / 2) - button_top_psy
-    play_area_bottom_screen = max(0, button_top_screen - 20)
-    top_margin = max(0, (play_area_bottom_screen - deck_total_height) / 2)
 
-    # 덱 영역 확인
     for row in range(deck_rows):
         for col in range(deck_cols):
-            left = left_margin + col * (DECK_CARD_WIDTH + DECK_CARD_SPACING)
+            left = DECK_LEFT_EDGE + col * (DECK_CARD_WIDTH + DECK_CARD_SPACING)
             right = left + DECK_CARD_WIDTH
-            top = top_margin + row * (DECK_CARD_HEIGHT + DECK_CARD_SPACING)
+            top = BOARD_DECK_TOP_MARGIN + row * (DECK_CARD_HEIGHT + DECK_CARD_SPACING)
             bottom = top + DECK_CARD_HEIGHT
-            
+
             if left <= screen_x <= right and top <= screen_y <= bottom:
                 return (row, col)
-    
+
     return None
 
 

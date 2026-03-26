@@ -13,6 +13,18 @@ from config import (
     CHASE_BUTTON_POS, FLIGHT_BUTTON_POS, TOKEN_BUTTON_LINE_WIDTH,PURPLE,WHITE,
 )
 
+# 설계 기준(TEXT_SIZE=28) 대비 스케일 → 모든 텍스트 크기에 적용
+_S = TEXT_SIZE / 28
+_TIMER_H       = max(12, round(45 * _S))
+_SCORE_H       = max(12, round(30 * _S))
+_MSG_H         = max(10, round(15 * _S))
+_START_CUE_H   = max(20, round(90 * _S))
+_INSTR_H       = max(10, round(25 * _S))
+_TURN_H        = max(10, round(20 * _S))
+_PHASE_H       = max(12, round(36 * _S))
+_CUE_BG_W      = max(200, round(320 * _S))
+_CUE_BG_H      = max(80,  round(160 * _S))
+
 
 class UIElements:
     """게임 UI 요소를 관리하는 클래스"""
@@ -46,29 +58,29 @@ class UIElements:
         self.timer_text = visual.TextStim(
             win=self.win,
             text="00:15",
-            pos=(0, HEIGHT / 2 - 40),
-            height=45,
+            pos=(0, HEIGHT / 2 - round(40 * _S)),
+            height=_TIMER_H,
             color=TEXT_COLOR,
             colorSpace='rgb255',
             bold=True
         )
-        
+
         # 점수 (상단 왼쪽)
         self.score_text = visual.TextStim(
             win=self.win,
             text="점수: 0",
-            pos=(-WIDTH / 2 + 200, HEIGHT / 2 - 100),
-            height=30,
+            pos=(-WIDTH / 2 + round(200 * _S), HEIGHT / 2 - round(100 * _S)),
+            height=_SCORE_H,
             color=TEXT_COLOR,
             colorSpace='rgb255'
         )
-        
+
         # 메시지 (화면 중앙)
         self.message_text = visual.TextStim(
             win=self.win,
             text="",
             pos=(0, message_base_y),
-            height=24,
+            height=_MSG_H,
             color=[255, 255, 0],  # 노란색 (강조)
             colorSpace='rgb255',
             bold=True
@@ -76,8 +88,8 @@ class UIElements:
 
         self.start_cue_background = visual.Rect(
             win=self.win,
-            width=320,
-            height=160,
+            width=_CUE_BG_W,
+            height=_CUE_BG_H,
             pos=(0, 0),
             fillColor=WHITE,
             lineColor=WHITE,
@@ -88,20 +100,20 @@ class UIElements:
             win=self.win,
             text="",
             pos=(0, 0),
-            height=90,
+            height=_START_CUE_H,
             color=PURPLE,
             colorSpace='rgb255',
             bold=True
         )
-        
+
         # 안내 문구 (하단)
-        instruction_gap = 14
-        instruction_y = message_base_y - (self.message_text.height / 2) - instruction_gap - (25 / 2) - 60
+        instruction_gap = round(14 * _S)
+        instruction_y = message_base_y - (self.message_text.height / 2) - instruction_gap - (_INSTR_H / 2) - round(60 * _S)
         self.instruction_text = visual.TextStim(
             win=self.win,
             text="",
             pos=(0, instruction_y),
-            height=25,
+            height=_INSTR_H,
             color=TEXT_COLOR,
             colorSpace='rgb255'
         )
@@ -261,8 +273,8 @@ class UIElements:
         turn_text = visual.TextStim(
             win=self.win,
             text=f"{'사용자' if turn == 'user' else '문어'} 턴",
-            pos=(WIDTH / 2 - 120, HEIGHT / 2 - 30),
-            height=20,
+            pos=(WIDTH / 2 - round(120 * _S), HEIGHT / 2 - round(30 * _S)),
+            height=_TURN_H,
             color=[255, 200, 0] if turn == 'user' else [200, 0, 255],
             colorSpace='rgb255',
             bold=True
@@ -279,8 +291,8 @@ class UIElements:
         phase_text = visual.TextStim(
             win=self.win,
             text=phase_name,
-            pos=(0, HEIGHT / 2 - 35),
-            height=36,
+            pos=(0, HEIGHT / 2 - round(35 * _S)),
+            height=_PHASE_H,
             color=TEXT_COLOR,
             colorSpace='rgb255',
             bold=True

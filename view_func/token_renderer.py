@@ -4,10 +4,8 @@
 from psychopy import visual
 import os
 from config import (
-    BOARD_DECK_CENTER_GAP,
-    BOARD_Y_OFFSET,
+    BOARD_LEFT_EDGE, BOARD_DECK_TOP_MARGIN,
     BOARD_CARD_WIDTH, BOARD_CARD_HEIGHT, BOARD_CARD_SPACING,
-    CHASE_BUTTON_POS, TOKEN_BUTTON_HEIGHT,
     WIDTH, HEIGHT,
     TOKEN_SIZE
 )
@@ -51,32 +49,15 @@ class TokenRenderer:
             )
     
     def _get_card_center(self, row, col):
-        """
-        특정 카드 위치의 중심 좌표 반환
-        
-        Args:
-            row, col: 카드 위치
-        
-        Returns:
-            (x, y) 좌표 (PsychoPy 좌표계)
-        """
-        board_cols = self.token_manager.cols
-        board_rows = self.token_manager.rows
-        board_total_width = board_cols * BOARD_CARD_WIDTH + (board_cols - 1) * BOARD_CARD_SPACING
-        left_margin = (WIDTH / 2) - (BOARD_DECK_CENTER_GAP / 2) - board_total_width
-        left_x = left_margin + col * (BOARD_CARD_WIDTH + BOARD_CARD_SPACING)
+        """특정 카드 위치의 중심 좌표 반환 (PsychoPy 좌표계)"""
+        left_x = BOARD_LEFT_EDGE + col * (BOARD_CARD_WIDTH + BOARD_CARD_SPACING)
         center_x = left_x + BOARD_CARD_WIDTH / 2
         x = center_x - WIDTH / 2
-        
-        board_total_height = board_rows * BOARD_CARD_HEIGHT + (board_rows - 1) * BOARD_CARD_SPACING
-        button_top_psy = CHASE_BUTTON_POS[1] + (TOKEN_BUTTON_HEIGHT / 2)
-        button_top_screen = (HEIGHT / 2) - button_top_psy
-        play_area_bottom_screen = max(0, button_top_screen - 20)
-        top_margin = max(0, (play_area_bottom_screen - board_total_height) / 2 + BOARD_Y_OFFSET)
-        top_y = top_margin + row * (BOARD_CARD_HEIGHT + BOARD_CARD_SPACING)
+
+        top_y = BOARD_DECK_TOP_MARGIN + row * (BOARD_CARD_HEIGHT + BOARD_CARD_SPACING)
         center_y = top_y + BOARD_CARD_HEIGHT / 2
         y = HEIGHT / 2 - center_y
-        
+
         return (x, y)
     
     def draw(self):
