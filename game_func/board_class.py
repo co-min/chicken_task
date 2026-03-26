@@ -210,11 +210,11 @@ class ConditionBoard:
     def get_condition(self, row, col):
         """
         특정 위치(row, col)의 조건 가져오기
-        
+
         Args:
             row (int): 행
             col (int): 열
-        
+
         Returns:
             dict: 조건 또는 None (트랙에 없는 위치)
         """
@@ -223,99 +223,34 @@ class ConditionBoard:
             idx = self._track_index_by_pos[pos]
             return self.board[idx]
         return None
-    
-    def get_next_position(self, current_row, current_col):
-        """
-        순환 경로에서 다음 위치 계산
-        1-1 → 1-9 → 2-1 → 2-9 → 3-1 → 3-9 → 1-1 (순환)
-        
-        Args:
-            current_row (int): 현재 행
-            current_col (int): 현재 열
-        
-        Returns:
-            tuple: (next_row, next_col)
-        """
-        current_pos = (current_row, current_col)
-        if current_pos not in self._track_index_by_pos:
-            return self.track_positions[0]
-
-        next_idx = (self._track_index_by_pos[current_pos] + 1) % len(self.track_positions)
-        return self.track_positions[next_idx]
-    
-    def get_all_conditions(self):
-        """
-        모든 조건을 1D 리스트로 반환
-        
-        Returns:
-            list: track_length개 조건
-        """
-        return self.board
-    
-    def print_board(self):
-        """보드 출력 (디버깅용, ㅁ자 형태)"""
-        print("=" * 80)
-        print("운동장 조건 카드 보드 (ㅁ자 순환 트랙)")
-        print("=" * 80)
-        
-        for idx, pos in enumerate(self.track_positions):
-            row, col = pos
-            condition = self.board[idx]
-            cond_type = condition.get('type', '?')
-            cond_value = condition.get('value', '?')
-            
-            # 행이 바뀔 때마다 줄바꿈
-            if idx > 0 and pos[0] != self.track_positions[idx-1][0]:
-                print()
-            
-            print(f"  [{row},{col}] {cond_type}:{cond_value}", end="  ")
-        
-        print("\n" + "=" * 80)
 
 
 # ==================== 테스트 코드 ====================
 if __name__ == "__main__":
     print("\n### ConditionBoard 테스트 ###\n")
-    
+
     # 보드 생성
     board = ConditionBoard()
-    board.print_board()
-    
+
     # 조건 가져오기 테스트
-    print("\n### get_condition 테스트 ###")
+    print("### get_condition 테스트 ###")
     print(f"[0,0]: {board.get_condition(0, 0)}")
     print(f"[1,8]: {board.get_condition(1, 8)}")
     print(f"[2,0]: {board.get_condition(2, 0)}")
-    
-    # 다음 위치 계산 테스트
-    print("\n### 순환 경로 테스트 ###")
-    test_positions = [
-        (0, 0),   # 상단 시작
-        (0, 8),   # 상단 끝
-        (1, 8),   # 우측
-        (2, 0),   # 좌측 끝
-    ]
-    
-    for pos in test_positions:
-        next_pos = board.get_next_position(pos[0], pos[1])
-        print(f"{pos} → {next_pos}")
-    
+
     # 조건 분포 확인
     print("\n### 조건 분포 확인 ###")
-    all_conds = board.get_all_conditions()
-    print(f"총 조건 수: {len(all_conds)}")
-    
+    print(f"총 조건 수: {len(board.board)}")
+
     type_count = {}
     value_count = {}
-    
-    for cond in all_conds:
+    for cond in board.board:
         cond_type = cond.get('type')
         cond_value = cond.get('value')
-
         type_count[cond_type] = type_count.get(cond_type, 0) + 1
         value_count[cond_value] = value_count.get(cond_value, 0) + 1
 
     print(f"타입 분포: {type_count}")
     print(f"값 분포: {value_count}")
-    
+
     print("\n[OK] ConditionBoard 테스트 완료!")

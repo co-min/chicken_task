@@ -196,82 +196,41 @@ class MainDeck:
         
         return auto_hidden
     
-    def reset_all(self):
-        """모든 카드를 뒷면으로 리셋"""
-        self.face_up = self._initialize_face_states()
-        self.flip_timers = {}
-    
-    def get_all_cards(self):
-        """
-        모든 카드를 평탄화된 리스트로 반환
-        
-        Returns:
-            list: 27개 카드 [row0_col0, row0_col1, ...]
-        """
-        flat = []
-        for row in range(self.rows):
-            for col in range(self.cols):
-                flat.append(self.deck[row][col])
-        return flat
-    
-    def print_deck(self):
-        """덱 출력 (디버깅용)"""
-        print("=" * 80)
-        print("메인 카드 덱 (Main Deck)")
-        print("=" * 80)
-        
-        for row in range(self.rows):
-            print(f"\n행 {row + 1}:")
-            for col in range(self.cols):
-                card = self.deck[row][col]
-                state = "앞면" if self.face_up[row][col] else "뒷면"
-                c = card['color'][0].upper()  # R, B, G
-                s = card['shape'][0].upper()   # S, T, C
-                n = card['number']
-                print(f"  [{row},{col}] {c}{s}{n} ({state})", end="  ")
-            print()
-        
-        print("=" * 80)
 
 
 # ==================== 테스트 코드 ====================
 if __name__ == "__main__":
     import time
-    
+
     print("\n### MainDeck 테스트 ###\n")
-    
+
     # 덱 생성
     deck = MainDeck()
-    deck.print_deck()
-    
+
     # 카드 가져오기 테스트
-    print("\n### get_card 테스트 ###")
+    print("### get_card 테스트 ###")
     print(f"[0,0]: {deck.get_card(0, 0)}")
     print(f"[1,4]: {deck.get_card(1, 4)}")
     print(f"[2,8]: {deck.get_card(2, 8)}")
-    
+
     # 조합 확인
     print("\n### 카드 조합 확인 ###")
-    all_cards = deck.get_all_cards()
+    all_cards = [deck.get_card(r, c) for r in range(deck.rows) for c in range(deck.cols)]
     print(f"총 카드 수: {len(all_cards)}")
-    
-    # 중복 확인 (문자열로 변환하여 set 사용)
     unique_cards = set(f"{c['color']}-{c['shape']}-{c['number']}" for c in all_cards)
     print(f"고유 조합 수: {len(unique_cards)} (27개여야 함)")
-    
+
     # 플립 메커니즘 테스트
     print("\n### 플립 메커니즘 테스트 ###")
     print(f"[0,0] 앞면? {deck.is_face_up(0, 0)}")
-    
-    # 카드 뒤집기
     deck.flip_card(0, 0)
     print(f"플립 후 [0,0] 앞면? {deck.is_face_up(0, 0)}")
-    
+
     # 5초 경과 시뮬레이션
     print("\n5초 경과 시뮬레이션...")
-    current_time = time.time() + 5.1  # 5초 후
+    current_time = time.time() + 5.1
     auto_hidden = deck.update_timers(current_time)
     print(f"자동 숨김된 카드: {auto_hidden}")
     print(f"[0,0] 앞면? {deck.is_face_up(0, 0)}")
-    
+
     print("\n[OK] MainDeck 테스트 완료!")
