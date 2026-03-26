@@ -68,15 +68,14 @@ class MainDeck:
                         'number': number
                     })
 
-        # 필요한 개수만큼 반복하여 충분한 풀 생성
-        cards = []
-        while len(cards) < self.total_cards:
-            for card in base_cards:
-                cards.append(dict(card))
-                if len(cards) >= self.total_cards:
-                    break
+        # total_cards만큼 중복 없이 랜덤 샘플
+        if self.total_cards > len(base_cards):
+            raise ValueError(
+                f"덱 크기({self.total_cards})가 가능한 조합 수({len(base_cards)})를 초과합니다. "
+                f"colors({len(colors)}) × shapes({len(shapes)}) × numbers({len(numbers)}) = {len(base_cards)}"
+            )
 
-        return cards
+        return random.sample(base_cards, self.total_cards)
     
     def _shuffle_and_layout(self):
         """

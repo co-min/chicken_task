@@ -148,7 +148,7 @@ GAME_MODES = {
         'preview_image': 'selection/selection1.png',
         'colors': ['red', 'green', 'blue'],        # 사용할 색상
         'shapes': ['square', 'triangle', 'circle'],  # 사용할 모양
-        'numbers': [1, 2],                          # 사용할 숫자
+        'numbers': [1, 2, 3],                          # 사용할 숫자
     },
     'selection2': {
         'mode_id': 'selection2',
@@ -165,6 +165,8 @@ GAME_MODES = {
         'shapes': ['square', 'triangle', 'circle'],  # 사용할 모양
         'numbers': [1, 2],                          # 사용할 숫자
     },
+
+
     # selection3, 4는 나중에 추가
     # 예: 'colors': ['red', 'blue'], 'shapes': ['rectangle', 'circle'], 'numbers': [1, 2, 3]
 }

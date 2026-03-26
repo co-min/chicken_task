@@ -108,15 +108,21 @@ class ConditionBoard:
         for number in numbers:
             base_conditions.append({'type': 'number', 'value': number})
 
-        # 필요한 개수만큼 반복하여 정확히 total_cards 구성
         if not base_conditions:
             return []
 
-        conditions = []
-        while len(conditions) < self.total_cards:
-            conditions.extend(base_conditions)
+        # 완전 반복 횟수만큼 채우고, 나머지는 랜덤 샘플로 구성
+        base_count = len(base_conditions)
+        full_repeats = self.total_cards // base_count
+        remainder = self.total_cards % base_count
 
-        return conditions[:self.total_cards]
+        conditions = []
+        for _ in range(full_repeats):
+            conditions.extend(base_conditions)
+        if remainder > 0:
+            conditions.extend(random.sample(base_conditions, remainder))
+
+        return conditions
     
     def _shuffle_and_layout(self):
         """
