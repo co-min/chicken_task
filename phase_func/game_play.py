@@ -153,7 +153,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                 board_renderer,
                 deck_renderer,
                 token_renderer,
-                message="시간 초과! 턴 종료",
+                message="시간 초과",
                 color=DARK_GREY,
                 duration=FEEDBACK_DURATION,
                 highlighted_pos=None,
@@ -196,7 +196,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                         board_renderer,
                         deck_renderer,
                         token_renderer,
-                        message="성공! 닭이 이동합니다",
+                        message="성공",
                         color=PURPLE,
                         duration=FEEDBACK_DURATION,
                         highlighted_pos=None,
@@ -237,7 +237,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                         board_renderer,
                         deck_renderer,
                         token_renderer,
-                        message="실패! 턴 종료",
+                        message="실패",
                         color=DARK_GREY,
                         duration=FEEDBACK_DURATION,
                         highlighted_pos=None,
@@ -315,13 +315,13 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
         
         # 2단계: 결과 판정 표시
         if result == 'success':
-            feedback_message = "문어 성공!"
+            feedback_message = "문어 성공"
             feedback_color = PURPLE
         elif result == 'failure':
-            feedback_message = "문어 실패!"
+            feedback_message = "문어 실패"
             feedback_color = DARK_GREY
         elif result == 'game_end':
-            feedback_message = "게임 종료!"
+            feedback_message = ""
             feedback_color = [0, 0, 0]
 
         run_feedback_phase(
@@ -352,7 +352,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
                 board_renderer,
                 deck_renderer,
                 token_renderer,
-                message=f"문어가 {pc_target_pos}로 이동합니다",
+                message="",
                 color=PURPLE,
                 duration=FEEDBACK_DURATION,
                 highlighted_pos=None,
@@ -372,7 +372,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
                 board_renderer,
                 deck_renderer,
                 token_renderer,
-                message="문어 턴 종료",
+                message="",
                 color=DARK_GREY,
                 duration=FEEDBACK_DURATION,
                 highlighted_pos=None,

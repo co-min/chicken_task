@@ -51,11 +51,11 @@ def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck
     original_message_pos = ui_elements.message_text.pos
     button_top = CHASE_BUTTON_POS[1] + (TOKEN_BUTTON_HEIGHT / 2)
     ui_elements.instruction_text.pos = (0, button_top + 25)
-    ui_elements.message_text.pos = (0, button_top + 50)
+    ui_elements.message_text.pos = (0, button_top + 60)
+    ui_elements.instruction_text.text = "닭을 선택하세요"
+    ui_elements.message_text.text = ""
     
-    # 안내 문구 설정 (마우스 전용)
-    ui_elements.instruction_text.text = "마우스로 닭 버튼을 클릭해 선택하세요"
-    ui_elements.message_text.text = "어떤 닭을 조종하시겠습니까?"
+    
     
     # 메인 루프
     while True:
@@ -72,6 +72,8 @@ def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck
                 game_state.select_token(selected_token)
                 while mouse.getPressed()[0]:
                     core.wait(0.01)
+                ui_elements.instruction_text.text = ""
+                ui_elements.message_text.text = ""
                 ui_elements.instruction_text.pos = original_instruction_pos
                 ui_elements.message_text.pos = original_message_pos
                 return selected_token
@@ -85,6 +87,8 @@ def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck
                 game_state.select_token(selected_token)
                 while mouse.getPressed()[0]:
                     core.wait(0.01)
+                ui_elements.instruction_text.text = ""
+                ui_elements.message_text.text = ""
                 ui_elements.instruction_text.pos = original_instruction_pos
                 ui_elements.message_text.pos = original_message_pos
                 return selected_token

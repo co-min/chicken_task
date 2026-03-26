@@ -46,7 +46,7 @@ class UIElements:
         self.timer_text = visual.TextStim(
             win=self.win,
             text="00:15",
-            pos=(0, HEIGHT / 2 - 70),
+            pos=(0, HEIGHT / 2 - 40),
             height=45,
             color=TEXT_COLOR,
             colorSpace='rgb255',
@@ -58,7 +58,7 @@ class UIElements:
             win=self.win,
             text="점수: 0",
             pos=(-WIDTH / 2 + 200, HEIGHT / 2 - 100),
-            height=38,
+            height=30,
             color=TEXT_COLOR,
             colorSpace='rgb255'
         )
@@ -96,7 +96,7 @@ class UIElements:
         
         # 안내 문구 (하단)
         instruction_gap = 14
-        instruction_y = message_base_y - (self.message_text.height / 2) - instruction_gap - (25 / 2)
+        instruction_y = message_base_y - (self.message_text.height / 2) - instruction_gap - (25 / 2) - 60
         self.instruction_text = visual.TextStim(
             win=self.win,
             text="",
@@ -204,8 +204,7 @@ class UIElements:
         """사용자 턴 HUD 텍스트/색상 갱신"""
         self.message_text.height = self._user_message_height
         self.instruction_text.height = self._user_instruction_height
-        self.instruction_text.text = f"메인 덱에서 조건에 맞는 카드를 클릭하세요 (턴 {turn_count})"
-        self.message_text.text = f"{selected_token.upper()} 닭을 조종 중..."
+        self.message_text.text = selected_token.upper()
         self.message_text.color = TEXT_COLOR
         self.timer_text.text = timer_display_text
 
@@ -213,10 +212,9 @@ class UIElements:
         """PC 턴 HUD 텍스트/색상 갱신"""
         self.message_text.height = self._user_message_height * self._pc_text_scale
         self.instruction_text.height = self._user_instruction_height * self._pc_text_scale
-        self.instruction_text.text = f"문어 차례 - Octopus가 카드를 선택하는 중... (턴 {turn_count})"
-        self.message_text.text = f"타겟: {target_pos}"
+        self.message_text.text = ""
         self.message_text.color = TEXT_COLOR
-        self.timer_text.text = timer_label
+        self.timer_text.text = ""
     
     def draw_token_choice_buttons(self, hovered=None, selected=None):
         """
@@ -263,8 +261,8 @@ class UIElements:
         turn_text = visual.TextStim(
             win=self.win,
             text=f"{'사용자' if turn == 'user' else '문어'} 턴",
-            pos=(WIDTH / 2 - 120, HEIGHT / 2 - 70),
-            height=30,
+            pos=(WIDTH / 2 - 120, HEIGHT / 2 - 30),
+            height=20,
             color=[255, 200, 0] if turn == 'user' else [200, 0, 255],
             colorSpace='rgb255',
             bold=True
@@ -290,87 +288,3 @@ class UIElements:
         phase_text.draw()
 
 
-# 테스트 코드
-if __name__ == "__main__":
-    # 경고 억제
-    import warnings
-    warnings.filterwarnings('ignore')
-    from psychopy import logging
-    logging.console.setLevel(logging.ERROR)
-    
-    from psychopy import core
-    from set_opts.set_visual_opt import set_visual_opt
-    import time
-    
-    print("\n### UIElements 테스트 ###\n")
-    
-    # 윈도우 생성
-    visual_opt = set_visual_opt()
-    visual_opt['fullscreen'] = False
-    
-    win = visual.Window(
-        size=visual_opt['win_size'],
-        color=visual_opt['bg_color'],
-        fullscr=visual_opt['fullscreen'],
-        units=visual_opt['units'],
-        colorSpace=visual_opt['color_space'],
-        allowGUI=True,
-        pos=visual_opt.get('pos'),
-        screen=visual_opt.get('screen', 0)
-    )
-    
-    # UI 요소 생성
-    ui = UIElements(win)
-    
-    # 마우스 생성
-    mouse = visual.event.Mouse(win=win)
-    
-    print("렌더링 시작...")
-    print("마우스를 버튼에 올리거나 클릭하세요.")
-    print("ESC 키를 눌러 종료하세요.\n")
-    
-    # 테스트 변수
-    score = 0
-    start_time = time.time()
-    selected_token = None
-    
-    # 메인 루프
-    while True:
-        # 키보드 체크
-        keys = visual.event.getKeys(['escape'])
-        if 'escape' in keys:
-            break
-        
-        # 타이머 계산
-        elapsed = time.time() - start_time
-        remaining = max(0, 15 - elapsed)
-        time_str = f"{int(remaining // 60):02d}:{int(remaining % 60):02d}"
-        
-        # 마우스 위치 체크
-        mouse_pos = mouse.getPos()
-        hovered = ui.get_hovered_button(mouse_pos)
-        
-        # 마우스 클릭 체크
-        if mouse.getPressed()[0] and hovered:
-            selected_token = hovered
-            print(f"선택: {selected_token}")
-            core.wait(0.2)  # 더블 클릭 방지
-        
-        # UI 그리기
-        ui.draw_phase_title("토큰 선택 단계")
-        ui.draw_timer(time_str)
-        ui.draw_score(score, 0)
-        ui.draw_turn_indicator('user')
-        ui.draw_instruction("왼쪽 또는 오른쪽 닭을 선택하세요 (ESC: 종료)")
-        
-        if selected_token:
-            ui.draw_message(f"{selected_token.upper()} 선택됨!")
-        
-        ui.draw_token_choice_buttons(hovered=hovered, selected=selected_token)
-        
-        win.flip()
-    
-    win.close()
-    core.quit()
-    
-    print("\n[OK] UIElements 테스트 완료!")

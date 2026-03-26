@@ -43,7 +43,9 @@ def run_tutorial_phase(win, ui_elements):
 
 	keys = event.waitKeys(keyList=['space', KEY_EXIT])
 
-	# 위치 복원
+	# 텍스트 초기화 후 위치 복원
+	ui_elements.instruction_text.text = ""
+	ui_elements.message_text.text = ""
 	ui_elements.instruction_text.pos = orig_instruction_pos
 	ui_elements.message_text.pos = orig_message_pos
 
