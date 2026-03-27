@@ -6,9 +6,11 @@ from psychopy import event
 
 try:
 	from ..config import KEY_EXIT, TEXT_COLOR
+	from ..view_func.frame_marker import blink_frame_marker, trigger_frame_marker
 except ImportError:
 	sys.path.insert(0, str(Path(__file__).parent.parent))
 	from config import KEY_EXIT, TEXT_COLOR
+	from view_func.frame_marker import blink_frame_marker, trigger_frame_marker
 
 
 def run_tutorial_phase(win, ui_elements):
@@ -39,6 +41,8 @@ def run_tutorial_phase(win, ui_elements):
 
 	ui_elements.instruction_text.draw()
 	ui_elements.message_text.draw()
+	trigger_frame_marker()   # 이벤트: 튜토리얼 화면 표시
+	blink_frame_marker(win)
 	win.flip()
 
 	keys = event.waitKeys(keyList=['space', KEY_EXIT])

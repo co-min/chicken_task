@@ -6,9 +6,11 @@ from psychopy import visual, event
 
 try:
 	from ..config import TEXT_COLOR
+	from ..view_func.frame_marker import blink_frame_marker, trigger_frame_marker
 except ImportError:
 	sys.path.insert(0, str(Path(__file__).parent.parent))
 	from config import TEXT_COLOR
+	from view_func.frame_marker import blink_frame_marker, trigger_frame_marker
 
 
 def run_ending_phase(win, ui_elements, game_state, result):
@@ -56,6 +58,8 @@ def run_ending_phase(win, ui_elements, game_state, result):
 	ui_elements.message_text.draw()
 	stats_text.draw()
 	exit_text.draw()
+	trigger_frame_marker()   # 이벤트: 게임 종료 화면 표시
+	blink_frame_marker(win)
 	win.flip()
 	event.waitKeys()
 

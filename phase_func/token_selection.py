@@ -12,6 +12,7 @@ try:
         CHASE_BUTTON_POS, FLIGHT_BUTTON_POS,
         TOKEN_BUTTON_WIDTH, TOKEN_BUTTON_HEIGHT
     )
+    from ..view_func.frame_marker import blink_frame_marker, trigger_frame_marker
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from config import (
@@ -20,6 +21,7 @@ except ImportError:
         CHASE_BUTTON_POS, FLIGHT_BUTTON_POS,
         TOKEN_BUTTON_WIDTH, TOKEN_BUTTON_HEIGHT
     )
+    from view_func.frame_marker import blink_frame_marker, trigger_frame_marker
 
 
 def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck_renderer, token_renderer):
@@ -70,6 +72,7 @@ def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck
             if mouse.getPressed()[0]:  # 왼쪽 버튼
                 selected_token = 'chase'
                 game_state.select_token(selected_token)
+                trigger_frame_marker()   # 이벤트: 닭 선택 (Chase)
                 while mouse.getPressed()[0]:
                     core.wait(0.01)
                 ui_elements.instruction_text.text = ""
@@ -77,7 +80,7 @@ def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck
                 ui_elements.instruction_text.pos = original_instruction_pos
                 ui_elements.message_text.pos = original_message_pos
                 return selected_token
-        
+
         # Flight 버튼 위에 있는지 확인
         elif _is_mouse_over_button(mouse_pos, FLIGHT_BUTTON_POS, TOKEN_BUTTON_WIDTH, TOKEN_BUTTON_HEIGHT):
             hovering = 'flight'
@@ -85,6 +88,7 @@ def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck
             if mouse.getPressed()[0]:  # 왼쪽 버튼
                 selected_token = 'flight'
                 game_state.select_token(selected_token)
+                trigger_frame_marker()   # 이벤트: 닭 선택 (Flight)
                 while mouse.getPressed()[0]:
                     core.wait(0.01)
                 ui_elements.instruction_text.text = ""
@@ -98,7 +102,7 @@ def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck
             win, ui_elements, board_renderer, deck_renderer, token_renderer,
             selected_token, hovering
         )
-        
+        blink_frame_marker(win)
         win.flip()
         core.wait(0.016)  # ~60 FPS
 

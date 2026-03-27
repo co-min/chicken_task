@@ -7,9 +7,11 @@ from psychopy import event, visual, core
 
 try:
 	from ..config import KEY_EXIT, TEXT_COLOR, GAME_MODES, DEFAULT_GAME_MODE
+	from ..view_func.frame_marker import blink_frame_marker, trigger_frame_marker
 except ImportError:
 	sys.path.insert(0, str(Path(__file__).parent.parent))
 	from config import KEY_EXIT, TEXT_COLOR, GAME_MODES, DEFAULT_GAME_MODE
+	from view_func.frame_marker import blink_frame_marker, trigger_frame_marker
 
 
 def _build_mode_cards(win):
@@ -128,9 +130,11 @@ def run_starting_phase(win, ui_elements):
 			card['image'].draw()
 			card['title'].draw()
 			card['subtitle'].draw()
+		blink_frame_marker(win)
 		win.flip()
 
 		keys = event.getKeys(keyList=[KEY_EXIT])
+
 		if keys and KEY_EXIT in keys:
 			selected_mode_id = None
 			status = 'exit'
@@ -139,6 +143,7 @@ def run_starting_phase(win, ui_elements):
 		if mouse.getPressed()[0] and hovered_mode_id is not None:
 			selected_mode_id = hovered_mode_id
 			status = 'continue'
+			trigger_frame_marker()   # 이벤트: 게임 모드 선택
 			while mouse.getPressed()[0]:
 				core.wait(0.01)
 			break

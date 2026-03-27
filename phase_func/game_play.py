@@ -29,6 +29,11 @@ except ImportError:
     from phase_func.token_selection import run_token_selection_phase
     from phase_func.feedback import run_feedback_phase
 
+try:
+    from ..view_func.frame_marker import blink_frame_marker, trigger_frame_marker
+except ImportError:
+    from view_func.frame_marker import blink_frame_marker, trigger_frame_marker
+
 
 START_CUE_DURATION = 0.8
 
@@ -183,6 +188,8 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                 
                 # 카드 뒤집기 애니메이션 (game_state.user_click_card에서 이미 flip 수행됨)
                 _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, target_pos)
+                trigger_frame_marker()   # 이벤트: 사용자 카드 뒤집기
+                blink_frame_marker(win)
                 win.flip()
                 core.wait(CARD_FLIP_DURATION)
                 
@@ -259,6 +266,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
         
         # 화면 그리기 (타겟 하이라이트 포함)
         _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, target_pos)
+        blink_frame_marker(win)
         win.flip()
 
         # AOI 시선 추적 업데이트 (flip 직후 호출하여 프레임 타임스탬프와 동기화)
@@ -301,8 +309,10 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
         
         # 타겟 하이라이트와 함께 화면 그리기
         _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, pc_target_pos)
+        trigger_frame_marker()   # 이벤트: PC 턴 시작
+        blink_frame_marker(win)
         win.flip()
-        
+
         # PC 생각 시간
         core.wait(PC_THINK_TIME)
         
@@ -310,9 +320,11 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
         result, card_pos = game_state.pc_turn_step(defer_success_move=True)
         print(f"[PC TURN] 카드 선택: {card_pos}, 결과: {result}")
         
-        # 1단계: 카드 뒂집기 애니메이션 (타겟 하이라이트 유지)
+        # 1단계: 카드 뒤집기 애니메이션 (타겟 하이라이트 유지)
         # ui_elements.message_text.text = f"문어가 ({card_pos[0]}, {card_pos[1]}) 카드 선택"
         _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, pc_target_pos)
+        trigger_frame_marker()   # 이벤트: PC 카드 뒤집기
+        blink_frame_marker(win)
         win.flip()
         core.wait(CARD_FLIP_DURATION)
         
@@ -460,5 +472,7 @@ def _show_start_cue(
         target_pos,
     )
     ui_elements.draw_start_cue("시작!")
+    trigger_frame_marker()   # 이벤트: 시행 시작 큐
+    blink_frame_marker(win)
     win.flip()
     core.wait(START_CUE_DURATION)

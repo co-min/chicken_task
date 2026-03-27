@@ -202,6 +202,11 @@ GAME_MODES = {
     # 예: 'colors': ['red', 'blue'], 'shapes': ['rectangle', 'circle'], 'numbers': [1, 2, 3]
 }
 
+FRAME_MARKER_POS = (-720, -520)      # 좌하단 구석 (units='pix')
+FRAME_MARKER_SIZE = (20, 20)        # (width, height)
+FRAME_MARKER_DURATION = 4           # 이벤트 발생 후 마커를 표시할 프레임 수 (약 3~5프레임)
+
+
 
 # ==================== AUTO SCREEN SCALE ====================
 
