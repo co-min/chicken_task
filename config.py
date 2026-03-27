@@ -189,8 +189,8 @@ GAME_MODES = {
         'board_cols': 9,
         'deck_rows': 3,
         'deck_cols': 6,
-        'token_count': 4,
-        'ruleset_id': 'rules_4token',
+        'token_count': 3,
+        'ruleset_id': 'rules_3token',
         'preview_image': 'selection/selection2.png',
         'colors': ['red', 'green', 'blue'],        # 사용할 색상
         'shapes': ['square', 'triangle', 'circle'],  # 사용할 모양
@@ -202,8 +202,8 @@ GAME_MODES = {
     # 예: 'colors': ['red', 'blue'], 'shapes': ['rectangle', 'circle'], 'numbers': [1, 2, 3]
 }
 
-FRAME_MARKER_POS = (-720, -520)      # 좌하단 구석 (units='pix')
-FRAME_MARKER_SIZE = (20, 20)        # (width, height)
+FRAME_MARKER_POS = (-850, -520)      # 좌하단 구석 (units='pix')
+FRAME_MARKER_SIZE = (20, 30)        # (width, height)
 FRAME_MARKER_DURATION = 4           # 이벤트 발생 후 마커를 표시할 프레임 수 (약 3~5프레임)
 
 
