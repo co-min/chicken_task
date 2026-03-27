@@ -33,15 +33,16 @@ except ImportError:
 START_CUE_DURATION = 0.8
 
 
-def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_renderer, token_renderer):
+def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_renderer,
+                        token_renderer, aoi_manager=None):
     """
     Phase 1+: 게임 플레이 단계
     사용자와 PC가 교대로 턴을 진행하며 게임을 플레이
-    
+
     턴 시스템:
     - 사용자 턴: 닭 선택 → 카드 선택 → 성공(계속)/실패(PC 턴)
     - PC 턴: AI 카드 선택 (60% 정답률) → 성공(계속)/실패(사용자 턴)
-    
+
     Args:
         win: PsychoPy window 객체
         game_state: GameState 인스턴스
@@ -49,7 +50,8 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
         board_renderer: BoardRenderer 인스턴스
         deck_renderer: DeckRenderer 인스턴스
         token_renderer: TokenRenderer 인스턴스
-    
+        aoi_manager: AOIManager 인스턴스 (선택, None 이면 AOI 추적 비활성화)
+
     Returns:
         str: 게임 종료 이유 ('victory', 'defeat', 'exit')
     """
@@ -70,8 +72,8 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
         # 현재 턴 확인 및 실행
         if game_state.current_turn == game_state.TURN_USER:
             # 사용자 턴 실행
-            result = _run_user_turn(win, game_state, ui_elements, board_renderer, 
-                                   deck_renderer, token_renderer, mouse)
+            result = _run_user_turn(win, game_state, ui_elements, board_renderer,
+                                   deck_renderer, token_renderer, mouse, aoi_manager)
             
             if result == 'exit':
                 return 'exit'
@@ -98,17 +100,17 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
         core.wait(0.005)
 
 
-def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer, 
-                   token_renderer, mouse):
+def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
+                   token_renderer, mouse, aoi_manager=None):
     """
     사용자 턴 실행
-    
+
     흐름:
     1. 닭 선택 단계 (선택되지 않았을 경우)
     2. 카드 선택 루프 (같은 닭으로 계속 시도)
        - 성공: 타이머 리셋 후 다음 타겟으로 계속
        - 실패/타임아웃: 턴 종료 → PC 턴으로 전환
-    
+
     Returns:
         str: 'exit' (게임 종료), 'game_end' (승패 결정), 'continue' (턴 종료 → PC 턴)
     """
@@ -258,8 +260,13 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
         # 화면 그리기 (타겟 하이라이트 포함)
         _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, target_pos)
         win.flip()
+
+        # AOI 시선 추적 업데이트 (flip 직후 호출하여 프레임 타임스탬프와 동기화)
+        if aoi_manager:
+            aoi_manager.update(core.getTime())
+
         core.wait(0.016)
-    
+
     return 'continue'
 
 

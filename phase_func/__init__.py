@@ -13,9 +13,13 @@ def run_all_phases(
 	board_renderer,
 	deck_renderer,
 	token_renderer,
+	aoi_manager=None,
 ):
 	"""
 	전체 phase 실행 오케스트레이터.
+
+	Args:
+		aoi_manager: AOIManager 인스턴스 (선택). None 이면 AOI 추적 비활성화.
 
 	Returns:
 		str: 최종 결과 ('victory', 'defeat', 'exit')
@@ -44,6 +48,13 @@ def run_all_phases(
 		token_renderer._create_visuals()
 		print(f"  - 시작 모드 선택: {selected_mode_id}")
 
+		# 게임 모드가 결정된 후 AOI 테이블 재구성 (보드/덱 크기가 확정됨)
+		if aoi_manager is not None:
+			aoi_manager.board = game_state.board
+			aoi_manager.deck  = game_state.deck
+			aoi_manager._build_aois()
+			print(f"  - AOI 테이블 재구성: {len(aoi_manager.aois)}개")
+
 	print("[4/5] 튜토리얼 phase...")
 	tutorial_result = run_tutorial_phase(win, ui_elements)
 	if tutorial_result == 'exit':
@@ -52,6 +63,14 @@ def run_all_phases(
 
 	print("[5/5] 게임 플레이 phase...")
 	game_state.start_game()
+
+	# EyeLink 레코딩 시작 + AOI 등록
+	if aoi_manager is not None and aoi_manager.el_tracker is not None:
+		aoi_manager.el_tracker.setOfflineMode()
+		aoi_manager.el_tracker.startRecording(1, 1, 1, 1)
+		aoi_manager.el_tracker.sendMessage("TRIAL_START game_play")
+		aoi_manager.register_with_eyelink()
+
 	result = run_game_play_phase(
 		win,
 		game_state,
@@ -59,7 +78,14 @@ def run_all_phases(
 		board_renderer,
 		deck_renderer,
 		token_renderer,
+		aoi_manager=aoi_manager,
 	)
+
+	# EyeLink 레코딩 종료
+	if aoi_manager is not None and aoi_manager.el_tracker is not None:
+		aoi_manager.end_trial(0.0)
+		aoi_manager.el_tracker.stopRecording()
+		aoi_manager.el_tracker.sendMessage("TRIAL_END")
 
 	run_ending_phase(win, ui_elements, game_state, result)
 	return result

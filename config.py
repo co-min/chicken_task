@@ -124,6 +124,24 @@ PRACTICE_TRIALS = 1           # 연습 시행 수
 # ==================== EYE TRACKING ====================
 USE_EYELINK = 0               # 0: 미사용, 1: 사용
 
+# ==================== LABJACK T4 ====================
+USE_LABJACK = 0               # 0: 미사용, 1: 사용
+
+# ==================== AOI (Area of Interest) ====================
+# AOI 진입으로 인정하기 위한 최소 시선 체류 시간 (초)
+AOI_DWELL_THRESHOLD = 0.1
+
+# LabJack TTL 트리거 펄스 지속 시간 (초)
+# AOIManager 가 비블로킹 방식으로 이 시간 이후 자동 리셋함
+AOI_TRIGGER_PULSE_S = 0.005
+
+# EIO_STATE 트리거 코드 기준값
+#   보드 카드 AOI 진입: AOI_TRIGGER_BOARD_OFFSET + position_index  (예: 10~33)
+#   덱  카드 AOI 진입: AOI_TRIGGER_DECK_OFFSET  + position_index  (예: 40~66)
+#   값 0 은 "리셋/무신호" 로 예약됨
+AOI_TRIGGER_BOARD_OFFSET = 10
+AOI_TRIGGER_DECK_OFFSET  = 40
+
 # ==================== DATA SAVING ====================
 SAVE_FRAME_LOG = True         # 프레임별 로그 저장 여부
 SAVE_GAME_STATE = True        # 게임 상태 스냅샷 저장 여부

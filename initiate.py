@@ -9,12 +9,15 @@ from datetime import datetime
 from .set_opts.set_device_opt import set_device_opt
 from .set_opts.set_visual_opt import set_visual_opt
 from .set_opts.set_game_opt import set_game_opt
-from .config import USE_EYELINK
+from .config import USE_EYELINK, USE_LABJACK
 
 if USE_EYELINK:
     from .set_opts.set_eyelink import set_eye_opt
     import pylink
     from .eye_func.EyeLinkCoreGraphicsPsychoPy import EyeLinkCoreGraphicsPsychoPy
+
+if USE_LABJACK:
+    from .utils.labjack_triggers import init_labjack, close_labjack
 
 def define_save_directory(base_dir, subject_id):
     """
@@ -168,9 +171,28 @@ def initiate_eyelink(win, save_directory, edf_name="test.edf"):
         print("EyeLink not detected.")
 
     return el_tracker
-    
 
-    
+
+def initiate_labjack():
+    """
+    LabJack T4에 연결하고 핸들을 반환합니다.
+    USE_LABJACK=0 이거나 연결 실패 시 None을 반환합니다.
+
+    Returns
+    -------
+    int | None
+        LabJack 핸들 (ljm.openS 반환값), 또는 None
+    """
+    if not USE_LABJACK:
+        return None
+
+    print("LabJack T4 연결 시도...")
+    handle = init_labjack()
+    if handle is None:
+        print("⚠ LabJack T4 연결 실패. 트리거가 비활성화됩니다.")
+    else:
+        print("[OK] LabJack T4 연결 완료")
+    return handle
 
 
 # if el_tracker:
@@ -194,13 +216,11 @@ def initiate_eyelink(win, save_directory, edf_name="test.edf"):
 
 # 중간 중간 코드에서 시그널 보내고 싶은 곳에
 # if el_tracker:
-#             el_tracker.sendMessage("PHASE_SELECT_FE_END")[4:21 PM]if frame_count ==1 :
+#             el_tracker.sendMessage("PHASE_SELECT_FE_END")
+#             if frame_count ==1 :
 #                 win.callOnFlip(send_trigger, handle)
 #                 trigger_on = True
 #                 trigger_off_time = core.getTime() + 0.005
-
-
-
 #             win.flip()
 #             if trigger_on and core.getTime() >= trigger_off_time:
 #                 win.callOnFlip(reset_trigger, handle)

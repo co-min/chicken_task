@@ -17,6 +17,8 @@ from config import (
     MONITOR_NAME,
     MONITOR_WIDTH_CM,
     MONITOR_DISTANCE_CM,
+    USE_EYELINK,
+    USE_LABJACK,
 )
 from game_func.game_state import GameState
 from view_func.board_renderer import BoardRenderer
@@ -24,6 +26,16 @@ from view_func.deck_renderer import DeckRenderer
 from view_func.token_renderer import TokenRenderer
 from view_func.ui_elements import UIElements
 from phase_func import run_all_phases
+from eye_func.aoi_manager import AOIManager
+from utils.labjack_triggers import close_labjack
+
+if USE_EYELINK:
+    import pylink
+    from eye_func.EyeLinkCoreGraphicsPsychoPy import EyeLinkCoreGraphicsPsychoPy
+    from initiate import initiate_eyelink
+
+if USE_LABJACK:
+    from initiate import initiate_labjack
 
 
 # Font Manager 등 콘솔 warning 출력 축소
@@ -110,14 +122,38 @@ def main():
     # UI 요소
     ui_elements = UIElements(win)
     print("  ✓ UIElements 초기화 완료")
-    
+
+    # EyeLink 초기화
+    el_tracker = None
+    if USE_EYELINK:
+        el_tracker = initiate_eyelink(win, save_directory="Data")
+        print(f"  {'✓' if el_tracker else '⚠'} EyeLink: {'연결됨' if el_tracker else '비활성화'}")
+
+    # LabJack T4 초기화
+    labjack_handle = None
+    if USE_LABJACK:
+        labjack_handle = initiate_labjack()
+        print(f"  {'✓' if labjack_handle else '⚠'} LabJack T4: {'연결됨' if labjack_handle else '비활성화'}")
+
+    # AOI 관리자 초기화
+    # 게임 모드 선택 전이므로 기본 board/deck 으로 먼저 생성하고,
+    # run_all_phases 내부에서 모드 확정 후 자동으로 재구성됩니다.
+    aoi_manager = AOIManager(
+        board=game_state.board,
+        deck=game_state.deck,
+        el_tracker=el_tracker,
+        labjack_handle=labjack_handle,
+    )
+    print("  ✓ AOIManager 초기화 완료")
+
     # ==================== 3. phase 실행 ====================
     print("\n[3/4] phase 실행 시작...")
     print("-" * 60)
 
     result = run_all_phases(
         win, game_state, ui_elements,
-        board_renderer, deck_renderer, token_renderer
+        board_renderer, deck_renderer, token_renderer,
+        aoi_manager=aoi_manager,
     )
 
     print("-" * 60)
@@ -137,7 +173,10 @@ def main():
     print(f"PC 이동 수: {game_state.pc_move_count}")
     
     # ==================== 정리 ====================
-    print("\n윈도우 종료 중...")
+    print("\n하드웨어 연결 종료 중...")
+    close_labjack(labjack_handle)
+
+    print("윈도우 종료 중...")
     win.close()
     core.quit()
     
