@@ -557,32 +557,54 @@ class GameState:
             if move_result == 'game_end':
                 return 'game_end'
 
-            return 'success'
+            return move_result  # 'success' 또는 'token_switched'
         else:
             # 실패: 턴 종료 (PC 턴으로 전환)
             print("실패! 턴 종료")
             self.end_user_turn()
             return 'failure'
 
-    def complete_user_success_move(self):
+    def _is_flight_directly_behind_chase(self):
         """
-        사용자 성공 후 토큰 이동 및 승패 확인
+        flight가 chase 바로 뒤에 위치하는지 확인.
+        트랙 순서상 flight의 다음 칸이 chase인 경우 True.
 
         Returns:
-            str: 'success' 또는 'game_end'
+            bool
+        """
+        flight_pos = self.tokens.get_token('flight').get_position()
+        chase_pos = self.tokens.get_token('chase').get_position()
+        return self.tokens.get_next_position(flight_pos) == chase_pos
+
+    def complete_user_success_move(self):
+        """
+        사용자 성공 후 토큰 이동 및 승패 확인.
+
+        flight 이동 후 chase 바로 뒤에 위치하게 되면
+        자동으로 selected_token을 'chase'로 전환한다.
+
+        Returns:
+            str: 'success', 'token_switched', 또는 'game_end'
         """
         if self.selected_token is None:
             return 'error'
 
+        moved_token = self.selected_token
         target_pos = self.get_target_position()
-        self.tokens.move_token(self.selected_token, target_pos)
+        self.tokens.move_token(moved_token, target_pos)
         self.user_move_count += 1
 
-        print(f"성공! {self.selected_token}가 {target_pos}로 이동")
+        print(f"성공! {moved_token}가 {target_pos}로 이동")
 
         # 승패 확인
         if self.check_game_end():
             return 'game_end'
+
+        # flight 이동 후 chase 바로 뒤에 붙었는지 확인
+        if moved_token == 'flight' and self._is_flight_directly_behind_chase():
+            self.selected_token = 'chase'
+            print(f"[전환] flight가 chase 바로 뒤에 위치 → 선택 닭을 chase로 전환")
+            return 'token_switched'
 
         # phase는 GAME_PLAY 유지, selected_token도 유지
         # -> 같은 닭으로 다음 타겟 계속 진행
