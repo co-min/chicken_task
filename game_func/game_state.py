@@ -14,7 +14,9 @@ try:
     from game_func.npc_ai import NPCAI
     from utils.timer import GameTimer
     from utils.card_matcher import check_match
-    from ..config import TURN_TIME_LIMIT, PC_THINK_TIME, DEFAULT_GAME_MODE, GAME_MODES
+    from ..config import (TURN_TIME_LIMIT, PC_THINK_TIME, DEFAULT_GAME_MODE, GAME_MODES,
+                          GAME_TIME_LIMIT, SCORE_MATCH, SCORE_COMBO_BONUS, SCORE_SPEED_MAX,
+                          SCORE_SPEED_MIN, SCORE_STEAL, SCORE_PENALTY)
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from game_func.board_class import ConditionBoard
@@ -23,7 +25,9 @@ except ImportError:
     from game_func.npc_ai import NPCAI
     from utils.timer import GameTimer
     from utils.card_matcher import check_match
-    from config import TURN_TIME_LIMIT, PC_THINK_TIME, TOKEN_TIME_WAIT, DEFAULT_GAME_MODE, GAME_MODES
+    from config import (TURN_TIME_LIMIT, PC_THINK_TIME, TOKEN_TIME_WAIT, DEFAULT_GAME_MODE, GAME_MODES,
+                        GAME_TIME_LIMIT, SCORE_MATCH, SCORE_COMBO_BONUS, SCORE_SPEED_MAX,
+                        SCORE_SPEED_MIN, SCORE_STEAL, SCORE_PENALTY)
 
 
 class GameState:
@@ -90,7 +94,14 @@ class GameState:
         
         # 타이머
         self.timer = GameTimer(time_limit=TURN_TIME_LIMIT)
-        
+        self.game_timer = GameTimer(time_limit=GAME_TIME_LIMIT)  # 전체 게임 타이머
+
+        # 점수
+        self.user_score = 0
+        self.pc_score = 0
+        self.user_combo = 0   # 사용자 연속 성공 횟수
+        self.pc_combo = 0     # PC 연속 성공 횟수
+
         # 게임 기록
         self.turn_count = 0
         self.user_move_count = 0
@@ -425,6 +436,60 @@ class GameState:
 
         self.npc_ai.set_success_rate(current_rate + delta)
     
+    # ==================== 점수 계산 ====================
+
+    def _calculate_speed_bonus(self, elapsed_time):
+        """경과 시간 기반 속도 보너스 계산 (SCORE_SPEED_MIN ~ SCORE_SPEED_MAX)."""
+        ratio = 1.0 - self._clamp(elapsed_time / TURN_TIME_LIMIT, 0.0, 1.0)
+        return max(SCORE_SPEED_MIN, round(SCORE_SPEED_MAX * ratio))
+
+    def _is_npc_steal(self, selected_card):
+        """사용자의 선택 카드가 NPC 타겟 조건과도 매칭되는지 확인 (탈취 여부)."""
+        npc_target_pos = self.tokens.get_target_position('octopus')
+        if npc_target_pos is None:
+            return False
+        npc_condition = self.board.get_condition(npc_target_pos[0], npc_target_pos[1])
+        return check_match(npc_condition, selected_card)
+
+    def _add_user_match_score(self, elapsed_time, is_steal):
+        """사용자 성공 점수 계산 및 누적. 획득 점수를 반환."""
+        self.user_combo += 1
+        score = SCORE_MATCH
+        score += self._calculate_speed_bonus(elapsed_time)
+        if self.user_combo > 1:
+            score += SCORE_COMBO_BONUS
+        if is_steal:
+            score += SCORE_STEAL
+        self.user_score += score
+        return score
+
+    def _add_user_penalty_score(self):
+        """사용자 오답 패널티 적용. 콤보 초기화."""
+        self.user_combo = 0
+        self.user_score += SCORE_PENALTY
+
+    def _add_pc_match_score(self):
+        """PC 성공 점수 계산 및 누적. 획득 점수를 반환."""
+        self.pc_combo += 1
+        score = SCORE_MATCH
+        if self.pc_combo > 1:
+            score += SCORE_COMBO_BONUS
+        self.pc_score += score
+        return score
+
+    def _add_pc_penalty_score(self):
+        """PC 오답 패널티 적용. 콤보 초기화."""
+        self.pc_combo = 0
+        self.pc_score += SCORE_PENALTY
+
+    def is_game_time_expired(self):
+        """전체 게임 시간 초과 여부."""
+        return self.game_timer.is_running and self.game_timer.is_expired()
+
+    def get_game_time_remaining(self):
+        """전체 게임 남은 시간 (초)."""
+        return self.game_timer.get_remaining()
+
     def start_game(self):
         """게임 시작"""
         self.phase = self.PHASE_TOKEN_SELECTION
@@ -467,7 +532,9 @@ class GameState:
         # 게임 플레이 단계로 전환
         self.phase = self.PHASE_GAME_PLAY
         self.timer.start()
-        
+        if not self.game_timer.is_running:
+            self.game_timer.start()
+
         print(f"턴 {self.turn_count} 시작! 타이머: {TURN_TIME_LIMIT}초")
         return True
     
@@ -546,10 +613,15 @@ class GameState:
         }
         self.trial_history.append(trial)
         self._record_user_observation((card_row, card_col), card, is_match)
-        
+
         if is_match:
+            is_steal = self._is_npc_steal(card)
+            score_gained = self._add_user_match_score(elapsed_time, is_steal)
+            steal_msg = " [NPC 탈취! +200]" if is_steal else ""
+            print(f"성공! +{score_gained}점 (콤보:{self.user_combo}){steal_msg} → 누적:{self.user_score}")
+
             if defer_success_move:
-                print("성공! 피드백 후 토큰 이동 예정")
+                print("피드백 후 토큰 이동 예정")
                 return 'success'
 
             # 성공: 토큰 이동
@@ -559,8 +631,9 @@ class GameState:
 
             return move_result  # 'success' 또는 'token_switched'
         else:
-            # 실패: 턴 종료 (PC 턴으로 전환)
-            print("실패! 턴 종료")
+            # 실패: 패널티 적용 후 턴 종료
+            self._add_user_penalty_score()
+            print(f"실패! {SCORE_PENALTY}점 → 누적:{self.user_score}")
             self.end_user_turn()
             return 'failure'
 
@@ -666,19 +739,23 @@ class GameState:
         self._record_npc_observation(selected_pos, card)
         
         if is_match:
+            score_gained = self._add_pc_match_score()
+            print(f"PC 성공! +{score_gained}점 (콤보:{self.pc_combo}) → 누적:{self.pc_score}")
+
             if defer_success_move:
-                print("PC 성공! 피드백 후 토큰 이동 예정")
+                print("피드백 후 토큰 이동 예정")
                 return ('success', selected_pos)
 
             # 성공: 문어 이동
             move_result = self.complete_pc_success_move()
             if move_result == 'game_end':
                 return ('game_end', selected_pos)
-            
+
             return ('success', selected_pos)
         else:
-            # 실패: PC 턴 종료
-            print("PC 실패! 턴 종료")
+            # 실패: PC 패널티 적용 후 턴 종료
+            self._add_pc_penalty_score()
+            print(f"PC 실패! {SCORE_PENALTY}점 → 누적:{self.pc_score}")
             self.end_pc_turn()
             return ('failure', selected_pos)
 
@@ -753,7 +830,13 @@ class GameState:
         self.selected_token = None
         
         self.timer.stop()
-        
+        self.game_timer.stop()
+
+        self.user_score = 0
+        self.pc_score = 0
+        self.user_combo = 0
+        self.pc_combo = 0
+
         self.turn_count = 0
         self.user_move_count = 0
         self.pc_move_count = 0
@@ -781,6 +864,11 @@ class GameState:
             'turn_count': self.turn_count,
             'selected_mode_id': self.selected_mode_id,
             'selected_mode': self.selected_mode,
+            'user_score': self.user_score,
+            'pc_score': self.pc_score,
+            'user_combo': self.user_combo,
+            'pc_combo': self.pc_combo,
+            'game_time_remaining': round(self.get_game_time_remaining(), 1),
             'user_moves': self.user_move_count,
             'pc_moves': self.pc_move_count,
             'total_trials': len(self.trial_history),

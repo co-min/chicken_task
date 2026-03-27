@@ -28,6 +28,10 @@ def run_ending_phase(win, ui_elements, game_state, result):
 		ui_elements.instruction_text.text = "Defeat"
 		ui_elements.message_text.text = "Octopus가 Flight를 잡았습니다..."
 		ui_elements.message_text.color = [255, 0, 0]
+	elif result == 'timeout':
+		ui_elements.instruction_text.text = "시간 종료"
+		ui_elements.message_text.text = "게임 제한 시간이 종료되었습니다"
+		ui_elements.message_text.color = [255, 165, 0]
 	else:
 		ui_elements.instruction_text.text = "게임 종료"
 		ui_elements.message_text.text = "게임을 중단했습니다"
@@ -35,7 +39,8 @@ def run_ending_phase(win, ui_elements, game_state, result):
 
 	stats_text = visual.TextStim(
 		win=win,
-		text=f"총 턴 수: {game_state.turn_count}\n"
+		text=f"내 점수: {game_state.user_score}점  |  문어 점수: {game_state.pc_score}점\n\n"
+			 f"총 턴 수: {game_state.turn_count}\n"
 			 f"사용자 이동: {game_state.user_move_count}회\n"
 			 f"PC 이동: {game_state.pc_move_count}회\n"
 			 f"총 시행: {len(game_state.trial_history)}회",

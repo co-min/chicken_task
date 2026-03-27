@@ -73,6 +73,9 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
         elif game_state.phase == game_state.PHASE_DEFEAT:
             print("[GAME END] 문어 승리 (플레이어 패배)")
             return 'defeat'
+        elif game_state.is_game_time_expired():
+            print("[GAME END] 전체 게임 시간 초과!")
+            return 'timeout'
         
         # 현재 턴 확인 및 실행
         if game_state.current_turn == game_state.TURN_USER:
@@ -187,7 +190,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                 print(f"[USER TURN] 카드 선택: {card_pos}, 결과: {result}")
                 
                 # 카드 뒤집기 애니메이션 (game_state.user_click_card에서 이미 flip 수행됨)
-                _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, target_pos)
+                _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, game_state, target_pos)
                 trigger_frame_marker()   # 이벤트: 사용자 카드 뒤집기
                 blink_frame_marker(win)
                 win.flip()
@@ -225,6 +228,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                         board_renderer,
                         deck_renderer,
                         token_renderer,
+                        game_state=game_state,
                         selected_token=game_state.selected_token,
                         turn_count=game_state.turn_count,
                         timer_display_text=game_state.timer.get_display_text(),
@@ -265,7 +269,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                     pass
         
         # 화면 그리기 (타겟 하이라이트 포함)
-        _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, target_pos)
+        _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, game_state, target_pos)
         blink_frame_marker(win)
         win.flip()
 
@@ -308,7 +312,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
         )
         
         # 타겟 하이라이트와 함께 화면 그리기
-        _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, pc_target_pos)
+        _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, game_state, pc_target_pos)
         trigger_frame_marker()   # 이벤트: PC 턴 시작
         blink_frame_marker(win)
         win.flip()
@@ -322,7 +326,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
         
         # 1단계: 카드 뒤집기 애니메이션 (타겟 하이라이트 유지)
         # ui_elements.message_text.text = f"문어가 ({card_pos[0]}, {card_pos[1]}) 카드 선택"
-        _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, pc_target_pos)
+        _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, game_state, pc_target_pos)
         trigger_frame_marker()   # 이벤트: PC 카드 뒤집기
         blink_frame_marker(win)
         win.flip()
@@ -430,18 +434,23 @@ def _get_clicked_card(mouse_pos, deck_rows, deck_cols):
     return None
 
 
-def _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, highlighted_pos=None):
+def _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer,
+                      game_state=None, highlighted_pos=None):
     """
     게임 화면 그리기
-    
+
     Args:
+        game_state: GameState 인스턴스 (점수 표시용, None이면 score_text 그대로 사용)
         highlighted_pos: 하이라이트할 보드 위치 (row, col) 또는 None
     """
     board_renderer.draw(highlighted_pos)
     deck_renderer.draw()
     token_renderer.draw()
     ui_elements.timer_text.draw()
-    ui_elements.score_text.draw()
+    if game_state is not None:
+        ui_elements.draw_score(game_state.user_score, game_state.pc_score)
+    else:
+        ui_elements.score_text.draw()
     ui_elements.message_text.draw()
     ui_elements.instruction_text.draw()
 
@@ -452,6 +461,7 @@ def _show_start_cue(
     board_renderer,
     deck_renderer,
     token_renderer,
+    game_state,
     selected_token,
     turn_count,
     timer_display_text,
@@ -469,6 +479,7 @@ def _show_start_cue(
         board_renderer,
         deck_renderer,
         token_renderer,
+        game_state,
         target_pos,
     )
     ui_elements.draw_start_cue("시작!")

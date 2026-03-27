@@ -69,8 +69,8 @@ class UIElements:
         self.score_text = visual.TextStim(
             win=self.win,
             text="점수: 0",
-            pos=(-WIDTH / 2 + round(200 * _S), HEIGHT / 2 - round(100 * _S)),
-            height=_SCORE_H,
+            pos=(-WIDTH / 2 + round(200 * _S) - 70, HEIGHT / 2 - round(100 * _S) + 100),
+            height=26,
             color=TEXT_COLOR,
             colorSpace='rgb255'
         )

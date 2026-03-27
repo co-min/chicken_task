@@ -82,6 +82,15 @@ CARD_FLIP_DURATION = 2       # 초 (카드 앞면 노출 시간)
 FEEDBACK_DURATION = 0.5       # 초 (피드백 표시 시간)
 TRIAL_INTERVAL = 1          # 초 (시행 간 간격)
 TOKEN_TIME_WAIT = 1
+GAME_TIME_LIMIT = 300         # 초 (전체 게임 제한 시간, 기본 5분)
+
+# ==================== SCORE SETTINGS ====================
+SCORE_MATCH = 100             # 카드 매칭 성공
+SCORE_COMBO_BONUS = 20        # 연속 성공 콤보 추가 보너스
+SCORE_SPEED_MAX = 50          # 빠른 판단 최대 점수
+SCORE_SPEED_MIN = 1           # 빠른 판단 최소 점수
+SCORE_STEAL = 200             # NPC 카드 탈취 보너스
+SCORE_PENALTY = -30           # 오답 패널티
 
 # ==================== PC AI SETTINGS ====================
 # 레거시 기본 정답률(모드 선택 전). 실제 게임 실행 시에는 mode 기반 deck 크기로 재계산됨.
