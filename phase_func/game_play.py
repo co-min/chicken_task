@@ -392,10 +392,9 @@ def _run_round_break(win, ui_elements, board_renderer, deck_renderer, token_rend
     """
     next_round = game_state.current_round + 1
     for remaining in range(ROUND_BREAK_DURATION, 0, -1):
-        cue_msg = f"라운드 {game_state.current_round} 완료!\n{remaining}초 후 라운드 {next_round} 시작"
         _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer,
                           game_state, highlighted_pos=None)
-        ui_elements.draw_start_cue(cue_msg)
+        ui_elements.draw_round_break(game_state.current_round, next_round, remaining)
         win.flip()
         core.wait(1.0)
 

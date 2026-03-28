@@ -34,6 +34,13 @@ _PHASE_H       = max(12, round(36 * _S))
 _CUE_BG_W      = max(200, round(320 * _S))
 _CUE_BG_H      = max(80,  round(160 * _S))
 
+# 라운드 휴식 오버레이
+_BREAK_BG_W    = max(300, round(500 * _S))
+_BREAK_BG_H    = max(100, round(170 * _S))
+_BREAK_TITLE_H = max(16,  round(30  * _S))   # "라운드 N 완료!"
+_BREAK_SUB_H   = max(11,  round(20  * _S))   # "N초 후 라운드 N+1 시작"
+_BREAK_LINE_GAP = max(10, round(18  * _S))   # 제목↔부제 간격
+
 # HUD 행별 Y 위치 (화면 상단 기준)
 _HUD_ROW1_Y    = HEIGHT / 2 - round(22 * _S)   # 라운드 표시 + 턴 타이머
 _HUD_BAR_Y     = HEIGHT / 2 - round(PROGRESS_BAR_Y_FROM_TOP * _S)  # 프로그레스 바
@@ -52,6 +59,7 @@ class UIElements:
 
         # UI 요소들
         self.timer_text = None
+        
         self.score_text = None
         self.round_text = None
         self.progress_bar_bg = None
@@ -60,6 +68,9 @@ class UIElements:
         self.instruction_text = None
         self.start_cue_background = None
         self.start_cue_text = None
+        self.round_break_bg = None
+        self.round_break_title = None
+        self.round_break_sub = None
         self.token_choice_buttons = {}
 
         # 프로그레스 바 내부 상태 (줄어든 _BAR_INNER_W 기준)
@@ -160,6 +171,37 @@ class UIElements:
             color=PURPLE,
             colorSpace='rgb255',
             bold=True
+        )
+
+        # 라운드 휴식 오버레이
+        _title_y = _BREAK_LINE_GAP // 2 + _BREAK_TITLE_H // 2
+        _sub_y   = -(_BREAK_LINE_GAP // 2 + _BREAK_SUB_H // 2)
+        self.round_break_bg = visual.Rect(
+            win=self.win,
+            width=_BREAK_BG_W,
+            height=_BREAK_BG_H,
+            pos=(0, 0),
+            fillColor=[30, 30, 30],
+            lineColor=[200, 200, 200],
+            lineWidth=2,
+            colorSpace='rgb255',
+        )
+        self.round_break_title = visual.TextStim(
+            win=self.win,
+            text="",
+            pos=(0, _title_y),
+            height=_BREAK_TITLE_H,
+            color=[255, 220, 60],
+            colorSpace='rgb255',
+            bold=True,
+        )
+        self.round_break_sub = visual.TextStim(
+            win=self.win,
+            text="",
+            pos=(0, _sub_y),
+            height=_BREAK_SUB_H,
+            color=[200, 200, 200],
+            colorSpace='rgb255',
         )
 
         # 안내 문구 (하단)
@@ -302,6 +344,14 @@ class UIElements:
         self.start_cue_text.text = message
         self.start_cue_background.draw()
         self.start_cue_text.draw()
+
+    def draw_round_break(self, current_round, next_round, remaining_sec):
+        """라운드 휴식 오버레이: 어두운 패널 + 제목 + 카운트다운."""
+        self.round_break_title.text = f"라운드 {current_round} 완료!"
+        self.round_break_sub.text = f"{remaining_sec}초 후 라운드 {next_round} 시작"
+        self.round_break_bg.draw()
+        self.round_break_title.draw()
+        self.round_break_sub.draw()
 
     def set_user_turn_hud(self, selected_token, turn_count, timer_display_text):
         """사용자 턴 HUD 텍스트/색상 갱신"""
