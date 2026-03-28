@@ -440,9 +440,9 @@ def _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_ren
     token_renderer.draw()
 
     if game_state is not None:
-        # 라운드 바 비율 계산
-        bar_ratio = (game_state.round_timer.get_remaining()
-                     / max(1, game_state.round_timer.time_limit))
+        # 턴 제한시간 비율로 프로그레스 바 갱신
+        bar_ratio = (game_state.timer.get_remaining()
+                     / max(1, game_state.timer.time_limit))
         ui_elements.set_round_display(game_state.current_round, game_state.total_rounds)
         ui_elements.draw_progress_bar(bar_ratio)
         ui_elements.draw_score(game_state.user_score, game_state.pc_score)

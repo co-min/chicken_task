@@ -22,8 +22,10 @@ _S = TEXT_SIZE / 28
 _TIMER_H       = max(12, round(22 * _S))   # 기존 45 → 22 (HUD 재배치로 축소)
 _ROUND_H       = max(10, round(22 * _S))   # 라운드 표시
 _SCORE_H       = max(10, round(20 * _S))   # 점수 텍스트
-_BAR_W         = round(PROGRESS_BAR_WIDTH  * _S)
 _BAR_H         = max(6,  round(PROGRESS_BAR_HEIGHT * _S))
+# 바 양쪽에 레이블("턴") + 숫자("15s") 공간 확보 — 실제 바는 이 너비 사용
+_BAR_INNER_W   = max(200, round((PROGRESS_BAR_WIDTH - 140) * _S))
+_BAR_SIDE_PAD  = max(20, round(55 * _S))   # 바 끝 ~ 레이블 중심 거리
 _MSG_H         = max(10, round(15 * _S))
 _START_CUE_H   = max(20, round(90 * _S))
 _INSTR_H       = max(10, round(25 * _S))
@@ -60,9 +62,9 @@ class UIElements:
         self.start_cue_text = None
         self.token_choice_buttons = {}
 
-        # 프로그레스 바 내부 상태
-        self._bar_max_width = _BAR_W
-        self._bar_left_edge = -_BAR_W / 2
+        # 프로그레스 바 내부 상태 (줄어든 _BAR_INNER_W 기준)
+        self._bar_max_width = _BAR_INNER_W
+        self._bar_left_edge = -_BAR_INNER_W / 2
         self._cached_bar_ratio = 1.0
 
         self._create_ui_elements()
@@ -75,6 +77,7 @@ class UIElements:
         message_base_y = -360 + MESSAGE_Y_OFFSET
 
         # ── HUD 행 1: 라운드 표시 (왼쪽) + 턴 타이머 (오른쪽) ──
+        # Row1 좌측: 라운드 표시
         self.round_text = visual.TextStim(
             win=self.win,
             text="라운드 1/5",
@@ -85,21 +88,12 @@ class UIElements:
             bold=True,
             anchorHoriz='left',
         )
-        self.timer_text = visual.TextStim(
-            win=self.win,
-            text="00:15",
-            pos=(WIDTH / 2 - round(90 * _S), _HUD_ROW1_Y),
-            height=_TIMER_H,
-            color=TEXT_COLOR,
-            colorSpace='rgb255',
-            bold=True,
-            anchorHoriz='right',
-        )
-
-        # ── HUD 행 2: 프로그레스 바 (중앙) ──
+        # ── HUD 행 2: 프로그레스 바 + 턴 타이머 숫자 ──
+        
+        # 중앙: 프로그레스 바 (_BAR_INNER_W 사용)
         self.progress_bar_bg = visual.Rect(
             win=self.win,
-            width=_BAR_W,
+            width=_BAR_INNER_W,
             height=_BAR_H,
             pos=(0, _HUD_BAR_Y),
             fillColor=PROGRESS_BAR_BG_COLOR,
@@ -108,12 +102,23 @@ class UIElements:
         )
         self.progress_bar_fg = visual.Rect(
             win=self.win,
-            width=_BAR_W,
+            width=_BAR_INNER_W,
             height=_BAR_H,
             pos=(0, _HUD_BAR_Y),
             fillColor=PROGRESS_BAR_COLOR_FULL,
             lineColor=PROGRESS_BAR_COLOR_FULL,
             colorSpace='rgb255',
+        )
+        # 우측: 턴 남은 시간 숫자 (프로그레스 바 바로 오른쪽)
+        self.timer_text = visual.TextStim(
+            win=self.win,
+            text="15s",
+            pos=(_BAR_INNER_W / 2 + _BAR_SIDE_PAD, _HUD_BAR_Y),
+            height=_TIMER_H,
+            color=TEXT_COLOR,
+            colorSpace='rgb255',
+            bold=True,
+            anchorHoriz='left',
         )
 
         # ── HUD 행 3: 점수 (중앙) ──
@@ -265,9 +270,9 @@ class UIElements:
 
     def draw_persistent_hud(self):
         """타이머·라운드·프로그레스 바·점수를 캐시 상태로 일괄 그리기."""
-        self.timer_text.draw()
         self.round_text.draw()
         self.draw_progress_bar()
+        self.timer_text.draw()
         self.score_text.draw()
     
     def draw_message(self, message):
