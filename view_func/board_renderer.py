@@ -104,6 +104,14 @@ class BoardRenderer:
         
         return os.path.join(CONDITION_CARDS_DIR, filename)
     
+    def refresh(self):
+        """보드 재셔플 후 각 위치의 조건 이미지를 갱신"""
+        for pos in self.board.track_positions:
+            row, col = pos
+            condition = self.board.get_condition(row, col)
+            image_path = self._get_condition_image_path(condition)
+            self.card_images[pos].image = image_path
+
     def draw(self, highlighted_pos=None):
         """
         보드를 화면에 그리기
