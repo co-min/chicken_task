@@ -3,7 +3,7 @@
 # All game constants and settings
 
 # ==================== SCREEN SETTINGS ====================
-WIDTH = 1100 # 화면 너비
+WIDTH = 1920 # 화면 너비
 HEIGHT = 1080 # 화면 높이
 BG_COLOR = [128, 128, 128]  # RGB 0-255 (gray)
 FULLSCREEN = True
