@@ -10,13 +10,20 @@ from config import (
     BUTTON_COLOR_NORMAL, BUTTON_COLOR_HOVER, BUTTON_COLOR_SELECTED,
     TOKEN_BUTTON_WIDTH, TOKEN_BUTTON_HEIGHT, TOKEN_BUTTON_TEXT_HEIGHT,
     MESSAGE_Y_OFFSET,
-    CHASE_BUTTON_POS, FLIGHT_BUTTON_POS, TOKEN_BUTTON_LINE_WIDTH,PURPLE,WHITE,
+    CHASE_BUTTON_POS, FLIGHT_BUTTON_POS, TOKEN_BUTTON_LINE_WIDTH, PURPLE, WHITE,
+    TOTAL_ROUNDS, ROUND_TIME_LIMIT,
+    PROGRESS_BAR_WIDTH, PROGRESS_BAR_HEIGHT, PROGRESS_BAR_Y_FROM_TOP,
+    PROGRESS_BAR_COLOR_FULL, PROGRESS_BAR_COLOR_WARN, PROGRESS_BAR_COLOR_CRIT,
+    PROGRESS_BAR_BG_COLOR,
 )
 
 # 설계 기준(TEXT_SIZE=28) 대비 스케일 → 모든 텍스트 크기에 적용
 _S = TEXT_SIZE / 28
-_TIMER_H       = max(12, round(45 * _S))
-_SCORE_H       = max(12, round(30 * _S))
+_TIMER_H       = max(12, round(22 * _S))   # 기존 45 → 22 (HUD 재배치로 축소)
+_ROUND_H       = max(10, round(22 * _S))   # 라운드 표시
+_SCORE_H       = max(10, round(20 * _S))   # 점수 텍스트
+_BAR_W         = round(PROGRESS_BAR_WIDTH  * _S)
+_BAR_H         = max(6,  round(PROGRESS_BAR_HEIGHT * _S))
 _MSG_H         = max(10, round(15 * _S))
 _START_CUE_H   = max(20, round(90 * _S))
 _INSTR_H       = max(10, round(25 * _S))
@@ -24,6 +31,11 @@ _TURN_H        = max(10, round(20 * _S))
 _PHASE_H       = max(12, round(36 * _S))
 _CUE_BG_W      = max(200, round(320 * _S))
 _CUE_BG_H      = max(80,  round(160 * _S))
+
+# HUD 행별 Y 위치 (화면 상단 기준)
+_HUD_ROW1_Y    = HEIGHT / 2 - round(22 * _S)   # 라운드 표시 + 턴 타이머
+_HUD_BAR_Y     = HEIGHT / 2 - round(PROGRESS_BAR_Y_FROM_TOP * _S)  # 프로그레스 바
+_HUD_SCORE_Y   = HEIGHT / 2 - round(88 * _S)   # 점수 표시
 
 
 class UIElements:
@@ -35,16 +47,24 @@ class UIElements:
             win: PsychoPy window 객체
         """
         self.win = win
-        
+
         # UI 요소들
         self.timer_text = None
         self.score_text = None
+        self.round_text = None
+        self.progress_bar_bg = None
+        self.progress_bar_fg = None
         self.message_text = None
         self.instruction_text = None
         self.start_cue_background = None
         self.start_cue_text = None
         self.token_choice_buttons = {}
-        
+
+        # 프로그레스 바 내부 상태
+        self._bar_max_width = _BAR_W
+        self._bar_left_edge = -_BAR_W / 2
+        self._cached_bar_ratio = 1.0
+
         self._create_ui_elements()
         self._user_message_height = self.message_text.height
         self._user_instruction_height = self.instruction_text.height
@@ -54,25 +74,56 @@ class UIElements:
         """모든 UI 요소 생성"""
         message_base_y = -360 + MESSAGE_Y_OFFSET
 
-        # 타이머 (상단 중앙) - 화면에 맞춤
+        # ── HUD 행 1: 라운드 표시 (왼쪽) + 턴 타이머 (오른쪽) ──
+        self.round_text = visual.TextStim(
+            win=self.win,
+            text="라운드 1/5",
+            pos=(-WIDTH / 2 + round(90 * _S), _HUD_ROW1_Y),
+            height=_ROUND_H,
+            color=TEXT_COLOR,
+            colorSpace='rgb255',
+            bold=True,
+            anchorHoriz='left',
+        )
         self.timer_text = visual.TextStim(
             win=self.win,
             text="00:15",
-            pos=(0, HEIGHT / 2 - round(40 * _S)),
+            pos=(WIDTH / 2 - round(90 * _S), _HUD_ROW1_Y),
             height=_TIMER_H,
             color=TEXT_COLOR,
             colorSpace='rgb255',
-            bold=True
+            bold=True,
+            anchorHoriz='right',
         )
 
-        # 점수 (상단 왼쪽)
+        # ── HUD 행 2: 프로그레스 바 (중앙) ──
+        self.progress_bar_bg = visual.Rect(
+            win=self.win,
+            width=_BAR_W,
+            height=_BAR_H,
+            pos=(0, _HUD_BAR_Y),
+            fillColor=PROGRESS_BAR_BG_COLOR,
+            lineColor=PROGRESS_BAR_BG_COLOR,
+            colorSpace='rgb255',
+        )
+        self.progress_bar_fg = visual.Rect(
+            win=self.win,
+            width=_BAR_W,
+            height=_BAR_H,
+            pos=(0, _HUD_BAR_Y),
+            fillColor=PROGRESS_BAR_COLOR_FULL,
+            lineColor=PROGRESS_BAR_COLOR_FULL,
+            colorSpace='rgb255',
+        )
+
+        # ── HUD 행 3: 점수 (중앙) ──
         self.score_text = visual.TextStim(
             win=self.win,
-            text="점수: 0",
-            pos=(-WIDTH / 2 + round(200 * _S) - 70, HEIGHT / 2 - round(100 * _S) + 100),
-            height=26,
+            text="내 점수: 0 | 문어: 0",
+            pos=(0, _HUD_SCORE_Y),
+            height=_SCORE_H,
             color=TEXT_COLOR,
-            colorSpace='rgb255'
+            colorSpace='rgb255',
         )
 
         # 메시지 (화면 중앙)
@@ -174,14 +225,49 @@ class UIElements:
         self.timer_text.draw()
     
     def draw_score(self, user_score, pc_score):
+        """점수 텍스트 업데이트 + 그리기."""
+        self.score_text.text = f"내 점수: {user_score}점  |  문어: {pc_score}점"
+        self.score_text.draw()
+
+    def set_round_display(self, current_round, total_rounds):
+        """라운드 텍스트 업데이트 (그리기는 draw_persistent_hud에서)."""
+        self.round_text.text = f"라운드 {current_round}/{total_rounds}"
+
+    def draw_progress_bar(self, ratio=None):
         """
-        점수 표시
-        
+        프로그레스 바 그리기.
+
         Args:
-            user_score: 유저 점수
-            pc_score: PC 점수
+            ratio: 0.0~1.0 남은 시간 비율. None이면 캐시된 값 사용.
         """
-        self.score_text.text = f"내 점수: {user_score}점 | 문어 점수: {pc_score}점"
+        if ratio is not None:
+            self._cached_bar_ratio = max(0.0, min(1.0, ratio))
+        r = self._cached_bar_ratio
+
+        # 색상 결정
+        if r > 0.5:
+            color = PROGRESS_BAR_COLOR_FULL
+        elif r > 0.25:
+            color = PROGRESS_BAR_COLOR_WARN
+        else:
+            color = PROGRESS_BAR_COLOR_CRIT
+
+        # 전경 바 너비·위치 계산 (왼쪽 끝에서 오른쪽으로 줄어듦)
+        bar_w = max(2, round(self._bar_max_width * r))
+        bar_x = self._bar_left_edge + bar_w / 2
+
+        self.progress_bar_bg.draw()
+        self.progress_bar_fg.width = bar_w
+        self.progress_bar_fg.pos = (bar_x, self.progress_bar_fg.pos[1])
+        self.progress_bar_fg.fillColor = color
+        self.progress_bar_fg.lineColor = color
+        self.progress_bar_fg.draw()
+
+    def draw_persistent_hud(self):
+        """타이머·라운드·프로그레스 바·점수를 캐시 상태로 일괄 그리기."""
+        self.timer_text.draw()
+        self.round_text.draw()
+        self.draw_progress_bar()
         self.score_text.draw()
     
     def draw_message(self, message):

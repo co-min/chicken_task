@@ -12,7 +12,9 @@ try:
         WIDTH, HEIGHT, TEXT_COLOR,
         DECK_LEFT_EDGE, BOARD_DECK_TOP_MARGIN,
         DECK_CARD_WIDTH, DECK_CARD_HEIGHT, DECK_CARD_SPACING,
-        PURPLE, DARK_GREY
+        PURPLE, DARK_GREY, GOLD, ORANGE_RED, ROUND_BREAK_DURATION,
+        SCORE_CATCH_BONUS, SCORE_CAUGHT_PENALTY,
+        CATCH_RESET_PREP_DURATION,
     )
     from ..phase_func.token_selection import run_token_selection_phase
     from ..phase_func.feedback import run_feedback_phase
@@ -24,7 +26,9 @@ except ImportError:
         WIDTH, HEIGHT, TEXT_COLOR,
         DECK_LEFT_EDGE, BOARD_DECK_TOP_MARGIN,
         DECK_CARD_WIDTH, DECK_CARD_HEIGHT, DECK_CARD_SPACING,
-        PURPLE, DARK_GREY
+        PURPLE, DARK_GREY, GOLD, ORANGE_RED, ROUND_BREAK_DURATION,
+        SCORE_CATCH_BONUS, SCORE_CAUGHT_PENALTY,
+        CATCH_RESET_PREP_DURATION,
     )
     from phase_func.token_selection import run_token_selection_phase
     from phase_func.feedback import run_feedback_phase
@@ -66,16 +70,16 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
     
     # 게임 메인 루프
     while True:
-        # 게임 종료 확인
-        if game_state.phase == game_state.PHASE_VICTORY:
-            print("[GAME END] 플레이어 승리!")
-            return 'victory'
-        elif game_state.phase == game_state.PHASE_DEFEAT:
-            print("[GAME END] 문어 승리 (플레이어 패배)")
-            return 'defeat'
-        elif game_state.is_game_time_expired():
-            print("[GAME END] 전체 게임 시간 초과!")
-            return 'timeout'
+        # 라운드/게임 종료 확인
+        if game_state.is_round_time_expired():
+            if game_state.current_round < game_state.total_rounds:
+                # 라운드 간 휴식
+                _run_round_break(win, ui_elements, board_renderer, deck_renderer,
+                                 token_renderer, game_state)
+                game_state.advance_round()
+            else:
+                print("[GAME END] 모든 라운드 완료!")
+                return 'timeout'
         
         # 현재 턴 확인 및 실행
         if game_state.current_turn == game_state.TURN_USER:
@@ -85,22 +89,16 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
             
             if result == 'exit':
                 return 'exit'
-            elif result == 'game_end':
-                # 게임 종료 (승리 또는 패배)
-                continue
             elif result == 'continue':
                 # 사용자 턴 종료 → PC 턴으로 전환됨
                 print(f"[TURN SWITCH] 사용자 → 문어 (턴 {game_state.turn_count})")
-            
+
         elif game_state.current_turn == game_state.TURN_PC:
             # PC 턴 실행
             result = _run_pc_turn(win, game_state, ui_elements, board_renderer,
                                  deck_renderer, token_renderer)
-            
-            if result == 'game_end':
-                # 게임 종료 (승리 또는 패배)
-                continue
-            elif result == 'continue':
+
+            if result == 'continue':
                 # PC 턴 종료 → 사용자 턴으로 전환됨
                 print(f"[TURN SWITCH] 문어 → 사용자 (턴 {game_state.turn_count})")
         
@@ -212,15 +210,24 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
 
                     # 성공 피드백 이후 토큰 이동
                     move_result = game_state.complete_user_success_move()
-                    
-                    # 카드 뒤로 감추기 (hide_card 사용)
+
+                    # 카드 뒤로 감추기
                     game_state.deck.hide_card(card_row, card_col)
 
-                    if move_result == 'game_end':
-                        game_state.selected_token = None
-                        return 'game_end'
-                    
-                    # 모든 피드백이 끝난 뒤 타이머 리셋
+                    # 잡기 이벤트: 문어를 잡았을 때 추가 피드백 + 위치 초기화 유예
+                    if move_result == 'user_caught_npc':
+                        run_feedback_phase(
+                            win, ui_elements, board_renderer, deck_renderer, token_renderer,
+                            message=f"문어를 잡았다!  +{SCORE_CATCH_BONUS}점",
+                            color=GOLD,
+                            duration=FEEDBACK_DURATION * 2,
+                            highlighted_pos=None,
+                        )
+                        # 토큰이 시작 위치로 초기화된 직후 시선 안정화 유예
+                        _show_reset_prep_cue(win, ui_elements, board_renderer, deck_renderer,
+                                             token_renderer, game_state)
+
+                    # 모든 피드백이 끝난 뒤 타이머 리셋 후 다음 타겟 계속
                     core.wait(TRIAL_INTERVAL)
                     _show_start_cue(
                         win,
@@ -235,8 +242,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                         target_pos=game_state.get_target_position(),
                     )
                     game_state.timer.reset()
-                    print(f"[USER TURN] 성공, 타이머 리셋, 다음 타겟으로 계속")
-                    # 계속 루프를 진행하여 다음 타겟으로
+                    print(f"[USER TURN] 성공({move_result}), 타이머 리셋, 다음 타겟으로 계속")
                     continue
                 
                 elif result == 'failure':
@@ -258,12 +264,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                     # 턴 종료 (end_user_turn에서 selected_token 리셋됨)
                     print(f"[USER TURN] 실패, 턴 종료")
                     return 'continue'
-                
-                elif result == 'game_end':
-                    # 게임 종료
-                    game_state.selected_token = None
-                    return 'game_end'
-                
+
                 # 클릭 후 버튼이 떼어지기를 기다림
                 while mouse.getPressed()[0]:
                     pass
@@ -332,80 +333,71 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
         win.flip()
         core.wait(CARD_FLIP_DURATION)
         
-        # 2단계: 결과 판정 표시
-        if result == 'success':
-            feedback_message = "문어 성공"
-            feedback_color = PURPLE
-        elif result == 'failure':
-            feedback_message = "문어 실패"
-            feedback_color = DARK_GREY
-        elif result == 'game_end':
-            feedback_message = ""
-            feedback_color = [0, 0, 0]
+        # 2단계: 기본 결과 피드백 표시
+        if result == 'failure':
+            run_feedback_phase(
+                win, ui_elements, board_renderer, deck_renderer, token_renderer,
+                message="문어 실패", color=DARK_GREY,
+                duration=FEEDBACK_DURATION, highlighted_pos=pc_target_pos,
+            )
+        else:  # 'success'
+            run_feedback_phase(
+                win, ui_elements, board_renderer, deck_renderer, token_renderer,
+                message="문어 성공", color=PURPLE,
+                duration=FEEDBACK_DURATION, highlighted_pos=pc_target_pos,
+            )
 
-        run_feedback_phase(
-            win,
-            ui_elements,
-            board_renderer,
-            deck_renderer,
-            token_renderer,
-            message=feedback_message,
-            color=feedback_color,
-            duration=FEEDBACK_DURATION,
-            highlighted_pos=pc_target_pos,
-        )
-        
         # 3단계: 결과에 따른 처리
         if result == 'success':
             move_result = game_state.complete_pc_success_move()
-
-            # 카드 숨기고 토큰 위치 업데이트된 화면 표시
             game_state.deck.hide_card(card_pos[0], card_pos[1])
 
-            if move_result == 'game_end':
-                return 'game_end'
+            # 잡기 이벤트: 문어가 flight를 잡았을 때
+            if move_result == 'npc_caught_user':
+                run_feedback_phase(
+                    win, ui_elements, board_renderer, deck_renderer, token_renderer,
+                    message=f"잡혔다!  {SCORE_CAUGHT_PENALTY}점",
+                    color=ORANGE_RED,
+                    duration=FEEDBACK_DURATION * 2,
+                    highlighted_pos=None,
+                )
+                # 토큰이 시작 위치로 초기화된 직후 시선 안정화 유예
+                _show_reset_prep_cue(win, ui_elements, board_renderer, deck_renderer,
+                                     token_renderer, game_state)
+                # PC 턴 종료 → 사용자 턴으로 전환 (turn 카운트 증가, 상태 전환)
+                game_state.end_pc_turn()
+                print(f"[문어] flight 잡음! PC 턴 종료 → 사용자 턴")
+                return 'continue'
 
-            run_feedback_phase(
-                win,
-                ui_elements,
-                board_renderer,
-                deck_renderer,
-                token_renderer,
-                message="",
-                color=PURPLE,
-                duration=FEEDBACK_DURATION,
-                highlighted_pos=None,
-            )
-            
-            # 계속 PC 턴 진행 (루프 계속)
+            # 일반 성공: PC 턴 계속
             print(f"[문어] 성공, 다음 타겟으로 계속")
             core.wait(TRIAL_INTERVAL)
             continue
-            
+
         elif result == 'failure':
-            # 실패 시 카드 숨기기
             game_state.deck.hide_card(card_pos[0], card_pos[1])
-            run_feedback_phase(
-                win,
-                ui_elements,
-                board_renderer,
-                deck_renderer,
-                token_renderer,
-                message="",
-                color=DARK_GREY,
-                duration=FEEDBACK_DURATION,
-                highlighted_pos=None,
-            )
-            
             # PC 턴 종료 (사용자 턴으로 전환됨)
             print(f"[문어] 실패, 턴 종료")
             return 'continue'
-        
-        elif result == 'game_end':
-            # 게임 종료
-            return 'game_end'
     
     return 'continue'
+
+
+def _run_round_break(win, ui_elements, board_renderer, deck_renderer, token_renderer, game_state):
+    """
+    라운드 간 휴식 화면 표시 (ROUND_BREAK_DURATION 초 카운트다운).
+    - 현재 보드/덱/토큰 상태를 그대로 유지
+    - 중앙에 라운드 완료 + 다음 라운드 예고 메시지 표시
+    - 피험자 시선 보정(Drift Correction) 기회 제공
+    """
+    next_round = game_state.current_round + 1
+    for remaining in range(ROUND_BREAK_DURATION, 0, -1):
+        cue_msg = f"라운드 {game_state.current_round} 완료!\n{remaining}초 후 라운드 {next_round} 시작"
+        _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer,
+                          game_state, highlighted_pos=None)
+        ui_elements.draw_start_cue(cue_msg)
+        win.flip()
+        core.wait(1.0)
 
 
 def _get_clicked_card(mouse_pos, deck_rows, deck_cols):
@@ -440,17 +432,26 @@ def _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_ren
     게임 화면 그리기
 
     Args:
-        game_state: GameState 인스턴스 (점수 표시용, None이면 score_text 그대로 사용)
+        game_state: GameState 인스턴스 (HUD 업데이트용). None이면 캐시 상태로 그림.
         highlighted_pos: 하이라이트할 보드 위치 (row, col) 또는 None
     """
     board_renderer.draw(highlighted_pos)
     deck_renderer.draw()
     token_renderer.draw()
-    ui_elements.timer_text.draw()
+
     if game_state is not None:
+        # 라운드 바 비율 계산
+        bar_ratio = (game_state.round_timer.get_remaining()
+                     / max(1, game_state.round_timer.time_limit))
+        ui_elements.set_round_display(game_state.current_round, game_state.total_rounds)
+        ui_elements.draw_progress_bar(bar_ratio)
         ui_elements.draw_score(game_state.user_score, game_state.pc_score)
     else:
+        ui_elements.draw_progress_bar()   # 캐시 상태로 그리기
         ui_elements.score_text.draw()
+
+    ui_elements.timer_text.draw()
+    ui_elements.round_text.draw()
     ui_elements.message_text.draw()
     ui_elements.instruction_text.draw()
 
@@ -487,3 +488,21 @@ def _show_start_cue(
     blink_frame_marker(win)
     win.flip()
     core.wait(START_CUE_DURATION)
+
+
+def _show_reset_prep_cue(win, ui_elements, board_renderer, deck_renderer, token_renderer, game_state):
+    """잡기 이벤트 후 토큰 위치 초기화 유예 시간.
+
+    모든 토큰이 이미 시작 위치로 초기화된 상태에서 호출된다.
+    '준비...' 메시지를 CATCH_RESET_PREP_DURATION 초간 표시하여
+    피험자의 시선이 새 배치에 적응할 시간을 확보하고 안구 추적 노이즈를 줄인다.
+    """
+    ui_elements.message_text.text = "준비..."
+    ui_elements.message_text.color = TEXT_COLOR
+    _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer,
+                      game_state, highlighted_pos=None)
+    ui_elements.message_text.draw()
+    trigger_frame_marker()   # 이벤트: 위치 초기화 유예 시작
+    blink_frame_marker(win)
+    win.flip()
+    core.wait(CATCH_RESET_PREP_DURATION)

@@ -252,6 +252,13 @@ class TokenManager:
         """
         return self.check_catch('octopus', 'flight')
     
+    def reset_token_position(self, token_name):
+        """지정 토큰의 위치를 시작 위치로 초기화 (이동 횟수는 유지)."""
+        token = self.get_token(token_name)
+        if token:
+            token.position = token.start_pos
+            print(f"[위치 초기화] {token_name} → {token.start_pos}")
+
     def reset_all(self):
         """모든 토큰 리셋"""
         for token in self.tokens.values():

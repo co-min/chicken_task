@@ -82,7 +82,24 @@ CARD_FLIP_DURATION = 2       # 초 (카드 앞면 노출 시간)
 FEEDBACK_DURATION = 0.5       # 초 (피드백 표시 시간)
 TRIAL_INTERVAL = 1          # 초 (시행 간 간격)
 TOKEN_TIME_WAIT = 1
-GAME_TIME_LIMIT = 300         # 초 (전체 게임 제한 시간, 기본 5분)
+CATCH_RESET_PREP_DURATION = 1.2  # 초 (잡기 이벤트 후 토큰 위치 초기화 유예 시간)
+GAME_TIME_LIMIT = 600         # 초 (전체 게임 제한 시간, 10분 = 5라운드×2분)
+
+# ==================== ROUND SETTINGS ====================
+TOTAL_ROUNDS = 5
+ROUND_TIME_LIMIT = 120        # 초 (라운드당 시간, 2분)
+ROUND_BREAK_DURATION = 4      # 초 (라운드 간 휴식 시간)
+# 라운드별 턴 제한 시간 (1→5라운드, 1초씩 감소)
+ROUND_TURN_LIMITS = [15, 14, 13, 12, 11]
+
+# ==================== PROGRESS BAR ====================
+PROGRESS_BAR_WIDTH  = 700     # px (기준 해상도 기준)
+PROGRESS_BAR_HEIGHT = 16      # px
+PROGRESS_BAR_Y_FROM_TOP = 55  # 화면 상단에서 바 중심까지 거리 (px)
+PROGRESS_BAR_COLOR_FULL = [0, 210, 90]    # 초록 (>50%)
+PROGRESS_BAR_COLOR_WARN = [255, 165, 0]   # 주황 (25~50%)
+PROGRESS_BAR_COLOR_CRIT = [230, 40,  40]  # 빨강 (<25%)
+PROGRESS_BAR_BG_COLOR   = [55,  55,  55]  # 배경
 
 # ==================== SCORE SETTINGS ====================
 SCORE_MATCH = 100             # 카드 매칭 성공
@@ -91,6 +108,9 @@ SCORE_SPEED_MAX = 50          # 빠른 판단 최대 점수
 SCORE_SPEED_MIN = 1           # 빠른 판단 최소 점수
 SCORE_STEAL = 200             # NPC 카드 탈취 보너스
 SCORE_PENALTY = -30           # 오답 패널티
+SCORE_CATCH_BONUS = 200       # 사용자가 문어를 잡을 때 (사용자 보너스)
+SCORE_CAUGHT_PENALTY = -150   # 문어에게 잡힐 때 (사용자 패널티)
+SCORE_PC_CATCH_BONUS = 150    # 문어가 flight를 잡을 때 (PC 보너스)
 
 # ==================== PC AI SETTINGS ====================
 # 레거시 기본 정답률(모드 선택 전). 실제 게임 실행 시에는 mode 기반 deck 크기로 재계산됨.
@@ -167,7 +187,9 @@ TOTAL_SCORE = 0               # 전체 점수 (게임 중 업데이트)
 # game_play.py의 run_feedback_phase 색상
 PURPLE = [180, 0, 255]
 DARK_GREY = [105, 105, 105]
-WHITE=[255,255,255]
+WHITE = [255, 255, 255]
+GOLD = [255, 200, 0]          # 잡기 성공 피드백
+ORANGE_RED = [255, 70, 0]     # 잡힘 패널티 피드백
 
 
 # ==================== GAME MODE SELECTION (PHASE 1) ====================
@@ -280,7 +302,7 @@ def _apply_screen_scale():
     DECK_CARD_SPACING = max(3, round(DECK_CARD_SPACING * s))
 
     TOKEN_SIZE      = round(TOKEN_SIZE * s)
-    TEXT_SIZE       = max(12, round(TEXT_SIZE * s))
+    TEXT_SIZE       = max(10, round(TEXT_SIZE * s))
     HIGHLIGHT_WIDTH = max(2, round(HIGHLIGHT_WIDTH * s))
 
     # WIDTH / HEIGHT를 실제 화면 해상도로 업데이트

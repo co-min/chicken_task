@@ -16,7 +16,9 @@ try:
     from utils.card_matcher import check_match
     from ..config import (TURN_TIME_LIMIT, PC_THINK_TIME, DEFAULT_GAME_MODE, GAME_MODES,
                           GAME_TIME_LIMIT, SCORE_MATCH, SCORE_COMBO_BONUS, SCORE_SPEED_MAX,
-                          SCORE_SPEED_MIN, SCORE_STEAL, SCORE_PENALTY)
+                          SCORE_SPEED_MIN, SCORE_STEAL, SCORE_PENALTY,
+                          SCORE_CATCH_BONUS, SCORE_CAUGHT_PENALTY, SCORE_PC_CATCH_BONUS,
+                          TOTAL_ROUNDS, ROUND_TIME_LIMIT, ROUND_TURN_LIMITS)
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from game_func.board_class import ConditionBoard
@@ -27,7 +29,9 @@ except ImportError:
     from utils.card_matcher import check_match
     from config import (TURN_TIME_LIMIT, PC_THINK_TIME, TOKEN_TIME_WAIT, DEFAULT_GAME_MODE, GAME_MODES,
                         GAME_TIME_LIMIT, SCORE_MATCH, SCORE_COMBO_BONUS, SCORE_SPEED_MAX,
-                        SCORE_SPEED_MIN, SCORE_STEAL, SCORE_PENALTY)
+                        SCORE_SPEED_MIN, SCORE_STEAL, SCORE_PENALTY,
+                        SCORE_CATCH_BONUS, SCORE_CAUGHT_PENALTY, SCORE_PC_CATCH_BONUS,
+                        TOTAL_ROUNDS, ROUND_TIME_LIMIT, ROUND_TURN_LIMITS)
 
 
 class GameState:
@@ -92,15 +96,25 @@ class GameState:
         self.current_turn = self.TURN_USER
         self.selected_token = None  # 'chase' 또는 'flight'
         
+        # 라운드 시스템
+        self.current_round = 1
+        self.total_rounds = TOTAL_ROUNDS
+        self.turn_time_limit = ROUND_TURN_LIMITS[0]  # 현재 라운드 턴 제한 시간
+
         # 타이머
-        self.timer = GameTimer(time_limit=TURN_TIME_LIMIT)
-        self.game_timer = GameTimer(time_limit=GAME_TIME_LIMIT)  # 전체 게임 타이머
+        self.timer = GameTimer(time_limit=self.turn_time_limit)   # 턴 타이머
+        self.round_timer = GameTimer(time_limit=ROUND_TIME_LIMIT) # 라운드 타이머
+        self.game_timer = GameTimer(time_limit=GAME_TIME_LIMIT)   # 전체 게임 타이머
 
         # 점수
         self.user_score = 0
         self.pc_score = 0
-        self.user_combo = 0   # 사용자 연속 성공 횟수
-        self.pc_combo = 0     # PC 연속 성공 횟수
+        self.user_combo = 0      # 사용자 연속 성공 횟수
+        self.pc_combo = 0        # PC 연속 성공 횟수
+
+        # 잡기 기록
+        self.user_catch_count = 0   # 사용자가 문어를 잡은 횟수
+        self.pc_catch_count = 0     # 문어가 flight를 잡은 횟수
 
         # 게임 기록
         self.turn_count = 0
@@ -482,13 +496,31 @@ class GameState:
         self.pc_combo = 0
         self.pc_score += SCORE_PENALTY
 
+    def is_round_time_expired(self):
+        """현재 라운드 시간 초과 여부."""
+        return self.round_timer.is_running and self.round_timer.is_expired()
+
     def is_game_time_expired(self):
         """전체 게임 시간 초과 여부."""
         return self.game_timer.is_running and self.game_timer.is_expired()
 
+    def get_round_time_remaining(self):
+        """현재 라운드 남은 시간 (초)."""
+        return self.round_timer.get_remaining()
+
     def get_game_time_remaining(self):
         """전체 게임 남은 시간 (초)."""
         return self.game_timer.get_remaining()
+
+    def advance_round(self):
+        """다음 라운드 시작: 라운드 카운터 증가, 타이머/턴 제한 갱신."""
+        self.current_round += 1
+        if self.current_round <= self.total_rounds:
+            self.turn_time_limit = ROUND_TURN_LIMITS[self.current_round - 1]
+            self.timer.time_limit = self.turn_time_limit
+            self.round_timer = GameTimer(time_limit=ROUND_TIME_LIMIT)
+            self.round_timer.start()
+            print(f"[ROUND {self.current_round}/{self.total_rounds}] 시작! 턴 제한: {self.turn_time_limit}초")
 
     def start_game(self):
         """게임 시작"""
@@ -532,6 +564,8 @@ class GameState:
         # 게임 플레이 단계로 전환
         self.phase = self.PHASE_GAME_PLAY
         self.timer.start()
+        if not self.round_timer.is_running:
+            self.round_timer.start()
         if not self.game_timer.is_running:
             self.game_timer.start()
 
@@ -626,10 +660,7 @@ class GameState:
 
             # 성공: 토큰 이동
             move_result = self.complete_user_success_move()
-            if move_result == 'game_end':
-                return 'game_end'
-
-            return move_result  # 'success' 또는 'token_switched'
+            return move_result  # 'success', 'token_switched', 또는 'user_caught_npc'
         else:
             # 실패: 패널티 적용 후 턴 종료
             self._add_user_penalty_score()
@@ -657,7 +688,7 @@ class GameState:
         자동으로 selected_token을 'chase'로 전환한다.
 
         Returns:
-            str: 'success', 'token_switched', 또는 'game_end'
+            str: 'success', 'token_switched', 또는 'user_caught_npc'
         """
         if self.selected_token is None:
             return 'error'
@@ -669,9 +700,10 @@ class GameState:
 
         print(f"성공! {moved_token}가 {target_pos}로 이동")
 
-        # 승패 확인
-        if self.check_game_end():
-            return 'game_end'
+        # 잡기 이벤트 확인 (게임 종료 없이 점수/위치 처리)
+        catch_result = self.check_catch_event()
+        if catch_result:
+            return catch_result  # 'user_caught_npc'
 
         # flight 이동 후 chase 바로 뒤에 붙었는지 확인
         if moved_token == 'flight' and self._is_flight_directly_behind_chase():
@@ -679,8 +711,6 @@ class GameState:
             print(f"[전환] flight가 chase 바로 뒤에 위치 → 선택 닭을 chase로 전환")
             return 'token_switched'
 
-        # phase는 GAME_PLAY 유지, selected_token도 유지
-        # -> 같은 닭으로 다음 타겟 계속 진행
         return 'success'
     
     def end_user_turn(self):
@@ -700,7 +730,7 @@ class GameState:
             defer_success_move (bool): True면 성공 시 즉시 토큰 이동하지 않고 호출자가 후처리
         
         Returns:
-            tuple: (result, card_pos) - result는 'success', 'failure', 'game_end', card_pos는 (row, col)
+            tuple: (result, card_pos) - result는 'success', 'failure', 'npc_caught_user', card_pos는 (row, col)
         """
         if self.current_turn != self.TURN_PC:
             return ('error', None)
@@ -748,10 +778,8 @@ class GameState:
 
             # 성공: 문어 이동
             move_result = self.complete_pc_success_move()
-            if move_result == 'game_end':
-                return ('game_end', selected_pos)
-
-            return ('success', selected_pos)
+            # move_result: 'success' 또는 'npc_caught_user'
+            return (move_result, selected_pos)
         else:
             # 실패: PC 패널티 적용 후 턴 종료
             self._add_pc_penalty_score()
@@ -764,15 +792,17 @@ class GameState:
         PC 성공 후 토큰 이동 및 승패 확인
 
         Returns:
-            str: 'success' 또는 'game_end'
+            str: 'success' 또는 'npc_caught_user'
         """
         target_pos = self.tokens.get_target_position('octopus')
         self.tokens.move_token('octopus', target_pos)
         self.pc_move_count += 1
         print(f"PC 성공! Octopus가 {target_pos}로 이동")
 
-        if self.check_game_end():
-            return 'game_end'
+        # 잡기 이벤트 확인 (게임 종료 없이 점수/위치 처리)
+        catch_result = self.check_catch_event()
+        if catch_result:
+            return catch_result  # 'npc_caught_user'
 
         return 'success'
     
@@ -784,24 +814,45 @@ class GameState:
         self.turn_count += 1
         print(f"PC 턴 종료. 사용자 차례 (턴 {self.turn_count})")
     
-    def check_game_end(self):
+    def check_catch_event(self):
         """
-        게임 종료 조건 확인
-        
+        잡기 이벤트 확인 및 처리. 게임을 종료하지 않고 점수/위치를 갱신한다.
+
         Returns:
-            bool: True=게임 종료
+            str or None: 'user_caught_npc', 'npc_caught_user', 또는 None
         """
         if self.tokens.check_victory():
-            self.phase = self.PHASE_VICTORY
-            print("🎉 승리! Chase가 Octopus를 잡았습니다!")
-            return True
-        
+            return self._handle_user_caught_npc()
         if self.tokens.check_defeat():
-            self.phase = self.PHASE_DEFEAT
-            print("💀 패배! Octopus가 Flight를 잡았습니다!")
-            return True
-        
-        return False
+            return self._handle_npc_caught_user()
+        return None
+
+    def _handle_user_caught_npc(self):
+        """사용자(chase)가 문어(octopus)를 잡았을 때 처리."""
+        self.user_catch_count += 1
+        self.user_score += SCORE_CATCH_BONUS
+        # 모든 토큰(chase, flight, octopus) 시작 위치로 초기화
+        self.tokens.reset_token_position('chase')
+        self.tokens.reset_token_position('flight')
+        self.tokens.reset_token_position('octopus')
+        print(f"[잡기] 사용자가 문어를 잡음! +{SCORE_CATCH_BONUS}점 | "
+              f"누적:{self.user_score} | 잡기횟수:{self.user_catch_count}")
+        return 'user_caught_npc'
+
+    def _handle_npc_caught_user(self):
+        """문어(octopus)가 flight를 잡았을 때 처리."""
+        self.pc_catch_count += 1
+        self.user_score += SCORE_CAUGHT_PENALTY
+        self.pc_score += SCORE_PC_CATCH_BONUS
+        self.user_combo = 0   # 잡혔으므로 콤보 초기화
+        # 모든 토큰(chase, flight, octopus) 시작 위치로 초기화
+        self.tokens.reset_token_position('chase')
+        self.tokens.reset_token_position('flight')
+        self.tokens.reset_token_position('octopus')
+        print(f"[잡기] 문어가 flight를 잡음! {SCORE_CAUGHT_PENALTY}점 | "
+              f"유저:{self.user_score} | PC:{self.pc_score} | "
+              f"PC잡기횟수:{self.pc_catch_count}")
+        return 'npc_caught_user'
     
     def update(self, current_time):
         """
@@ -829,13 +880,21 @@ class GameState:
         self.current_turn = self.TURN_USER
         self.selected_token = None
         
+        self.current_round = 1
+        self.total_rounds = TOTAL_ROUNDS
+        self.turn_time_limit = ROUND_TURN_LIMITS[0]
+        self.timer.time_limit = self.turn_time_limit
         self.timer.stop()
+        self.round_timer.stop()
+        self.round_timer = GameTimer(time_limit=ROUND_TIME_LIMIT)
         self.game_timer.stop()
 
         self.user_score = 0
         self.pc_score = 0
         self.user_combo = 0
         self.pc_combo = 0
+        self.user_catch_count = 0
+        self.pc_catch_count = 0
 
         self.turn_count = 0
         self.user_move_count = 0
@@ -864,10 +923,15 @@ class GameState:
             'turn_count': self.turn_count,
             'selected_mode_id': self.selected_mode_id,
             'selected_mode': self.selected_mode,
+            'current_round': self.current_round,
+            'total_rounds': self.total_rounds,
+            'round_time_remaining': round(self.get_round_time_remaining(), 1),
             'user_score': self.user_score,
             'pc_score': self.pc_score,
             'user_combo': self.user_combo,
             'pc_combo': self.pc_combo,
+            'user_catch_count': self.user_catch_count,
+            'pc_catch_count': self.pc_catch_count,
             'game_time_remaining': round(self.get_game_time_remaining(), 1),
             'user_moves': self.user_move_count,
             'pc_moves': self.pc_move_count,
