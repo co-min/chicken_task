@@ -13,6 +13,7 @@ try:
         TOKEN_BUTTON_WIDTH, TOKEN_BUTTON_HEIGHT
     )
     from ..view_func.frame_marker import blink_frame_marker, trigger_frame_marker
+    from ..sounds import play as sound_play
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from config import (
@@ -22,9 +23,10 @@ except ImportError:
         TOKEN_BUTTON_WIDTH, TOKEN_BUTTON_HEIGHT
     )
     from view_func.frame_marker import blink_frame_marker, trigger_frame_marker
+    from sounds import play as sound_play
 
 
-def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck_renderer, token_renderer):
+def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck_renderer, token_renderer, sounds=None):
     """
     Phase 0: 닭 선택 단계
     사용자가 Chase 또는 Flight 중 어떤 닭을 조종할지 선택
@@ -71,6 +73,7 @@ def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck
             # 클릭 확인
             if mouse.getPressed()[0]:  # 왼쪽 버튼
                 selected_token = 'chase'
+                sound_play(sounds, 'type')
                 game_state.select_token(selected_token)
                 trigger_frame_marker()   # 이벤트: 닭 선택 (Chase)
                 while mouse.getPressed()[0]:
@@ -87,6 +90,7 @@ def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck
             # 클릭 확인
             if mouse.getPressed()[0]:  # 왼쪽 버튼
                 selected_token = 'flight'
+                sound_play(sounds, 'type')
                 game_state.select_token(selected_token)
                 trigger_frame_marker()   # 이벤트: 닭 선택 (Flight)
                 while mouse.getPressed()[0]:

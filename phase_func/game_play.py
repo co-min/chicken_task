@@ -35,8 +35,10 @@ except ImportError:
 
 try:
     from ..view_func.frame_marker import blink_frame_marker, trigger_frame_marker
+    from ..sounds import load_sounds, play as sound_play
 except ImportError:
     from view_func.frame_marker import blink_frame_marker, trigger_frame_marker
+    from sounds import load_sounds, play as sound_play
 
 
 START_CUE_DURATION = 0.8
@@ -67,7 +69,10 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
     
     # 마우스 객체
     mouse = event.Mouse(win=win)
-    
+
+    # 사운드 로드
+    sounds = load_sounds()
+
     # 게임 메인 루프
     while True:
         # 라운드/게임 종료 확인
@@ -85,7 +90,8 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
         if game_state.current_turn == game_state.TURN_USER:
             # 사용자 턴 실행
             result = _run_user_turn(win, game_state, ui_elements, board_renderer,
-                                   deck_renderer, token_renderer, mouse, aoi_manager)
+                                   deck_renderer, token_renderer, mouse, aoi_manager,
+                                   sounds=sounds)
             
             if result == 'exit':
                 return 'exit'
@@ -96,7 +102,7 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
         elif game_state.current_turn == game_state.TURN_PC:
             # PC 턴 실행
             result = _run_pc_turn(win, game_state, ui_elements, board_renderer,
-                                 deck_renderer, token_renderer)
+                                 deck_renderer, token_renderer, sounds=sounds)
 
             if result == 'continue':
                 # PC 턴 종료 → 사용자 턴으로 전환됨
@@ -107,7 +113,7 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
 
 
 def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
-                   token_renderer, mouse, aoi_manager=None):
+                   token_renderer, mouse, aoi_manager=None, sounds=None):
     """
     사용자 턴 실행
 
@@ -124,8 +130,9 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
     # 1. 닭 선택 단계 (토큰이 선택되지 않았을 때만)
     if game_state.selected_token is None:
         print(f"[USER TURN] 닭 선택 단계 (턴 {game_state.turn_count})")
-        selected = run_token_selection_phase(win, game_state, ui_elements, 
-                                            board_renderer, deck_renderer, token_renderer)
+        selected = run_token_selection_phase(win, game_state, ui_elements,
+                                            board_renderer, deck_renderer, token_renderer,
+                                            sounds=sounds)
         
         if selected == 'exit':
             return 'exit'
@@ -151,6 +158,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
         # 시간 초과 확인
         if game_state.timer.is_expired():
             print(f"[USER TURN] 타임아웃! 턴 종료")
+            sound_play(sounds, 'error')
             run_feedback_phase(
                 win,
                 ui_elements,
@@ -186,8 +194,9 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                 # 카드 선택 처리
                 result = game_state.user_click_card(card_row, card_col, defer_success_move=True)
                 print(f"[USER TURN] 카드 선택: {card_pos}, 결과: {result}")
-                
+
                 # 카드 뒤집기 애니메이션 (game_state.user_click_card에서 이미 flip 수행됨)
+                sound_play(sounds, 'flip')
                 _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, game_state, target_pos)
                 trigger_frame_marker()   # 이벤트: 사용자 카드 뒤집기
                 blink_frame_marker(win)
@@ -196,6 +205,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                 
                 # 결과 처리
                 if result == 'success':
+                    sound_play(sounds, 'correct')
                     run_feedback_phase(
                         win,
                         ui_elements,
@@ -216,6 +226,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
 
                     # 잡기 이벤트: 문어를 잡았을 때 추가 피드백 + 위치 초기화 유예
                     if move_result == 'user_caught_npc':
+                        sound_play(sounds, 'win')
                         run_feedback_phase(
                             win, ui_elements, board_renderer, deck_renderer, token_renderer,
                             message=f"문어를 잡았다!  +{SCORE_CATCH_BONUS}점",
@@ -240,12 +251,14 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                         turn_count=game_state.turn_count,
                         timer_display_text=game_state.timer.get_display_text(),
                         target_pos=game_state.get_target_position(),
+                        sounds=sounds,
                     )
                     game_state.timer.reset()
                     print(f"[USER TURN] 성공({move_result}), 타이머 리셋, 다음 타겟으로 계속")
                     continue
                 
                 elif result == 'failure':
+                    sound_play(sounds, 'error')
                     run_feedback_phase(
                         win,
                         ui_elements,
@@ -283,7 +296,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
     return 'continue'
 
 
-def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, token_renderer):
+def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, token_renderer, sounds=None):
     """
     PC 턴 실행 (NPC AI 사용)
     
@@ -327,6 +340,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
         
         # 1단계: 카드 뒤집기 애니메이션 (타겟 하이라이트 유지)
         # ui_elements.message_text.text = f"문어가 ({card_pos[0]}, {card_pos[1]}) 카드 선택"
+        sound_play(sounds, 'npc_flip')
         _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, game_state, pc_target_pos)
         trigger_frame_marker()   # 이벤트: PC 카드 뒤집기
         blink_frame_marker(win)
@@ -335,12 +349,14 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
         
         # 2단계: 기본 결과 피드백 표시
         if result == 'failure':
+            sound_play(sounds, 'error')
             run_feedback_phase(
                 win, ui_elements, board_renderer, deck_renderer, token_renderer,
                 message="문어 실패", color=DARK_GREY,
                 duration=FEEDBACK_DURATION, highlighted_pos=pc_target_pos,
             )
         else:  # 'success'
+            sound_play(sounds, 'correct')
             run_feedback_phase(
                 win, ui_elements, board_renderer, deck_renderer, token_renderer,
                 message="문어 성공", color=PURPLE,
@@ -354,6 +370,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
 
             # 잡기 이벤트: 문어가 flight를 잡았을 때
             if move_result == 'npc_caught_user':
+                sound_play(sounds, 'lose')
                 run_feedback_phase(
                     win, ui_elements, board_renderer, deck_renderer, token_renderer,
                     message=f"잡혔다!  {SCORE_CAUGHT_PENALTY}점",
@@ -466,6 +483,7 @@ def _show_start_cue(
     turn_count,
     timer_display_text,
     target_pos,
+    sounds=None,
 ):
     """다음 시도를 시작하기 직전에 큰 시작 문구를 잠깐 표시"""
     ui_elements.set_user_turn_hud(
@@ -482,6 +500,7 @@ def _show_start_cue(
         game_state,
         target_pos,
     )
+    sound_play(sounds, 'qbeep')
     ui_elements.draw_start_cue("시작!")
     trigger_frame_marker()   # 이벤트: 시행 시작 큐
     blink_frame_marker(win)
