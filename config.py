@@ -20,25 +20,27 @@ BOARD_ROWS = 3
 BOARD_COLS = 9
 TOTAL_CARDS = BOARD_ROWS * BOARD_COLS  # 레거시 기본(모드 선택 전) 카드 수
 
-# Layout - 보드/덱 위치 (1100x1080 기준, AUTO_DETECT_WINDOW_SIZE=True 시 자동 스케일)
+# Layout - 보드/덱 위치 (1100x1080 기준값, AUTO_DETECT_WINDOW_SIZE=True 시 자동 스케일)
 #
 # 설계 원칙:
-#   1) 덱 총 height = 보드 총 height  →  deck_h = (5×board_h + 2×sp) / 3
+#   1) 덱 총 height = 보드 총 height  →  deck_h = (board_total_h - 2×deck_sp) / 3
 #   2) 덱 가로세로 비율 = 0.68 (deck_w = deck_h × 0.68)
-#   3) 카드 간격 확장 (아이트래커 AOI 분리)
-#   4) 레이아웃은 auto-scale 후 화면 가운데 정렬
+#   3) 덱 카드는 작게 + 간격 넓게 → EyeLink AOI 충분한 분리
+#   4) 레이아웃은 auto-scale 후 화면 가운데 정렬, 좌우 각 50px 여백 확보
 #
-# 기준 검증 (1100×1080, sp=5):
-#   board_h=73, deck_h=(5×73+2×5)/3=125, deck_w=125×0.68=85
-#   board: 9×52+8×5=508,  deck: 6×85+5×5=535,  gap=50
-#   총: 2+508+50+535+2=1097 ≤ 1100 ✓
-#   board height: 5×73+4×5=385,  deck height: 3×125+2×5=385 ✓ (동일)
-BOARD_DECK_CENTER_GAP = 50    # 보드↔덱 사이 여백 (아이트래커 기준)
+# 기준 검증 (참조값):
+#   board_h=79, board_sp=5 → board_total_h = 5×79+4×5 = 415
+#   deck_sp=17 → deck_h = (415-2×17)/3 = 127,  deck_w = 127×0.68 = 86
+#   board: 9×56+8×5=544,  deck: 6×86+5×17=601,  gap=80
+#   _design_layout_w = 544+80+601 = 1225
+#   at 1920px: s≈1.51 → 좌우 여백≈30px, 보드-덱 gap≈121px
+#   board height: 5×79+4×5=415,  deck height: 3×127+2×17=415 ✓ (동일)
+BOARD_DECK_CENTER_GAP = 80    # 보드↔덱 사이 여백 (EyeLink AOI 분리 기준)
 BOARD_DECK_TOP_MARGIN = 120   # 상단 HUD 아래 여백 (HUD 텍스트 겹침 방지)
 
-# 보드 카드 크기 (비율 52:73 = 0.712 ≈ 원본 68:95)
-BOARD_CARD_WIDTH = 52
-BOARD_CARD_HEIGHT = 73
+# 보드 카드 크기 (비율 56:79 = 0.709 ≈ 원본 68:95)
+BOARD_CARD_WIDTH = 56
+BOARD_CARD_HEIGHT = 79
 BOARD_CARD_SPACING = 5        # 아이트래커 AOI 분리용 간격
 
 BOARD_TOTAL_WIDTH = BOARD_COLS * BOARD_CARD_WIDTH + (BOARD_COLS - 1) * BOARD_CARD_SPACING
@@ -47,13 +49,14 @@ BOARD_LEFT_MARGIN = BOARD_LEFT_EDGE  # 레거시 alias
 BOARD_TOP_MARGIN = BOARD_DECK_TOP_MARGIN
 BOARD_Y_OFFSET = 0
 
-# 덱 카드 크기 (비율 85:125 = 0.68 ✓, 총 height = 보드 총 height)
-DECK_CARD_WIDTH = 85
-DECK_CARD_HEIGHT = 125
-DECK_CARD_SPACING = 5         # 아이트래커 AOI 분리용 간격
+# 덱 카드 크기 (비율 86:127 ≈ 0.68 ✓, 총 height = 보드 총 height, 간격 넓혀 EyeLink AOI 분리)
+# 3×127 + 2×17 = 415 = board 총 height (5×79+4×5=415) ✓
+DECK_CARD_WIDTH = 86
+DECK_CARD_HEIGHT = 127
+DECK_CARD_SPACING = 17        # 아이트래커 AOI 분리용 간격
 
 DECK_TOTAL_WIDTH = BOARD_COLS * DECK_CARD_WIDTH + (BOARD_COLS - 1) * DECK_CARD_SPACING
-DECK_LEFT_EDGE = BOARD_LEFT_EDGE + BOARD_TOTAL_WIDTH + BOARD_DECK_CENTER_GAP  # = 2+508+50=560
+DECK_LEFT_EDGE = BOARD_LEFT_EDGE + BOARD_TOTAL_WIDTH + BOARD_DECK_CENTER_GAP  # = 2+544+80=626 (auto-scale 후 재계산됨)
 DECK_LEFT_MARGIN = DECK_LEFT_EDGE  # 레거시 alias
 DECK_TOP_MARGIN = BOARD_DECK_TOP_MARGIN
 DECK_X_OFFSET = 0
@@ -282,12 +285,13 @@ def _apply_screen_scale():
                            + _BOARD_ROWS_GAME * BOARD_CARD_HEIGHT
                            + (_BOARD_ROWS_GAME - 1) * BOARD_CARD_SPACING)
 
-    # 수평 스케일 한계: 좌우 2px 여백, 보드+간격+덱이 actual_w에 맞도록
+    # 수평 스케일 한계: 좌우 각 50px 여백 확보, 보드+간격+덱이 actual_w-100에 맞도록
+    _SCREEN_SIDE_MARGIN = 35  # 화면 경계에서 레이아웃까지 최소 여백 (px, 양쪽 각각)
     _deck_design_w = _DECK_COLS_GAME * DECK_CARD_WIDTH + (_DECK_COLS_GAME - 1) * DECK_CARD_SPACING
     _design_layout_w = BOARD_TOTAL_WIDTH + BOARD_DECK_CENTER_GAP + _deck_design_w
 
     s_vert  = _btn_top_y / _design_card_area_h
-    s_horiz = (actual_w - 4) / _design_layout_w
+    s_horiz = (actual_w - _SCREEN_SIDE_MARGIN * 2) / _design_layout_w
     s = max(0.5, min(s_vert, s_horiz))
 
     # 카드 크기 스케일
@@ -325,8 +329,8 @@ def _apply_screen_scale():
     DECK_X_OFFSET    = 0
 
     print(f"[config] 화면 해상도 {actual_w}×{actual_h} 감지 → 스케일 {s:.3f} 적용")
-    print(f"[config] 보드 카드 {BOARD_CARD_WIDTH}×{BOARD_CARD_HEIGHT}, 덱 카드 {DECK_CARD_WIDTH}×{DECK_CARD_HEIGHT}")
-    print(f"[config] 레이아웃 너비 {_total_layout}px, BOARD_LEFT_EDGE={BOARD_LEFT_EDGE}px")
+    print(f"[config] 보드 카드 {BOARD_CARD_WIDTH}×{BOARD_CARD_HEIGHT} sp={BOARD_CARD_SPACING}, 덱 카드 {DECK_CARD_WIDTH}×{DECK_CARD_HEIGHT} sp={DECK_CARD_SPACING}")
+    print(f"[config] 레이아웃 너비 {_total_layout}px, BOARD_LEFT_EDGE={BOARD_LEFT_EDGE}px, 보드-덱 gap={BOARD_DECK_CENTER_GAP}px")
 
 
 if AUTO_DETECT_WINDOW_SIZE:
