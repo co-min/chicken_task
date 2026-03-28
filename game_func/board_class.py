@@ -207,6 +207,15 @@ class ConditionBoard:
 
         raise ValueError("Failed to generate board without circular adjacent duplicate conditions.")
     
+    def reshuffle(self):
+        """
+        조건 카드를 다시 셔플하여 보드를 재배치
+        - 토큰 위치 초기화 이벤트 후 호출
+        - 조건 종류는 동일하게 유지하되 순서만 다시 섞음
+        """
+        self.conditions = self._create_conditions()
+        self.board = self._shuffle_and_layout()
+
     def get_condition(self, row, col):
         """
         특정 위치(row, col)의 조건 가져오기

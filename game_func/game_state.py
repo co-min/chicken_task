@@ -835,6 +835,11 @@ class GameState:
         self.tokens.reset_token_position('chase')
         self.tokens.reset_token_position('flight')
         self.tokens.reset_token_position('octopus')
+        # 덱과 보드 재셔플
+        self.deck.reshuffle()
+        self.board.reshuffle()
+        self.user_seen_cards.clear()
+        self.npc_seen_cards.clear()
         print(f"[잡기] 사용자가 문어를 잡음! +{SCORE_CATCH_BONUS}점 | "
               f"누적:{self.user_score} | 잡기횟수:{self.user_catch_count}")
         return 'user_caught_npc'
@@ -849,6 +854,11 @@ class GameState:
         self.tokens.reset_token_position('chase')
         self.tokens.reset_token_position('flight')
         self.tokens.reset_token_position('octopus')
+        # 덱과 보드 재셔플
+        self.deck.reshuffle()
+        self.board.reshuffle()
+        self.user_seen_cards.clear()
+        self.npc_seen_cards.clear()
         print(f"[잡기] 문어가 flight를 잡음! {SCORE_CAUGHT_PENALTY}점 | "
               f"유저:{self.user_score} | PC:{self.pc_score} | "
               f"PC잡기횟수:{self.pc_catch_count}")

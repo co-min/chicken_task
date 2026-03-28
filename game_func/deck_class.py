@@ -173,6 +173,18 @@ class MainDeck:
             if (row, col) in self.flip_timers:
                 del self.flip_timers[(row, col)]
     
+    def reshuffle(self):
+        """
+        카드를 다시 셔플하여 덱을 재배치
+        - 토큰 위치 초기화 이벤트 후 호출
+        - 카드 조합은 동일하게 유지하되 순서만 다시 섞음
+        - 모든 카드를 뒷면으로 초기화하고 타이머 초기화
+        """
+        self.cards = self._create_cards()
+        self.deck = self._shuffle_and_layout()
+        self.face_up = self._initialize_face_states()
+        self.flip_timers = {}
+
     def update_timers(self, current_time):
         """
         플립 타이머 업데이트 - 5초 지난 카드 자동 숨김
