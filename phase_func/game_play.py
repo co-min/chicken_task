@@ -36,16 +36,44 @@ except ImportError:
 try:
     from ..view_func.frame_marker import blink_frame_marker, trigger_frame_marker
     from ..sounds import load_sounds, play as sound_play
+    from ..utils.labjack_triggers import send_trigger
+    from ..save_func.trial_saver import save_trial
 except ImportError:
     from view_func.frame_marker import blink_frame_marker, trigger_frame_marker
     from sounds import load_sounds, play as sound_play
+    from utils.labjack_triggers import send_trigger
+    from save_func.trial_saver import save_trial
 
 
 START_CUE_DURATION = 0.8
 
+# LabJack 트리거 코드 (labjack_triggers.py 규약과 동일)
+_LJ_TRIAL_START = 200
+_LJ_TRIAL_END   = 201
+
+
+def _edf_msg(aoi_manager, message: str):
+    """EyeLink EDF 파일에 타임스탬프 메시지를 기록한다."""
+    if aoi_manager and aoi_manager.el_tracker:
+        aoi_manager.el_tracker.sendMessage(message)
+
+
+def _ljack(aoi_manager, code: int):
+    """LabJack T4 EIO 포트로 TTL 트리거를 즉시 전송한다 (TRIAL_END 등)."""
+    if aoi_manager and aoi_manager.labjack_handle:
+        send_trigger(aoi_manager.labjack_handle, code)
+
+
+def _ljack_on_flip(win, aoi_manager, code: int):
+    """다음 win.flip() 직후 VSync 타이밍에 맞춰 TTL 트리거를 전송한다 (TRIAL_START 용).
+    callOnFlip을 사용해 화면 갱신 순간과 트리거를 정확히 동기화한다."""
+    if aoi_manager and aoi_manager.labjack_handle:
+        win.callOnFlip(send_trigger, aoi_manager.labjack_handle, code)
+
 
 def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_renderer,
-                        token_renderer, aoi_manager=None):
+                        token_renderer, aoi_manager=None,
+                        save_paths=None, subject_id=''):
     """
     Phase 1+: 게임 플레이 단계
     사용자와 PC가 교대로 턴을 진행하며 게임을 플레이
@@ -91,6 +119,7 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
             # 사용자 턴 실행
             result = _run_user_turn(win, game_state, ui_elements, board_renderer,
                                    deck_renderer, token_renderer, mouse, aoi_manager,
+                                   save_paths=save_paths, subject_id=subject_id,
                                    sounds=sounds)
             
             if result == 'exit':
@@ -102,7 +131,10 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
         elif game_state.current_turn == game_state.TURN_PC:
             # PC 턴 실행
             result = _run_pc_turn(win, game_state, ui_elements, board_renderer,
-                                 deck_renderer, token_renderer, sounds=sounds)
+                                 deck_renderer, token_renderer,
+                                 aoi_manager=aoi_manager,
+                                 save_paths=save_paths, subject_id=subject_id,
+                                 sounds=sounds)
 
             if result == 'continue':
                 # PC 턴 종료 → 사용자 턴으로 전환됨
@@ -113,7 +145,8 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
 
 
 def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
-                   token_renderer, mouse, aoi_manager=None, sounds=None):
+                   token_renderer, mouse, aoi_manager=None,
+                   save_paths=None, subject_id='', sounds=None):
     """
     사용자 턴 실행
 
@@ -142,11 +175,25 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
         print(f"[USER TURN] {game_state.selected_token.upper()} 선택, 카드 선택 시작")
     
     # 2. 카드 선택 루프 (같은 토큰으로 계속 진행)
+    _trial_active = False  # True인 동안은 TRIAL_START를 중복 전송하지 않는다
+    _trial_id = None
     while game_state.phase == game_state.PHASE_GAME_PLAY and \
           game_state.current_turn == game_state.TURN_USER:
-        
+
         # 타겟 위치 업데이트 (매 루프마다)
         target_pos = game_state.get_target_position()
+
+        # 새 시도 시작: EDF + LabJack에 TRIAL_START 전송
+        if not _trial_active:
+            _trial_id = game_state.get_next_trial_id()
+            if aoi_manager:
+                aoi_manager.current_trial_id = _trial_id  # gaze_event 동기화
+            _edf_msg(aoi_manager,
+                     f"TRIAL_START {_trial_id} USER"
+                     f" ROUND {game_state.current_round}"
+                     f" TURN {game_state.turn_count}")
+            _ljack_on_flip(win, aoi_manager, _LJ_TRIAL_START)
+            _trial_active = True
         
         # 사용자 턴 HUD 업데이트
         ui_elements.set_user_turn_hud(
@@ -171,11 +218,14 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                 highlighted_pos=None,
             )
             
+            # 시행 종료 마킹
+            _edf_msg(aoi_manager, f"TRIAL_END {_trial_id} MATCH 0 RESULT timeout")
+            _ljack(aoi_manager, _LJ_TRIAL_END)
             # 턴 종료 (end_user_turn에서 selected_token 리셋됨)
             game_state.end_user_turn()
-            
+
             return 'continue'
-        
+
         # 키보드 입력 확인 (ESC)
         keys = event.getKeys()
         if KEY_EXIT in keys:
@@ -194,6 +244,10 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                 # 카드 선택 처리
                 result = game_state.user_click_card(card_row, card_col, defer_success_move=True)
                 print(f"[USER TURN] 카드 선택: {card_pos}, 결과: {result}")
+                # 시행 결과 즉시 CSV에 기록 (크래시 안전)
+                if save_paths and game_state.trial_history:
+                    save_trial(save_paths['trial'], game_state.trial_history[-1],
+                               game_state, subject_id)
 
                 # 카드 뒤집기 애니메이션 (game_state.user_click_card에서 이미 flip 수행됨)
                 sound_play(sounds, 'flip')
@@ -240,6 +294,11 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                         _show_reset_prep_cue(win, ui_elements, board_renderer, deck_renderer,
                                              token_renderer, game_state)
 
+                    # 시행 종료 마킹 (다음 루프 반복에서 새 TRIAL_START 전송)
+                    _edf_msg(aoi_manager, f"TRIAL_END {_trial_id} MATCH 1 RESULT success")
+                    _ljack(aoi_manager, _LJ_TRIAL_END)
+                    _trial_active = False
+
                     # 모든 피드백이 끝난 뒤 타이머 리셋 후 다음 타겟 계속
                     core.wait(TRIAL_INTERVAL)
                     _show_start_cue(
@@ -275,7 +334,10 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                     
                     # 카드 뒤로 감추기 (hide_card 사용)
                     game_state.deck.hide_card(card_row, card_col)
-                    
+
+                    # 시행 종료 마킹
+                    _edf_msg(aoi_manager, f"TRIAL_END {_trial_id} MATCH 0 RESULT failure")
+                    _ljack(aoi_manager, _LJ_TRIAL_END)
                     # 턴 종료 (end_user_turn에서 selected_token 리셋됨)
                     print(f"[USER TURN] 실패, 턴 종료")
                     return 'continue'
@@ -298,7 +360,8 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
     return 'continue'
 
 
-def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, token_renderer, sounds=None):
+def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, token_renderer,
+                 aoi_manager=None, save_paths=None, subject_id='', sounds=None):
     """
     PC 턴 실행 (NPC AI 사용)
     
@@ -337,8 +400,20 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
         core.wait(PC_THINK_TIME)
         
         # PC 카드 선택 및 실행 (NPC AI 사용, result와 card_pos 반환)
+        _pc_trial_id = game_state.get_next_trial_id()
+        if aoi_manager:
+            aoi_manager.current_trial_id = _pc_trial_id  # gaze_event 동기화
+        _edf_msg(aoi_manager,
+                 f"TRIAL_START {_pc_trial_id} PC"
+                 f" ROUND {game_state.current_round}"
+                 f" TURN {game_state.turn_count}")
+        _ljack_on_flip(win, aoi_manager, _LJ_TRIAL_START)
         result, card_pos = game_state.pc_turn_step(defer_success_move=True)
         print(f"[PC TURN] 카드 선택: {card_pos}, 결과: {result}")
+        # 시행 결과 즉시 CSV에 기록 (크래시 안전)
+        if save_paths and game_state.trial_history:
+            save_trial(save_paths['trial'], game_state.trial_history[-1],
+                       game_state, subject_id)
         
         # 1단계: 카드 뒤집기 애니메이션 (타겟 하이라이트 유지)
         # ui_elements.message_text.text = f"문어가 ({card_pos[0]}, {card_pos[1]}) 카드 선택"
@@ -385,18 +460,24 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
                 # 토큰이 시작 위치로 초기화된 직후 시선 안정화 유예
                 _show_reset_prep_cue(win, ui_elements, board_renderer, deck_renderer,
                                      token_renderer, game_state)
+                _edf_msg(aoi_manager, f"TRIAL_END {_pc_trial_id} MATCH 1 RESULT npc_caught_user")
+                _ljack(aoi_manager, _LJ_TRIAL_END)
                 # PC 턴 종료 → 사용자 턴으로 전환 (turn 카운트 증가, 상태 전환)
                 game_state.end_pc_turn()
                 print(f"[문어] flight 잡음! PC 턴 종료 → 사용자 턴")
                 return 'continue'
 
             # 일반 성공: PC 턴 계속
+            _edf_msg(aoi_manager, f"TRIAL_END {_pc_trial_id} MATCH 1 RESULT success")
+            _ljack(aoi_manager, _LJ_TRIAL_END)
             print(f"[문어] 성공, 다음 타겟으로 계속")
             core.wait(TRIAL_INTERVAL)
             continue
 
         elif result == 'failure':
             game_state.deck.hide_card(card_pos[0], card_pos[1])
+            _edf_msg(aoi_manager, f"TRIAL_END {_pc_trial_id} MATCH 0 RESULT failure")
+            _ljack(aoi_manager, _LJ_TRIAL_END)
             # PC 턴 종료 (사용자 턴으로 전환됨)
             print(f"[문어] 실패, 턴 종료")
             return 'continue'

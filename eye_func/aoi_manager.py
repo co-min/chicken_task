@@ -29,6 +29,16 @@ except ImportError:
     _LJM_AVAILABLE = False
 
 try:
+    from ..save_func.gaze_event_saver import save_gaze_event
+    _GAZE_SAVER_AVAILABLE = True
+except ImportError:
+    try:
+        from save_func.gaze_event_saver import save_gaze_event
+        _GAZE_SAVER_AVAILABLE = True
+    except ImportError:
+        _GAZE_SAVER_AVAILABLE = False
+
+try:
     from ..config import (
         WIDTH, HEIGHT,
         BOARD_LEFT_EDGE, BOARD_DECK_TOP_MARGIN,
@@ -124,6 +134,11 @@ class AOIManager:
         self.deck           = deck
         self.el_tracker     = el_tracker
         self.labjack_handle = labjack_handle
+
+        # 데이터 저장 (main.py에서 주입)
+        self.gaze_file:        str | None = None   # gaze_events.csv 경로
+        self.subject_id:       str        = ''
+        self.current_trial_id: int        = 0      # game_play.py에서 갱신
 
         # AOI 테이블: aoi_id → {'type', 'pos', 'rect', 'trigger_code'}
         self.aois: dict = {}
@@ -337,7 +352,7 @@ class AOIManager:
     # ------------------------------------------------------------------ #
 
     def _on_enter(self, aoi_id: str, t: float):
-        """AOI 진입 처리: 타임스탬프 기록, EyeLink 메시지, LabJack 트리거."""
+        """AOI 진입 처리: 타임스탬프 기록, EyeLink 메시지, LabJack 트리거, CSV 저장."""
         self._entry_time[aoi_id] = t
 
         if self.el_tracker:
@@ -346,13 +361,28 @@ class AOIManager:
         aoi = self.aois[aoi_id]
         self._send_labjack_trigger(aoi['trigger_code'], t)
 
+        if _GAZE_SAVER_AVAILABLE and self.gaze_file:
+            save_gaze_event(
+                self.gaze_file, self.subject_id,
+                self.current_trial_id, 'enter',
+                aoi_id, aoi, t,
+            )
+
     def _on_exit(self, aoi_id: str, t: float):
-        """AOI 이탈 처리: 체류 시간 계산 후 EyeLink 메시지."""
+        """AOI 이탈 처리: 체류 시간 계산, EyeLink 메시지, CSV 저장."""
         dwell = self.get_dwell_time(aoi_id, t)
 
         if self.el_tracker:
             self.el_tracker.sendMessage(
                 f"GAZE_EXIT {aoi_id} DWELL {dwell:.4f}"
+            )
+
+        if _GAZE_SAVER_AVAILABLE and self.gaze_file:
+            aoi = self.aois.get(aoi_id, {})
+            save_gaze_event(
+                self.gaze_file, self.subject_id,
+                self.current_trial_id, 'exit',
+                aoi_id, aoi, t, dwell_time=dwell,
             )
 
         self._entry_time.pop(aoi_id, None)

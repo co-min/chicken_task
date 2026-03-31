@@ -121,10 +121,17 @@ class GameState:
         self.user_move_count = 0
         self.pc_move_count = 0
         self.trial_history = []  # 시행 결과 리스트
+        self.trial_id = 0        # EDF/LabJack 동기화용 단조 증가 시행 번호
 
     @staticmethod
     def _clamp(value, min_value, max_value):
         return max(min_value, min(max_value, value))
+
+    def get_next_trial_id(self) -> int:
+        """카드 선택 시도가 시작될 때마다 호출. 단조 증가하는 시행 번호 반환.
+        EDF sendMessage 및 LabJack 트리거 코드의 공통 키로 사용한다."""
+        self.trial_id += 1
+        return self.trial_id
 
     def set_selected_mode(self, selected_mode_id):
         """시작 phase에서 선택된 모드 ID를 저장."""
@@ -650,6 +657,8 @@ class GameState:
         
         # 시행 기록 저장
         trial = {
+            'trial_id': self.trial_id,       # EDF/LabJack 동기화 키
+            'round': self.current_round,
             'turn': self.turn_count,
             'token': self.selected_token,
             'target_pos': self.get_target_position(),
@@ -657,7 +666,8 @@ class GameState:
             'selected_card_pos': (card_row, card_col),
             'selected_card': card,
             'is_match': is_match,
-            'elapsed_time': elapsed_time  # 이번 시도에 걸린 시간
+            'elapsed_time': elapsed_time,    # 이번 시도에 걸린 시간
+            'timestamp': time.time(),        # 절대 시각 (UNIX epoch)
         }
         self.trial_history.append(trial)
         self._record_user_observation((card_row, card_col), card, is_match)
@@ -785,6 +795,8 @@ class GameState:
         
         # 기록
         trial = {
+            'trial_id': self.trial_id,       # EDF/LabJack 동기화 키
+            'round': self.current_round,
             'turn': self.turn_count,
             'token': 'octopus',
             'target_pos': target_pos,
@@ -792,7 +804,8 @@ class GameState:
             'selected_card_pos': selected_pos,
             'selected_card': card,
             'is_match': is_match,
-            'elapsed_time': 0
+            'elapsed_time': 0,
+            'timestamp': time.time(),        # 절대 시각 (UNIX epoch)
         }
         self.trial_history.append(trial)
         self._record_npc_observation(selected_pos, card)

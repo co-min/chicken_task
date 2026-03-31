@@ -14,6 +14,8 @@ def run_all_phases(
 	deck_renderer,
 	token_renderer,
 	aoi_manager=None,
+	save_paths=None,
+	subject_id='',
 ):
 	"""
 	전체 phase 실행 오케스트레이터.
@@ -79,6 +81,8 @@ def run_all_phases(
 		deck_renderer,
 		token_renderer,
 		aoi_manager=aoi_manager,
+		save_paths=save_paths,
+		subject_id=subject_id,
 	)
 
 	# EyeLink 레코딩 종료
