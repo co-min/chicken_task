@@ -52,7 +52,7 @@ def run_ending_phase(win, ui_elements, game_state, result):
 	stats_lines = (
 		f"내 점수: {u_score}점   |   문어 점수: {p_score}점\n\n"
 		f"문어 잡기: {u_catch}회       잡힌 횟수: {p_catch}회\n\n"
-		f"총 라운드: {game_state.current_round}/{game_state.total_rounds}   "
+		f"총 라운드: {game_state.current_round}   "
 		f"총 턴: {game_state.turn_count}\n"
 		f"사용자 이동: {game_state.user_move_count}회   "
 		f"PC 이동: {game_state.pc_move_count}회   "

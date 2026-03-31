@@ -105,13 +105,13 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
     while True:
         # 라운드/게임 종료 확인
         if game_state.is_round_time_expired():
-            if game_state.current_round < game_state.total_rounds:
-                # 라운드 간 휴식
+            if not game_state.is_game_time_expired():
+                # 아직 게임 시간 남음 → 다음 라운드 시작
                 _run_round_break(win, ui_elements, board_renderer, deck_renderer,
                                  token_renderer, game_state)
                 game_state.advance_round()
             else:
-                print("[GAME END] 모든 라운드 완료!")
+                print("[GAME END] 게임 시간(30분) 완료!")
                 return 'timeout'
         
         # 현재 턴 확인 및 실행

@@ -535,13 +535,13 @@ class GameState:
     def advance_round(self):
         """다음 라운드 시작: 라운드 카운터 증가, 보드·덱·토큰 초기화, 타이머/턴 제한 갱신."""
         self.current_round += 1
-        if self.current_round <= self.total_rounds:
-            self._reset_round_board_state()
-            self.turn_time_limit = ROUND_TURN_LIMITS[self.current_round - 1]
-            self.timer.time_limit = self.turn_time_limit
-            self.round_timer = GameTimer(time_limit=ROUND_TIME_LIMIT)
-            self.round_timer.start()
-            print(f"[ROUND {self.current_round}/{self.total_rounds}] 시작! 턴 제한: {self.turn_time_limit}초")
+        self._reset_round_board_state()
+        idx = min(self.current_round - 1, len(ROUND_TURN_LIMITS) - 1)
+        self.turn_time_limit = ROUND_TURN_LIMITS[idx]
+        self.timer.time_limit = self.turn_time_limit
+        self.round_timer = GameTimer(time_limit=ROUND_TIME_LIMIT)
+        self.round_timer.start()
+        print(f"[ROUND {self.current_round}] 시작! 턴 제한: {self.turn_time_limit}초")
 
     def start_game(self):
         """게임 시작"""

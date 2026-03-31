@@ -276,9 +276,9 @@ class UIElements:
         self.score_text.text = f"내 점수: {user_score}점  |  문어: {pc_score}점"
         self.score_text.draw()
 
-    def set_round_display(self, current_round, total_rounds):
+    def set_round_display(self, current_round, total_rounds=None):
         """라운드 텍스트 업데이트 (그리기는 draw_persistent_hud에서)."""
-        self.round_text.text = f"라운드 {current_round}/{total_rounds}"
+        self.round_text.text = f"라운드 {current_round}"
 
     def draw_progress_bar(self, ratio=None):
         """
