@@ -278,7 +278,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                     # 카드 뒤로 감추기
                     game_state.deck.hide_card(card_row, card_col)
 
-                    # 잡기 이벤트: 문어를 잡았을 때 추가 피드백 + 위치 초기화 유예
+                    # 잡기 이벤트: 문어를 잡았을 때 추가 피드백 + 라운드 갱신
                     if move_result == 'user_caught_npc':
                         board_renderer.refresh()
                         deck_renderer.refresh()
@@ -293,6 +293,19 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                         # 토큰이 시작 위치로 초기화된 직후 시선 안정화 유예
                         _show_reset_prep_cue(win, ui_elements, board_renderer, deck_renderer,
                                              token_renderer, game_state)
+                        _edf_msg(aoi_manager, f"TRIAL_END {_trial_id} MATCH 1 RESULT user_caught_npc")
+                        _ljack(aoi_manager, _LJ_TRIAL_END)
+                        _trial_active = False
+                        # 잡기 이벤트 → 라운드 갱신
+                        _run_round_break(win, ui_elements, board_renderer, deck_renderer,
+                                         token_renderer, game_state)
+                        game_state.advance_round()
+                        board_renderer.refresh()
+                        deck_renderer.refresh()
+                        game_state.selected_token = None
+                        game_state.timer.reset()
+                        print(f"[ROUND ADVANCE] 잡기(사용자) → 라운드 {game_state.current_round} 시작")
+                        return 'continue'
 
                     # 시행 종료 마킹 (다음 루프 반복에서 새 TRIAL_START 전송)
                     _edf_msg(aoi_manager, f"TRIAL_END {_trial_id} MATCH 1 RESULT success")
@@ -462,6 +475,13 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
                                      token_renderer, game_state)
                 _edf_msg(aoi_manager, f"TRIAL_END {_pc_trial_id} MATCH 1 RESULT npc_caught_user")
                 _ljack(aoi_manager, _LJ_TRIAL_END)
+                # 잡기 이벤트 → 라운드 갱신
+                _run_round_break(win, ui_elements, board_renderer, deck_renderer,
+                                 token_renderer, game_state)
+                game_state.advance_round()
+                board_renderer.refresh()
+                deck_renderer.refresh()
+                print(f"[ROUND ADVANCE] 잡기(문어) → 라운드 {game_state.current_round} 시작")
                 # PC 턴 종료 → 사용자 턴으로 전환 (turn 카운트 증가, 상태 전환)
                 game_state.end_pc_turn()
                 print(f"[문어] flight 잡음! PC 턴 종료 → 사용자 턴")

@@ -122,6 +122,7 @@ def main():
         color=[c / 255 for c in BG_COLOR],  # PsychoPy는 -1~1 범위로 정규화
         colorSpace='rgb',
         fullscr=is_fullscreen,
+        screen=1,
         monitor=monitor_profile,
         units='pix',
         allowGUI=True  # 마우스 커서 표시
