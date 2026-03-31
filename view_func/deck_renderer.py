@@ -118,6 +118,14 @@ class DeckRenderer:
         filename = f"{color}_{shape}_{number}.png"
         return os.path.join(MAIN_CARDS_DIR, filename)
     
+    def refresh(self):
+        """덱 재셔플 후 각 위치의 카드 앞면 이미지를 갱신"""
+        for row in range(self.deck.rows):
+            for col in range(self.deck.cols):
+                card = self.deck.get_card(row, col)
+                front_path = self._get_card_image_path(card)
+                self.card_fronts[row][col].image = front_path
+
     def draw(self, highlighted_pos=None):
         """
         덱을 화면에 그리기

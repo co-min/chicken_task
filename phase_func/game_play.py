@@ -227,6 +227,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                     # 잡기 이벤트: 문어를 잡았을 때 추가 피드백 + 위치 초기화 유예
                     if move_result == 'user_caught_npc':
                         board_renderer.refresh()
+                        deck_renderer.refresh()
                         sound_play(sounds, 'win')
                         run_feedback_phase(
                             win, ui_elements, board_renderer, deck_renderer, token_renderer,
@@ -372,6 +373,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
             # 잡기 이벤트: 문어가 flight를 잡았을 때
             if move_result == 'npc_caught_user':
                 board_renderer.refresh()
+                deck_renderer.refresh()
                 sound_play(sounds, 'lose')
                 run_feedback_phase(
                     win, ui_elements, board_renderer, deck_renderer, token_renderer,
