@@ -18,7 +18,8 @@ try:
                           GAME_TIME_LIMIT, SCORE_MATCH, SCORE_COMBO_BONUS, SCORE_SPEED_MAX,
                           SCORE_SPEED_MIN, SCORE_STEAL, SCORE_PENALTY,
                           SCORE_CATCH_BONUS, SCORE_CAUGHT_PENALTY, SCORE_PC_CATCH_BONUS,
-                          TOTAL_ROUNDS, ROUND_TIME_LIMIT, ROUND_TURN_LIMITS)
+                          TOTAL_ROUNDS, ROUND_TURN_LIMITS,
+                          DIFFICULTY_SEQUENCE, DIFFICULTY_SCORE_THRESHOLD)
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from game_func.board_class import ConditionBoard
@@ -31,7 +32,8 @@ except ImportError:
                         GAME_TIME_LIMIT, SCORE_MATCH, SCORE_COMBO_BONUS, SCORE_SPEED_MAX,
                         SCORE_SPEED_MIN, SCORE_STEAL, SCORE_PENALTY,
                         SCORE_CATCH_BONUS, SCORE_CAUGHT_PENALTY, SCORE_PC_CATCH_BONUS,
-                        TOTAL_ROUNDS, ROUND_TIME_LIMIT, ROUND_TURN_LIMITS)
+                        TOTAL_ROUNDS, ROUND_TURN_LIMITS,
+                        DIFFICULTY_SEQUENCE, DIFFICULTY_SCORE_THRESHOLD)
 
 
 class GameState:
@@ -60,9 +62,13 @@ class GameState:
         self.selected_mode_id = selected_mode_id or DEFAULT_GAME_MODE
         self.selected_mode = self.available_modes.get(self.selected_mode_id, self.available_modes[DEFAULT_GAME_MODE])
 
+        # 난이도 시스템
+        self.difficulty_index = 0          # 현재 난이도 단계 (0~5)
+        self._round_start_score = 0        # 라운드 시작 시 user_score 스냅샷
+
         # 게임 컴포넌트
         self.board = ConditionBoard(mode_profile=self.selected_mode)
-        self.deck = MainDeck(mode_profile=self.selected_mode)
+        self.deck = self._build_deck_for_difficulty()
         self.tokens = TokenManager(mode_profile=self.selected_mode, board=self.board)
 
         # mode 기반 deck 크기 기준의 기본 랜덤 정답률
@@ -101,9 +107,8 @@ class GameState:
         self.total_rounds = TOTAL_ROUNDS
         self.turn_time_limit = ROUND_TURN_LIMITS[0]  # 현재 라운드 턴 제한 시간
 
-        # 타이머
+        # 타이머 (라운드 제한 없음 — 잡기 이벤트가 라운드 전환 트리거)
         self.timer = GameTimer(time_limit=self.turn_time_limit)   # 턴 타이머
-        self.round_timer = GameTimer(time_limit=ROUND_TIME_LIMIT) # 라운드 타이머
         self.game_timer = GameTimer(time_limit=GAME_TIME_LIMIT)   # 전체 게임 타이머
 
         # 점수
@@ -122,6 +127,27 @@ class GameState:
         self.pc_move_count = 0
         self.trial_history = []  # 시행 결과 리스트
         self.trial_id = 0        # EDF/LabJack 동기화용 단조 증가 시행 번호
+
+    # ==================== 난이도 ====================
+
+    @property
+    def round_score(self):
+        """이번 라운드에서 획득한 점수 (난이도 업 판단용)."""
+        return self.user_score - self._round_start_score
+
+    @property
+    def cumulative_score(self):
+        """누적 점수 (UI 표시용). user_score와 동일."""
+        return self.user_score
+
+    def _build_deck_for_difficulty(self):
+        """현재 difficulty_index에 맞는 MainDeck 생성."""
+        diff = DIFFICULTY_SEQUENCE[self.difficulty_index]
+        mode_profile = {**self.selected_mode, 'deck_rows': 3, **diff}
+        layout_mode = diff['layout_mode']
+        print(f"[DIFFICULTY] index={self.difficulty_index}, "
+              f"cols={diff['deck_cols']}, layout={layout_mode}")
+        return MainDeck(mode_profile=mode_profile, layout_mode=layout_mode)
 
     @staticmethod
     def _clamp(value, min_value, max_value):
@@ -142,8 +168,10 @@ class GameState:
             self.selected_mode_id = DEFAULT_GAME_MODE
             self.selected_mode = self.available_modes[DEFAULT_GAME_MODE]
 
+        self.difficulty_index = 0
+        self._round_start_score = 0
         self.board = ConditionBoard(mode_profile=self.selected_mode)
-        self.deck = MainDeck(mode_profile=self.selected_mode)
+        self.deck = self._build_deck_for_difficulty()
         self.tokens = TokenManager(mode_profile=self.selected_mode, board=self.board)
         self.base_random_rate = 1.0 / max(1, (self.deck.rows * self.deck.cols))
         self.npc_rate_min = self.base_random_rate
@@ -504,16 +532,16 @@ class GameState:
         self.pc_score += SCORE_PENALTY
 
     def is_round_time_expired(self):
-        """현재 라운드 시간 초과 여부."""
-        return self.round_timer.is_running and self.round_timer.is_expired()
+        """라운드 제한 시간 없음 — 항상 False (라운드 전환은 잡기 이벤트로만 발생)."""
+        return False
 
     def is_game_time_expired(self):
         """전체 게임 시간 초과 여부."""
         return self.game_timer.is_running and self.game_timer.is_expired()
 
     def get_round_time_remaining(self):
-        """현재 라운드 남은 시간 (초)."""
-        return self.round_timer.get_remaining()
+        """라운드 제한 없음 — 전체 게임 남은 시간을 반환."""
+        return self.get_game_time_remaining()
 
     def get_game_time_remaining(self):
         """전체 게임 남은 시간 (초)."""
@@ -533,15 +561,37 @@ class GameState:
         self.npc_seen_cards.clear()
 
     def advance_round(self):
-        """다음 라운드 시작: 라운드 카운터 증가, 보드·덱·토큰 초기화, 타이머/턴 제한 갱신."""
+        """
+        다음 라운드 시작.
+        1) 이번 라운드 점수로 난이도 업 여부 결정
+        2) 라운드 카운터 증가, 보드·토큰 초기화
+        3) 새 난이도에 맞는 덱 생성
+        4) 타이머·턴 제한 갱신
+        """
+        # 1) 난이도 업 체크
+        if self.round_score >= DIFFICULTY_SCORE_THRESHOLD:
+            prev = self.difficulty_index
+            self.difficulty_index = min(self.difficulty_index + 1, len(DIFFICULTY_SEQUENCE) - 1)
+            if self.difficulty_index > prev:
+                print(f"[DIFFICULTY] 업! {prev} → {self.difficulty_index} "
+                      f"(라운드 점수={self.round_score})")
+
+        # 라운드 점수 스냅샷 갱신 (다음 라운드 측정 기준)
+        self._round_start_score = self.user_score
+
+        # 2) 라운드 카운터 증가 및 보드·토큰 초기화 (deck.reshuffle 포함되나 곧 교체됨)
         self.current_round += 1
         self._reset_round_board_state()
+
+        # 3) 새 난이도로 덱 교체
+        self.deck = self._build_deck_for_difficulty()
+
+        # 4) 턴 제한 갱신 (game_timer는 계속 진행 중)
         idx = min(self.current_round - 1, len(ROUND_TURN_LIMITS) - 1)
         self.turn_time_limit = ROUND_TURN_LIMITS[idx]
         self.timer.time_limit = self.turn_time_limit
-        self.round_timer = GameTimer(time_limit=ROUND_TIME_LIMIT)
-        self.round_timer.start()
-        print(f"[ROUND {self.current_round}] 시작! 턴 제한: {self.turn_time_limit}초")
+        print(f"[ROUND {self.current_round}] 시작! 난이도={self.difficulty_index}, "
+              f"턴 제한={self.turn_time_limit}초")
 
     def start_game(self):
         """게임 시작"""
@@ -585,8 +635,6 @@ class GameState:
         # 게임 플레이 단계로 전환
         self.phase = self.PHASE_GAME_PLAY
         self.timer.start()
-        if not self.round_timer.is_running:
-            self.round_timer.start()
         if not self.game_timer.is_running:
             self.game_timer.start()
 
@@ -921,8 +969,6 @@ class GameState:
         self.turn_time_limit = ROUND_TURN_LIMITS[0]
         self.timer.time_limit = self.turn_time_limit
         self.timer.stop()
-        self.round_timer.stop()
-        self.round_timer = GameTimer(time_limit=ROUND_TIME_LIMIT)
         self.game_timer.stop()
 
         self.user_score = 0

@@ -89,10 +89,11 @@ CATCH_RESET_PREP_DURATION = 1.2  # 초 (잡기 이벤트 후 토큰 위치 초�
 GAME_TIME_LIMIT = 1800         # 초 (전체 게임 제한 시간, 30분)
 
 # ==================== ROUND SETTINGS ====================
+# 라운드 제한 없음 — 잡기(catch) 이벤트마다 라운드 증가, 30분 게임 시간 내 무제한
 TOTAL_ROUNDS = 0
 ROUND_BREAK_DURATION = 4      # 초 (라운드 간 휴식 시간)
 # 라운드별 턴 제한 시간 (1→5라운드, 1초씩 감소)
-ROUND_TURN_LIMITS = [12, 10, 8] 
+ROUND_TURN_LIMITS = [12, 10, 8]
 
 # ==================== PROGRESS BAR ====================
 PROGRESS_BAR_WIDTH  = 700     # px (기준 해상도 기준)
@@ -102,6 +103,20 @@ PROGRESS_BAR_COLOR_FULL = [0, 210, 90]    # 초록 (>50%)
 PROGRESS_BAR_COLOR_WARN = [255, 165, 0]   # 주황 (25~50%)
 PROGRESS_BAR_COLOR_CRIT = [230, 40,  40]  # 빨강 (<25%)
 PROGRESS_BAR_BG_COLOR   = [55,  55,  55]  # 배경
+
+# ==================== DIFFICULTY SETTINGS ====================
+# 이번 라운드 점수 >= 임계값이면 다음 라운드에서 난이도 1단계 업
+DIFFICULTY_SCORE_THRESHOLD = 50
+
+# 6단계 선형 난이도 시퀀스 (deck_rows=3 고정, deck_cols·layout_mode만 변경)
+DIFFICULTY_SEQUENCE = [
+    {'deck_cols': 4, 'layout_mode': 'factorization'},  # 0단계: 12장 factorization
+    {'deck_cols': 4, 'layout_mode': 'random'},          # 1단계: 12장 random
+    {'deck_cols': 5, 'layout_mode': 'factorization'},  # 2단계: 15장 factorization
+    {'deck_cols': 5, 'layout_mode': 'random'},          # 3단계: 15장 random
+    {'deck_cols': 6, 'layout_mode': 'factorization'},  # 4단계: 18장 factorization
+    {'deck_cols': 6, 'layout_mode': 'random'},          # 5단계: 18장 random
+]
 
 # ==================== SCORE SETTINGS ====================
 SCORE_MATCH = 10             # 카드 매칭 성공
