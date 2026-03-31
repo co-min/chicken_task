@@ -1,9 +1,16 @@
 # Experiment phase functions
 
-from .starting import run_starting_phase
 from .tutorial import run_tutorial_phase
 from .game_play import run_game_play_phase
 from .ending import run_ending_phase
+
+try:
+	from ..config import DEFAULT_GAME_MODE
+except ImportError:
+	import sys
+	from pathlib import Path
+	sys.path.insert(0, str(Path(__file__).parent.parent))
+	from config import DEFAULT_GAME_MODE
 
 
 def run_all_phases(
@@ -26,11 +33,7 @@ def run_all_phases(
 	Returns:
 		str: 최종 결과 ('victory', 'defeat', 'exit')
 	"""
-	print("\n[3/5] 시작 phase...")
-	start_result, selected_mode_id = run_starting_phase(win, ui_elements)
-	if start_result == 'exit':
-		run_ending_phase(win, ui_elements, game_state, 'exit')
-		return 'exit'
+	selected_mode_id = DEFAULT_GAME_MODE
 
 	if selected_mode_id is not None:
 		game_state.set_selected_mode(selected_mode_id)
@@ -57,13 +60,13 @@ def run_all_phases(
 			aoi_manager._build_aois()
 			print(f"  - AOI 테이블 재구성: {len(aoi_manager.aois)}개")
 
-	print("[4/5] 튜토리얼 phase...")
+	print("[3/4] 튜토리얼 phase...")
 	tutorial_result = run_tutorial_phase(win, ui_elements)
 	if tutorial_result == 'exit':
 		run_ending_phase(win, ui_elements, game_state, 'exit')
 		return 'exit'
 
-	print("[5/5] 게임 플레이 phase...")
+	print("[4/4] 게임 플레이 phase...")
 	game_state.start_game()
 
 	# EyeLink 레코딩 시작 + AOI 등록

@@ -105,15 +105,15 @@ PROGRESS_BAR_COLOR_CRIT = [230, 40,  40]  # 빨강 (<25%)
 PROGRESS_BAR_BG_COLOR   = [55,  55,  55]  # 배경
 
 # ==================== SCORE SETTINGS ====================
-SCORE_MATCH = 100             # 카드 매칭 성공
+SCORE_MATCH = 10             # 카드 매칭 성공
 SCORE_COMBO_BONUS = 20        # 연속 성공 콤보 추가 보너스
 SCORE_SPEED_MAX = 50          # 빠른 판단 최대 점수
 SCORE_SPEED_MIN = 1           # 빠른 판단 최소 점수
-SCORE_STEAL = 200             # NPC 카드 탈취 보너스
-SCORE_PENALTY = -30           # 오답 패널티
-SCORE_CATCH_BONUS = 200       # 사용자가 문어를 잡을 때 (사용자 보너스)
-SCORE_CAUGHT_PENALTY = -150   # 문어에게 잡힐 때 (사용자 패널티)
-SCORE_PC_CATCH_BONUS = 150    # 문어가 flight를 잡을 때 (PC 보너스)
+SCORE_STEAL = 20            # NPC 카드 탈취 보너스
+SCORE_PENALTY = -3          # 오답 패널티
+SCORE_CATCH_BONUS = 20       # 사용자가 문어를 잡을 때 (사용자 보너스)
+SCORE_CAUGHT_PENALTY = -15   # 문어에게 잡힐 때 (사용자 패널티)
+SCORE_PC_CATCH_BONUS = 15    # 문어가 flight를 잡을 때 (PC 보너스)
 
 # ==================== PC AI SETTINGS ====================
 # 레거시 기본 정답률(모드 선택 전). 실제 게임 실행 시에는 mode 기반 deck 크기로 재계산됨.
