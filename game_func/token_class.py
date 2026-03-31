@@ -159,30 +159,61 @@ class TokenManager:
         토큰의 타겟 위치 계산
         - 일반: 다음 칸
         - 잡기 상황: 다른 토큰이 다음 칸에 있으면 그 다음 칸
-        
+        - 연속 2개 장애물: 앞 두 칸이 모두 다른 토큰이면 두 칸 건너뜀
+
         Args:
             token_name (str): 'chase', 'octopus', 'flight'
-        
+
         Returns:
             tuple: 타겟 위치 (row, col)
         """
         token = self.get_token(token_name)
         if not token:
             return None
-        
+
         current_pos = token.get_position()
         target_pos = self.get_next_position(current_pos)
-        
+
         # 다른 토큰이 타겟 위치에 있는지 확인
         all_positions = self.get_all_positions()
-        
+
         for other_name, other_pos in all_positions.items():
             if other_name != token_name and other_pos == target_pos:
-                # 다른 토큰이 있으면 그 다음 칸으로 (잡기 메커니즘)
+                # 첫 번째 장애물: 그 다음 칸으로
                 target_pos = self.get_next_position(target_pos)
+                # 두 번째 연속 장애물 확인
+                for other_name2, other_pos2 in all_positions.items():
+                    if other_name2 != token_name and other_pos2 == target_pos:
+                        # 두 번째 장애물: 한 칸 더 건너뜀 (맨 앞 토큰의 타겟)
+                        target_pos = self.get_next_position(target_pos)
+                        break
                 break
-        
+
         return target_pos
+
+    def has_two_consecutive_obstacles(self, token_name):
+        """
+        token 바로 앞 두 칸에 다른 토큰이 연속으로 있는지 확인.
+
+        Args:
+            token_name (str): 확인할 토큰 이름
+
+        Returns:
+            bool: True이면 앞에 토큰 2개가 연속으로 위치
+        """
+        token = self.get_token(token_name)
+        if not token:
+            return False
+
+        current_pos = token.get_position()
+        next1 = self.get_next_position(current_pos)
+        next2 = self.get_next_position(next1)
+
+        all_positions = self.get_all_positions()
+        occupied_next1 = any(p == next1 for n, p in all_positions.items() if n != token_name)
+        occupied_next2 = any(p == next2 for n, p in all_positions.items() if n != token_name)
+
+        return occupied_next1 and occupied_next2
     
     def move_token(self, token_name, target_pos):
         """

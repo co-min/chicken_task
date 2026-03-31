@@ -687,6 +687,9 @@ class GameState:
         flight 이동 후 chase 바로 뒤에 위치하게 되면
         자동으로 selected_token을 'chase'로 전환한다.
 
+        chase 앞에 octopus와 flight가 연속으로 있을 때 chase가 이동하면
+        맨 앞 flight의 타겟이 chase의 타겟이 되며, octopus를 추월한 것으로 승리.
+
         Returns:
             str: 'success', 'token_switched', 또는 'user_caught_npc'
         """
@@ -694,6 +697,13 @@ class GameState:
             return 'error'
 
         moved_token = self.selected_token
+
+        # 이동 전에 2개 연속 장애물 추월 상황인지 확인 (chase 한정)
+        two_obstacle_overtake = (
+            moved_token == 'chase' and
+            self.tokens.has_two_consecutive_obstacles('chase')
+        )
+
         target_pos = self.get_target_position()
         self.tokens.move_token(moved_token, target_pos)
         self.user_move_count += 1
@@ -704,6 +714,11 @@ class GameState:
         catch_result = self.check_catch_event()
         if catch_result:
             return catch_result  # 'user_caught_npc'
+
+        # 2개 연속 장애물(octopus + flight)을 추월 → 승리
+        if two_obstacle_overtake:
+            print("[추월 승리] chase가 octopus를 추월하여 flight 앞으로 이동! 승리!")
+            return self._handle_user_caught_npc()
 
         # flight 이동 후 chase 바로 뒤에 붙었는지 확인
         if moved_token == 'flight' and self._is_flight_directly_behind_chase():

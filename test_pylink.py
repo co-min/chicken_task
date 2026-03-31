@@ -31,8 +31,8 @@ except RuntimeError as e:
     sys.exit()
 
 # --- 3. PsychoPy 윈도우 설정 ---
-# EyeLink는 픽셀 단위를 기본으로 사용하므로 'pix' 권장
-win = visual.Window([1024, 768], fullscr=False, monitor='testMonitor', units='pix')
+# EyeLink는 픽셀 단위를 기본으로 사용하므로 'pix' 권장. 두 번째 모니터(인덱스 1)에 표시
+win = visual.Window([1024, 768], fullscr=False, monitor=1, units='pix')
 
 # --- 4. EyeLink 그래픽 및 보정 설정 ---
 # PsychoPy 화면에 보정 타겟을 그리기 위한 설정
