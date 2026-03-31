@@ -210,39 +210,3 @@ class MainDeck:
     
 
 
-# ==================== 테스트 코드 ====================
-if __name__ == "__main__":
-    import time
-
-    print("\n### MainDeck 테스트 ###\n")
-
-    # 덱 생성
-    deck = MainDeck()
-
-    # 카드 가져오기 테스트
-    print("### get_card 테스트 ###")
-    print(f"[0,0]: {deck.get_card(0, 0)}")
-    print(f"[1,4]: {deck.get_card(1, 4)}")
-    print(f"[2,8]: {deck.get_card(2, 8)}")
-
-    # 조합 확인
-    print("\n### 카드 조합 확인 ###")
-    all_cards = [deck.get_card(r, c) for r in range(deck.rows) for c in range(deck.cols)]
-    print(f"총 카드 수: {len(all_cards)}")
-    unique_cards = set(f"{c['color']}-{c['shape']}-{c['number']}" for c in all_cards)
-    print(f"고유 조합 수: {len(unique_cards)} (27개여야 함)")
-
-    # 플립 메커니즘 테스트
-    print("\n### 플립 메커니즘 테스트 ###")
-    print(f"[0,0] 앞면? {deck.is_face_up(0, 0)}")
-    deck.flip_card(0, 0)
-    print(f"플립 후 [0,0] 앞면? {deck.is_face_up(0, 0)}")
-
-    # 5초 경과 시뮬레이션
-    print("\n5초 경과 시뮬레이션...")
-    current_time = time.time() + 5.1
-    auto_hidden = deck.update_timers(current_time)
-    print(f"자동 숨김된 카드: {auto_hidden}")
-    print(f"[0,0] 앞면? {deck.is_face_up(0, 0)}")
-
-    print("\n[OK] MainDeck 테스트 완료!")

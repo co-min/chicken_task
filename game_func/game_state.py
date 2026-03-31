@@ -965,29 +965,3 @@ class GameState:
             'token_positions': self.tokens.get_all_positions()
         }
 
-
-# ==================== 테스트 코드 ====================
-if __name__ == "__main__":
-    print("\n### GameState 테스트 ###\n")
-    
-    # 게임 생성
-    game = GameState()
-    
-    # 게임 시작
-    game.start_game()
-    print(f"Phase: {game.phase}")
-    
-    # 토큰 선택
-    game.select_token('chase')
-    game.confirm_selection()
-    print(f"Phase: {game.phase}")
-    print(f"타겟 위치: {game.get_target_position()}")
-    print(f"타겟 조건: {game.get_target_condition()}")
-    
-    # 요약 정보
-    print("\n### 게임 요약 ###")
-    summary = game.get_summary()
-    for key, value in summary.items():
-        print(f"  {key}: {value}")
-    
-    print("\n[OK] GameState 테스트 완료!")

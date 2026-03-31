@@ -234,32 +234,3 @@ class ConditionBoard:
         return None
 
 
-# ==================== 테스트 코드 ====================
-if __name__ == "__main__":
-    print("\n### ConditionBoard 테스트 ###\n")
-
-    # 보드 생성
-    board = ConditionBoard()
-
-    # 조건 가져오기 테스트
-    print("### get_condition 테스트 ###")
-    print(f"[0,0]: {board.get_condition(0, 0)}")
-    print(f"[1,8]: {board.get_condition(1, 8)}")
-    print(f"[2,0]: {board.get_condition(2, 0)}")
-
-    # 조건 분포 확인
-    print("\n### 조건 분포 확인 ###")
-    print(f"총 조건 수: {len(board.board)}")
-
-    type_count = {}
-    value_count = {}
-    for cond in board.board:
-        cond_type = cond.get('type')
-        cond_value = cond.get('value')
-        type_count[cond_type] = type_count.get(cond_type, 0) + 1
-        value_count[cond_value] = value_count.get(cond_value, 0) + 1
-
-    print(f"타입 분포: {type_count}")
-    print(f"값 분포: {value_count}")
-
-    print("\n[OK] ConditionBoard 테스트 완료!")
