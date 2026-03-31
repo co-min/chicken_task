@@ -512,10 +512,24 @@ class GameState:
         """전체 게임 남은 시간 (초)."""
         return self.game_timer.get_remaining()
 
+    def _reset_round_board_state(self):
+        """
+        라운드 공통 초기화: 보드·덱 재셔플, 토큰 위치 초기화, 관찰 메모리 클리어.
+        라운드 전환 및 잡기 이벤트(잡거나 잡힐 때) 양쪽에서 호출된다.
+        """
+        self.board.reshuffle()
+        self.deck.reshuffle()
+        self.tokens.reset_token_position('chase')
+        self.tokens.reset_token_position('flight')
+        self.tokens.reset_token_position('octopus')
+        self.user_seen_cards.clear()
+        self.npc_seen_cards.clear()
+
     def advance_round(self):
-        """다음 라운드 시작: 라운드 카운터 증가, 타이머/턴 제한 갱신."""
+        """다음 라운드 시작: 라운드 카운터 증가, 보드·덱·토큰 초기화, 타이머/턴 제한 갱신."""
         self.current_round += 1
         if self.current_round <= self.total_rounds:
+            self._reset_round_board_state()
             self.turn_time_limit = ROUND_TURN_LIMITS[self.current_round - 1]
             self.timer.time_limit = self.turn_time_limit
             self.round_timer = GameTimer(time_limit=ROUND_TIME_LIMIT)
@@ -846,15 +860,7 @@ class GameState:
         """사용자(chase)가 문어(octopus)를 잡았을 때 처리."""
         self.user_catch_count += 1
         self.user_score += SCORE_CATCH_BONUS
-        # 모든 토큰(chase, flight, octopus) 시작 위치로 초기화
-        self.tokens.reset_token_position('chase')
-        self.tokens.reset_token_position('flight')
-        self.tokens.reset_token_position('octopus')
-        # 덱과 보드 재셔플
-        self.deck.reshuffle()
-        self.board.reshuffle()
-        self.user_seen_cards.clear()
-        self.npc_seen_cards.clear()
+        self._reset_round_board_state()
         print(f"[잡기] 사용자가 문어를 잡음! +{SCORE_CATCH_BONUS}점 | "
               f"누적:{self.user_score} | 잡기횟수:{self.user_catch_count}")
         return 'user_caught_npc'
@@ -865,15 +871,7 @@ class GameState:
         self.user_score += SCORE_CAUGHT_PENALTY
         self.pc_score += SCORE_PC_CATCH_BONUS
         self.user_combo = 0   # 잡혔으므로 콤보 초기화
-        # 모든 토큰(chase, flight, octopus) 시작 위치로 초기화
-        self.tokens.reset_token_position('chase')
-        self.tokens.reset_token_position('flight')
-        self.tokens.reset_token_position('octopus')
-        # 덱과 보드 재셔플
-        self.deck.reshuffle()
-        self.board.reshuffle()
-        self.user_seen_cards.clear()
-        self.npc_seen_cards.clear()
+        self._reset_round_board_state()
         print(f"[잡기] 문어가 flight를 잡음! {SCORE_CAUGHT_PENALTY}점 | "
               f"유저:{self.user_score} | PC:{self.pc_score} | "
               f"PC잡기횟수:{self.pc_catch_count}")
