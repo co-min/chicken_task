@@ -89,11 +89,10 @@ CATCH_RESET_PREP_DURATION = 1.2  # 초 (잡기 이벤트 후 토큰 위치 초�
 GAME_TIME_LIMIT = 1800         # 초 (전체 게임 제한 시간, 30분)
 
 # ==================== ROUND SETTINGS ====================
-TOTAL_ROUNDS = 3
-ROUND_TIME_LIMIT = 600        # 초 (라운드당 시간, 10분)
+TOTAL_ROUNDS = 0
 ROUND_BREAK_DURATION = 4      # 초 (라운드 간 휴식 시간)
 # 라운드별 턴 제한 시간 (1→5라운드, 1초씩 감소)
-ROUND_TURN_LIMITS = [12, 10, 8] # 3라운드에 맞춰 조정
+ROUND_TURN_LIMITS = [12, 10, 8] 
 
 # ==================== PROGRESS BAR ====================
 PROGRESS_BAR_WIDTH  = 700     # px (기준 해상도 기준)
