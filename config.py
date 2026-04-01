@@ -91,7 +91,7 @@ GAME_TIME_LIMIT = 1800         # 초 (전체 게임 제한 시간, 30분)
 # ==================== ROUND SETTINGS ====================
 # 라운드 제한 없음 — 잡기(catch) 이벤트마다 라운드 증가, 30분 게임 시간 내 무제한
 TOTAL_ROUNDS = 0
-ROUND_BREAK_DURATION = 4      # 초 (라운드 간 휴식 시간)
+ROUND_BREAK_DURATION = 3      # 초 (라운드 간 휴식 시간)
 # 라운드별 턴 제한 시간 (1→5라운드, 1초씩 감소)
 ROUND_TURN_LIMITS = [12, 10, 8]
 
@@ -106,7 +106,7 @@ PROGRESS_BAR_BG_COLOR   = [55,  55,  55]  # 배경
 
 # ==================== DIFFICULTY SETTINGS ====================
 # 이번 라운드 점수 >= 임계값이면 다음 라운드에서 난이도 1단계 업
-DIFFICULTY_SCORE_THRESHOLD = 50
+DIFFICULTY_SCORE_THRESHOLD = 250
 
 # 6단계 선형 난이도 시퀀스 (deck_rows=3 고정, deck_cols·layout_mode만 변경)
 DIFFICULTY_SEQUENCE = [
