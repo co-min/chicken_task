@@ -183,6 +183,60 @@ class AOIManager:
                     'trigger_code': AOI_TRIGGER_DECK_OFFSET + idx,  # 예: 40–57
                 }
 
+    def update_deck(self, new_deck):
+        """
+        난이도 변경으로 deck 크기(deck_cols)가 바뀔 때 호출.
+        덱 AOI 테이블을 새 deck 기준으로 재빌드한다.
+
+        [왜 필요한가]
+        AOIManager는 초기화 시 _build_aois()를 한 번만 호출하여
+        self.deck.rows / self.deck.cols 기준으로 AOI 항목을 생성한다.
+        난이도 업 시 advance_round()가 새 MainDeck 객체(deck_cols 변경)를
+        생성하지만, AOIManager.aois 테이블은 그대로이므로:
+          - 새로 생긴 열(col)의 카드에 해당하는 AOI가 존재하지 않음
+          - 해당 카드에 시선이 닿아도 hit_test에서 None 반환
+          - gaze_events.csv 누락, EyeLink INTEREST_AREA 미등록,
+            LabJack 트리거 미발송
+
+        [언제 호출해야 하는가]
+        advance_round() 직후, 다음 시행의 register_with_eyelink() 전에 호출.
+        deck_cols가 바뀌지 않은 라운드에서도 호출해도 무방하다.
+
+        Parameters
+        ----------
+        new_deck : MainDeck
+            advance_round() 이후의 game_state.deck.
+        """
+        prev_cols = self.deck.cols
+        self.deck = new_deck
+
+        # 기존 덱 AOI만 제거 (보드 AOI는 변경되지 않으므로 유지)
+        self.aois = {k: v for k, v in self.aois.items() if v['type'] != 'deck'}
+
+        # 새 deck 크기 기준으로 덱 AOI 재빌드
+        for row in range(self.deck.rows):
+            for col in range(self.deck.cols):
+                idx    = row * self.deck.cols + col
+                aoi_id = f"deck_{row}_{col}"
+                self.aois[aoi_id] = {
+                    'type':         'deck',
+                    'pos':          (row, col),
+                    'rect':         _deck_aoi_rect(row, col),
+                    'trigger_code': AOI_TRIGGER_DECK_OFFSET + idx,
+                }
+
+        # 현재 시선이 제거된 덱 AOI 안에 있을 수 있으므로 상태 초기화
+        if self._current_aoi and self._current_aoi.startswith('deck_'):
+            self._current_aoi = None
+        self._entry_time = {
+            k: v for k, v in self._entry_time.items()
+            if not k.startswith('deck_')
+        }
+
+        print(f"[AOI] 덱 AOI 재빌드 완료: {prev_cols}열 → {self.deck.cols}열 "
+              f"(덱 AOI {self.deck.rows * self.deck.cols}개, "
+              f"전체 AOI {len(self.aois)}개)")
+
     # ------------------------------------------------------------------ #
     #  EyeLink DataViewer 등록
     # ------------------------------------------------------------------ #

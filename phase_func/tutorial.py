@@ -47,6 +47,7 @@ def _show_score_rubric(win, ui_elements, key_exit):
 		lineColor=[180, 180, 180],
 		lineWidth=1,
 		colorSpace='rgb255',
+		fillColor=None,
 	)
 
 	rubric_rows = [
@@ -143,6 +144,8 @@ def run_tutorial_phase(win, ui_elements):
 	trigger_frame_marker()   # 이벤트: 튜토리얼 1페이지 표시
 	blink_frame_marker(win)
 	win.flip()
+
+	event.clearEvents()
 
 	keys = event.waitKeys(keyList=['space', KEY_EXIT])
 

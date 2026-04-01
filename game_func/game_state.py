@@ -564,9 +564,20 @@ class GameState:
         """
         다음 라운드 시작.
         1) 이번 라운드 점수로 난이도 업 여부 결정
-        2) 라운드 카운터 증가, 보드·토큰 초기화
-        3) 새 난이도에 맞는 덱 생성
+        2) 새 난이도에 맞는 덱 먼저 생성 (참조 교체)
+        3) 라운드 카운터 증가, 보드·토큰 초기화
         4) 타이머·턴 제한 갱신
+
+        [중요] deck 교체를 _reset_round_board_state() 보다 먼저 수행해야 한다.
+        기존 순서(_reset → 교체)의 문제:
+          _reset_round_board_state() 내부에서 self.deck.reshuffle()이 호출되지만,
+          바로 다음 줄에서 self.deck이 새 객체로 교체된다.
+          이 때 외부(뷰, 렌더러 등)에서 이전 deck 객체 참조를 저장하고 있다면,
+          새 deck(self.deck)에서 flip_card()를 호출해도 외부 참조는 OLD deck을
+          바라보므로 face_up 변경이 화면에 반영되지 않아 뒤집기가 동작하지 않는다.
+        해결: deck을 먼저 교체한 뒤 _reset_round_board_state()를 호출하면,
+          이미 새 객체가 self.deck에 들어있으므로 reshuffle()이 올바른 대상에
+          호출되고, 외부에서도 항상 self.deck(최신 객체)을 통해 접근해야 한다.
         """
         # 1) 난이도 업 체크
         if self.round_score >= DIFFICULTY_SCORE_THRESHOLD:
@@ -579,12 +590,14 @@ class GameState:
         # 라운드 점수 스냅샷 갱신 (다음 라운드 측정 기준)
         self._round_start_score = self.user_score
 
-        # 2) 라운드 카운터 증가 및 보드·토큰 초기화 (deck.reshuffle 포함되나 곧 교체됨)
+        # 2) 새 난이도로 덱 먼저 교체
+        # ※ 반드시 _reset_round_board_state() 호출 전에 self.deck을 새 객체로 바꿔야
+        #   reshuffle()이 새 덱에 적용되고, 외부 참조와의 불일치가 방지된다.
         self.current_round += 1
-        self._reset_round_board_state()
-
-        # 3) 새 난이도로 덱 교체
         self.deck = self._build_deck_for_difficulty()
+
+        # 3) 보드·토큰 초기화 (deck.reshuffle()은 이미 교체된 새 deck에 적용됨)
+        self._reset_round_board_state()
 
         # 4) 턴 제한 갱신 (game_timer는 계속 진행 중)
         idx = min(self.current_round - 1, len(ROUND_TURN_LIMITS) - 1)
@@ -592,6 +605,12 @@ class GameState:
         self.timer.time_limit = self.turn_time_limit
         print(f"[ROUND {self.current_round}] 시작! 난이도={self.difficulty_index}, "
               f"턴 제한={self.turn_time_limit}초")
+
+        # [AOI 주의] deck_cols가 변경되었을 수 있으므로 호출 측에서 반드시 처리해야 한다:
+        #   aoi_manager.update_deck(game_state.deck)
+        # 이를 누락하면 새로 추가된 카드 열에 대한 AOI가 존재하지 않아
+        # gaze_events.csv 누락, EyeLink INTEREST_AREA 미등록, LabJack 트리거 미발송이 발생한다.
+        # 호출 위치: 이 함수 반환 직후, 다음 시행 register_with_eyelink() 전.
 
     def start_game(self):
         """게임 시작"""

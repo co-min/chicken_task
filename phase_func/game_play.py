@@ -110,6 +110,12 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
                 _run_round_break(win, ui_elements, board_renderer, deck_renderer,
                                  token_renderer, game_state)
                 game_state.advance_round()
+                # advance_round()가 game_state.deck을 새 객체로 교체하므로
+                # deck_renderer와 aoi_manager의 참조도 반드시 갱신해야 한다.
+                # 누락 시 draw()가 OLD deck을 참조하여 flip이 화면에 표시되지 않음.
+                deck_renderer.update_deck(game_state.deck)
+                if aoi_manager:
+                    aoi_manager.update_deck(game_state.deck)
             else:
                 print("[GAME END] 게임 시간(30분) 완료!")
                 return 'timeout'
@@ -171,7 +177,8 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
             return 'exit'
         
         # 선택 확정 및 타이머 시작
-        game_state.confirm_selection()
+        if not game_state.confirm_selection():
+            return 'continue'
         print(f"[USER TURN] {game_state.selected_token.upper()} 선택, 카드 선택 시작")
     
     # 2. 카드 선택 루프 (같은 토큰으로 계속 진행)
@@ -301,9 +308,16 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                                          token_renderer, game_state)
                         game_state.advance_round()
                         board_renderer.refresh()
-                        deck_renderer.refresh()
+                        # advance_round()가 game_state.deck을 새 객체로 교체하므로
+                        # refresh() 대신 update_deck()으로 참조를 갱신해야 한다.
+                        # refresh()는 self.deck(OLD)의 이미지만 갱신할 뿐 참조를 바꾸지 않으므로
+                        # 이후 draw()가 OLD deck을 읽어 flip이 화면에 표시되지 않는다.
+                        deck_renderer.update_deck(game_state.deck)
+                        if aoi_manager:
+                            aoi_manager.update_deck(game_state.deck)
                         game_state.selected_token = None
                         game_state.timer.reset()
+                        game_state.phase = game_state.PHASE_TOKEN_SELECTION
                         print(f"[ROUND ADVANCE] 잡기(사용자) → 라운드 {game_state.current_round} 시작")
                         return 'continue'
 
@@ -480,7 +494,11 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
                                  token_renderer, game_state)
                 game_state.advance_round()
                 board_renderer.refresh()
-                deck_renderer.refresh()
+                # advance_round()가 game_state.deck을 새 객체로 교체하므로
+                # refresh() 대신 update_deck()으로 참조를 갱신해야 한다.
+                deck_renderer.update_deck(game_state.deck)
+                if aoi_manager:
+                    aoi_manager.update_deck(game_state.deck)
                 print(f"[ROUND ADVANCE] 잡기(문어) → 라운드 {game_state.current_round} 시작")
                 # PC 턴 종료 → 사용자 턴으로 전환 (turn 카운트 증가, 상태 전환)
                 game_state.end_pc_turn()

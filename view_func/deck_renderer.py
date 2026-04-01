@@ -126,6 +126,46 @@ class DeckRenderer:
                 front_path = self._get_card_image_path(card)
                 self.card_fronts[row][col].image = front_path
 
+    def update_deck(self, new_deck):
+        """
+        advance_round() 이후 덱이 교체될 때 호출.
+        self.deck 참조를 갱신하고, 크기가 변경된 경우 비주얼을 전체 재생성한다.
+
+        [왜 필요한가]
+        DeckRenderer는 __init__에서 deck 참조를 self.deck에 저장한다.
+        advance_round()가 game_state.deck을 새 MainDeck 객체로 교체하면
+        game_state.deck과 self.deck이 서로 다른 객체를 가리키게 된다.
+        이 상태에서:
+          - game_state.deck.flip_card()  → NEW deck의 face_up 변경
+          - draw()의 self.deck.is_face_up() → OLD deck 조회 → 항상 False
+          결과: 카드를 클릭해도 화면에 앞면이 표시되지 않음 (flip 불가)
+
+        난이도 업으로 deck_cols가 변경된 경우 (4→5, 5→6):
+          card_backs / card_fronts / highlights 배열이 구버전 크기로 남아
+          draw()에서 IndexError 또는 새 카드가 화면에 표시되지 않는 문제도 발생한다.
+
+        [언제 호출해야 하는가]
+        advance_round() 직후, 다음 win.flip() 전에 호출.
+        크기가 바뀌지 않은 라운드에서도 호출해도 무방하다.
+
+        Args:
+            new_deck: advance_round() 이후의 game_state.deck
+        """
+        size_changed = (new_deck.rows != self.deck.rows or
+                        new_deck.cols != self.deck.cols)
+
+        self.deck = new_deck
+
+        if size_changed:
+            # 카드 수가 변경된 경우: 비주얼 전체 재생성
+            self.card_backs.clear()
+            self.card_fronts.clear()
+            self.highlights.clear()
+            self._create_visuals()
+        else:
+            # 카드 수는 동일하고 내용만 바뀐 경우: 앞면 이미지만 갱신
+            self.refresh()
+
     def draw(self, highlighted_pos=None):
         """
         덱을 화면에 그리기

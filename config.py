@@ -121,7 +121,7 @@ DIFFICULTY_SEQUENCE = [
 # ==================== SCORE SETTINGS ====================
 SCORE_MATCH = 10             # 카드 매칭 성공
 SCORE_COMBO_BONUS = 20        # 연속 성공 콤보 추가 보너스
-SCORE_SPEED_MAX = 50          # 빠른 판단 최대 점수
+SCORE_SPEED_MAX = 15          # 빠른 판단 최대 점수
 SCORE_SPEED_MIN = 1           # 빠른 판단 최소 점수
 SCORE_STEAL = 20            # NPC 카드 탈취 보너스
 SCORE_PENALTY = -3          # 오답 패널티
