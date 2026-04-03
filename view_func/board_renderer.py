@@ -7,7 +7,8 @@ from config import (
     BOARD_LEFT_EDGE, BOARD_DECK_TOP_MARGIN,
     BOARD_CARD_WIDTH, BOARD_CARD_HEIGHT, BOARD_CARD_SPACING,
     WIDTH, HEIGHT,
-    HIGHLIGHT_COLOR, HIGHLIGHT_WIDTH
+    HIGHLIGHT_COLOR, HIGHLIGHT_WIDTH,
+    BONUS_BORDER_COLOR, BONUS_BORDER_WIDTH, BONUS_LABEL_COLOR, TEXT_SIZE,
 )
 
 # 이미지 경로
@@ -27,15 +28,19 @@ class BoardRenderer:
         """
         self.win = win
         self.board = board
-        
+
         # 카드 비주얼 요소 생성
-        self.card_images = {}  # {(row, col): ImageStim}
-        self.highlights = {}   # {(row, col): Rect}
-        
+        self.card_images = {}   # {(row, col): ImageStim}
+        self.highlights = {}    # {(row, col): Rect}  — 타겟 하이라이트
+        self.bonus_borders = {} # {(row, col): Rect}  — 보너스 칸 금색 테두리
+        self.bonus_labels = {}  # {(row, col): TextStim} — "×2" 레이블
+
         self._create_visuals()
     
     def _create_visuals(self):
         """모든 카드의 비주얼 요소를 생성"""
+        _label_h = max(8, round(TEXT_SIZE * 0.45))  # "×2" 레이블 높이
+
         for row, col in self.board.track_positions:
             x = self._get_card_x(col)
             y = self._get_card_y(row)
@@ -51,6 +56,7 @@ class BoardRenderer:
             )
             self.card_images[(row, col)] = card_image
 
+            # 타겟 하이라이트 (기존)
             highlight = visual.Rect(
                 win=self.win,
                 width=BOARD_CARD_WIDTH + HIGHLIGHT_WIDTH * 2,
@@ -63,6 +69,35 @@ class BoardRenderer:
                 autoDraw=False
             )
             self.highlights[(row, col)] = highlight
+
+            # 보너스 칸 금색 테두리
+            bonus_border = visual.Rect(
+                win=self.win,
+                width=BOARD_CARD_WIDTH + BONUS_BORDER_WIDTH * 2,
+                height=BOARD_CARD_HEIGHT + BONUS_BORDER_WIDTH * 2,
+                pos=(x, y),
+                fillColor=None,
+                lineColor=BONUS_BORDER_COLOR,
+                lineWidth=BONUS_BORDER_WIDTH,
+                colorSpace='rgb255',
+                autoDraw=False
+            )
+            self.bonus_borders[(row, col)] = bonus_border
+
+            # 보너스 칸 "×2" 레이블 (카드 우상단 모서리)
+            label_x = x + BOARD_CARD_WIDTH / 2 - _label_h * 0.6
+            label_y = y + BOARD_CARD_HEIGHT / 2 - _label_h * 0.6
+            bonus_label = visual.TextStim(
+                win=self.win,
+                text='×2',
+                pos=(label_x, label_y),
+                height=_label_h,
+                color=BONUS_LABEL_COLOR,
+                colorSpace='rgb255',
+                bold=True,
+                autoDraw=False
+            )
+            self.bonus_labels[(row, col)] = bonus_label
     
     def _get_card_x(self, col):
         """카드의 x 좌표 계산 (PsychoPy 좌표계)"""
@@ -105,23 +140,36 @@ class BoardRenderer:
         return os.path.join(CONDITION_CARDS_DIR, filename)
     
     def refresh(self):
-        """보드 재셔플 후 각 위치의 조건 이미지를 갱신"""
+        """보드 재셔플 후 각 위치의 조건 이미지 및 보너스 표시를 갱신"""
         for pos in self.board.track_positions:
             row, col = pos
             condition = self.board.get_condition(row, col)
             image_path = self._get_condition_image_path(condition)
             self.card_images[pos].image = image_path
+            # 보너스 여부는 draw()에서 매 프레임 조건을 읽어 판단하므로 별도 처리 불필요
 
     def draw(self, highlighted_pos=None):
         """
         보드를 화면에 그리기
-        
+
+        렌더링 순서 (z-order):
+          1. 카드 이미지
+          2. 보너스 금색 테두리 + "×2" 레이블  ← 카드 위
+          3. 타겟 하이라이트                    ← 최상단 (보너스 테두리 위)
+
         Args:
             highlighted_pos: 하이라이트할 위치 (row, col) 튜플 또는 None
         """
         for pos in self.board.track_positions:
             self.card_images[pos].draw()
 
+            # 보너스 칸: 금색 테두리 + "×2" 레이블
+            condition = self.board.get_condition(pos[0], pos[1])
+            if condition and condition.get('bonus') == 'double_score':
+                self.bonus_borders[pos].draw()
+                self.bonus_labels[pos].draw()
+
+            # 타겟 하이라이트 (보너스 테두리보다 위에 그려서 명확히 구분)
             if highlighted_pos and highlighted_pos == pos:
                 self.highlights[pos].draw()
     

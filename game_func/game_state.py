@@ -19,7 +19,8 @@ try:
                           SCORE_SPEED_MIN, SCORE_STEAL, SCORE_PENALTY,
                           SCORE_CATCH_BONUS, SCORE_CAUGHT_PENALTY, SCORE_PC_CATCH_BONUS,
                           TOTAL_ROUNDS, ROUND_TURN_LIMITS,
-                          DIFFICULTY_SEQUENCE, DIFFICULTY_SCORE_THRESHOLD)
+                          DIFFICULTY_SEQUENCE, DIFFICULTY_SCORE_THRESHOLD,
+                          BONUS_SEQUENCE, BONUS_SCORE_MULTIPLIER)
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from game_func.board_class import ConditionBoard
@@ -33,7 +34,8 @@ except ImportError:
                         SCORE_SPEED_MIN, SCORE_STEAL, SCORE_PENALTY,
                         SCORE_CATCH_BONUS, SCORE_CAUGHT_PENALTY, SCORE_PC_CATCH_BONUS,
                         TOTAL_ROUNDS, ROUND_TURN_LIMITS,
-                        DIFFICULTY_SEQUENCE, DIFFICULTY_SCORE_THRESHOLD)
+                        DIFFICULTY_SEQUENCE, DIFFICULTY_SCORE_THRESHOLD,
+                        BONUS_SEQUENCE, BONUS_SCORE_MULTIPLIER)
 
 
 class GameState:
@@ -66,8 +68,8 @@ class GameState:
         self.difficulty_index = 0          # 현재 난이도 단계 (0~5)
         self._round_start_score = 0        # 라운드 시작 시 user_score 스냅샷
 
-        # 게임 컴포넌트
-        self.board = ConditionBoard(mode_profile=self.selected_mode)
+        # 게임 컴포넌트 (라운드 1 기준 보너스 설정으로 보드 생성)
+        self.board = self._build_board_for_round(1)
         self.deck = self._build_deck_for_difficulty()
         self.tokens = TokenManager(mode_profile=self.selected_mode, board=self.board)
 
@@ -146,6 +148,25 @@ class GameState:
         """누적 점수 (UI 표시용). user_score와 동일."""
         return self.user_score
 
+    def _get_bonus_profile(self, round_num):
+        """
+        라운드 번호에 맞는 보너스 설정 딕셔너리를 반환.
+        BONUS_SEQUENCE 범위를 초과하면 마지막 항목을 재사용한다.
+        """
+        idx = min(round_num - 1, len(BONUS_SEQUENCE) - 1)
+        return BONUS_SEQUENCE[idx]
+
+    def _build_board_for_round(self, round_num):
+        """
+        라운드 번호에 맞는 보너스 설정을 포함한 ConditionBoard 생성.
+        mode_profile에 bonus_mode 등이 병합되어 ConditionBoard 내부에서
+        _apply_bonus_slots()가 자동 호출된다.
+        """
+        bonus_cfg = self._get_bonus_profile(round_num)
+        board_profile = {**self.selected_mode, **bonus_cfg}
+        print(f"[BONUS] 라운드={round_num}, mode={bonus_cfg.get('bonus_mode', 'none')}")
+        return ConditionBoard(mode_profile=board_profile)
+
     def _build_deck_for_difficulty(self):
         """현재 difficulty_index에 맞는 MainDeck 생성."""
         diff = DIFFICULTY_SEQUENCE[self.difficulty_index]
@@ -176,7 +197,8 @@ class GameState:
 
         self.difficulty_index = 0
         self._round_start_score = 0
-        self.board = ConditionBoard(mode_profile=self.selected_mode)
+        self.current_round = 1
+        self.board = self._build_board_for_round(1)
         self.deck = self._build_deck_for_difficulty()
         self.tokens = TokenManager(mode_profile=self.selected_mode, board=self.board)
         self.base_random_rate = 1.0 / max(1, (self.deck.rows * self.deck.cols))
@@ -515,6 +537,19 @@ class GameState:
             score += SCORE_COMBO_BONUS
         if is_steal:
             score += SCORE_STEAL
+
+        # 보너스 칸 판정: 타겟 위치 조건 카드에 bonus='double_score'이면 배율 적용.
+        # selected_token이 None인 경우(예: 토큰 선택 전 호출)는 안전하게 건너뜀.
+        is_bonus = False
+        if self.selected_token:
+            target_pos = self.tokens.get_target_position(self.selected_token)
+            if target_pos:
+                condition = self.board.get_condition(target_pos[0], target_pos[1])
+                if condition and condition.get('bonus') == 'double_score':
+                    score *= BONUS_SCORE_MULTIPLIER
+                    is_bonus = True
+                    print(f"[BONUS] 보너스 칸 적중! ×{BONUS_SCORE_MULTIPLIER} → {score}점")
+
         self.user_score += score
         return score
 
@@ -597,13 +632,16 @@ class GameState:
         self._round_start_score = self.user_score
         self._pc_round_start_score = self.pc_score
 
-        # 2) 새 난이도로 덱 먼저 교체
-        # ※ 반드시 _reset_round_board_state() 호출 전에 self.deck을 새 객체로 바꿔야
-        #   reshuffle()이 새 덱에 적용되고, 외부 참조와의 불일치가 방지된다.
+        # 2) 라운드 카운터 증가 후, 새 보너스 설정 보드와 난이도 덱을 함께 교체.
+        # ※ 반드시 _reset_round_board_state() 호출 전에 교체해야
+        #   reshuffle()이 새 객체에 적용되고, 외부 참조와의 불일치가 방지된다.
         self.current_round += 1
+        self.board = self._build_board_for_round(self.current_round)
         self.deck = self._build_deck_for_difficulty()
 
-        # 3) 보드·토큰 초기화 (deck.reshuffle()은 이미 교체된 새 deck에 적용됨)
+        # 3) 보드·토큰 초기화 (reshuffle은 이미 교체된 새 객체에 적용됨)
+        #    board가 교체되었으므로 _reset_round_board_state()의 board.reshuffle()은
+        #    새 보너스 설정이 포함된 보드에 대해 올바르게 동작한다.
         self._reset_round_board_state()
 
         # 4) 턴 제한 갱신 (game_timer는 계속 진행 중)

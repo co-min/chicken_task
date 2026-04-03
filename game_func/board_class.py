@@ -124,17 +124,64 @@ class ConditionBoard:
 
         return conditions
     
+    def _apply_bonus_slots(self, cards):
+        """
+        완성된 카드 배열에 보너스 마킹을 추가한다.
+
+        인접 중복 방지 로직은 cond_key() = (type, value) 만 비교하므로,
+        bonus 키를 사후에 추가해도 셔플 제약과 완전히 독립된다.
+
+        bonus_mode:
+          'none'   — 아무 변경 없음
+          'fixed'  — mode_profile['bonus_slots'] 인덱스에 bonus 마킹 (고정)
+          'random' — mode_profile['bonus_count'] 개를 매 호출마다 랜덤 선택
+
+        Args:
+            cards: 1D 조건 딕셔너리 리스트 (셔플 완료 상태)
+
+        Returns:
+            list: bonus 키가 삽입된 새 리스트 (원본 딕셔너리 불변)
+        """
+        bonus_mode = self.mode_profile.get('bonus_mode', 'none')
+        n = len(cards)
+        if bonus_mode == 'none' or n == 0:
+            return cards
+
+        if bonus_mode == 'fixed':
+            slots = set(
+                s for s in self.mode_profile.get('bonus_slots', [])
+                if 0 <= s < n
+            )
+        elif bonus_mode == 'random':
+            count = min(self.mode_profile.get('bonus_count', 3), n)
+            slots = set(random.sample(range(n), count))
+        else:
+            return cards
+
+        result = []
+        for i, card in enumerate(cards):
+            if i in slots:
+                result.append({**card, 'bonus': 'double_score'})
+            else:
+                result.append(card)
+
+        slot_list = sorted(slots)
+        print(f"[BONUS] mode={bonus_mode}, slots={slot_list}")
+        return result
+
     def _shuffle_and_layout(self):
         """
         조건을 섞어서 1D 리스트로 반환 (track_positions 순서대로)
         - 순환 트랙 기준 인접 카드(마지막↔첫 카드 포함) 중복 금지
-        
+        - 셔플 완료 후 _apply_bonus_slots()로 보너스 마킹 추가
+          (bonus 키는 인접 중복 판정에 사용되지 않으므로 제약 무영향)
+
         Returns:
             list: 1D 조건 리스트
         """
         cards = self.conditions[:self.track_length]
         if len(cards) <= 1:
-            return cards
+            return self._apply_bonus_slots(cards)
 
         def cond_key(condition):
             return (condition.get('type'), condition.get('value'))
@@ -152,7 +199,7 @@ class ConditionBoard:
             shuffled = cards.copy()
             random.shuffle(shuffled)
             if not has_circular_adjacent_duplicate(shuffled):
-                return shuffled
+                return self._apply_bonus_slots(shuffled)
 
         # 2) 확률적 시도가 모두 실패하면, 키 기준으로 안정 재배치 시도
         #    (분포에 따라 원형 인접 중복 제거가 수학적으로 불가능할 수 있음)
@@ -203,7 +250,7 @@ class ConditionBoard:
                 local_buckets = {k: v.copy() for k, v in buckets.items()}
                 for key in order:
                     arranged.append(local_buckets[key].pop())
-                return arranged
+                return self._apply_bonus_slots(arranged)
 
         raise ValueError("Failed to generate board without circular adjacent duplicate conditions.")
     

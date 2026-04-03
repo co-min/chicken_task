@@ -118,6 +118,32 @@ DIFFICULTY_SEQUENCE = [
     {'deck_cols': 6, 'layout_mode': 'random'},          # 5단계: 18장 random
 ]
 
+# ==================== BONUS SETTINGS ====================
+# 라운드별 보너스 모드 시퀀스 (current_round-1 로 인덱싱, 초과분은 마지막 항목 재사용)
+#
+# bonus_mode 값:
+#   'none'  — 보너스 없음 (초반: 순수 인지 능력 측정)
+#   'fixed' — 트랙 인덱스 bonus_slots에 '점수 2배' 고정 배치 (중반)
+#   'random'— 트랙 내 bonus_count칸을 무작위로 '점수 2배' 배치 (후반)
+#
+# fixed 모드 설계 근거:
+#   24칸 트랙에서 6·12·18번은 각 변(상단 9칸, 우측 4칸, 하단 8칸, 좌측 3칸)의
+#   중간 지점에 해당하지 않지만, 등간격(6칸)으로 분산되어 공간 학습이 용이하다.
+BONUS_SEQUENCE = [
+    {'bonus_mode': 'none'},                                    # 라운드 1: 보너스 없음
+    {'bonus_mode': 'none'},                                    # 라운드 2: 보너스 없음
+    {'bonus_mode': 'fixed', 'bonus_slots': [6, 12, 18]},      # 라운드 3: 고정 슬롯
+    {'bonus_mode': 'fixed', 'bonus_slots': [6, 12, 18]},      # 라운드 4: 고정 슬롯
+    {'bonus_mode': 'fixed', 'bonus_slots': [6, 12, 18]},      # 라운드 5: 고정 슬롯
+    {'bonus_mode': 'random', 'bonus_count': 3},                # 라운드 6+: 랜덤 3칸
+]
+
+BONUS_SCORE_MULTIPLIER = 2          # 보너스 칸 점수 배율 (현재 점수 × 2)
+BONUS_SLOT_INDICES = [6, 12, 18]    # fixed 모드 기본 슬롯 인덱스 (참조용)
+BONUS_BORDER_COLOR = [255, 215, 0]  # 보너스 칸 테두리 색 (금색)
+BONUS_BORDER_WIDTH = 4              # 보너스 칸 테두리 두께 (px)
+BONUS_LABEL_COLOR = [255, 215, 0]   # 보너스 칸 "×2" 레이블 색
+
 # ==================== SCORE SETTINGS ====================
 SCORE_MATCH = 10             # 카드 매칭 성공
 SCORE_COMBO_BONUS = 20        # 연속 성공 콤보 추가 보너스
