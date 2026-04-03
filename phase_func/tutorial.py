@@ -32,10 +32,10 @@ def _show_score_rubric(win, ui_elements, key_exit):
 
 	rubric_header = visual.TextStim(
 		win=win,
-		text="상황                                    점수",
+		text="상황                                         점수",
 		pos=(0, 240),
-		height=22,
-		color=[200, 200, 200],
+		height=25,
+		color=[255, 255, 255],
 		colorSpace='rgb255',
 		bold=True,
 	)
@@ -51,14 +51,14 @@ def _show_score_rubric(win, ui_elements, key_exit):
 	)
 
 	rubric_rows = [
-		(f"카드 매칭 성공",                    f"+{SCORE_MATCH}점",       [120, 220, 120]),
-		(f"연속 성공 콤보 보너스",              f"+{SCORE_COMBO_BONUS}점",  [120, 220, 120]),
-		(f"빠른 판단 보너스",                  f"+{SCORE_SPEED_MIN}~{SCORE_SPEED_MAX}점", [120, 220, 120]),
-		(f"NPC 카드 탈취 성공",                f"+{SCORE_STEAL}점",        [120, 200, 255]),
-		(f"문어 잡기 성공  (Chase)",           f"+{SCORE_CATCH_BONUS}점",  [120, 200, 255]),
-		(f"오답 선택",                         f"{SCORE_PENALTY}점",       [255, 140, 140]),
-		(f"문어에게 잡힘  (Flight)",           f"{SCORE_CAUGHT_PENALTY}점",[255, 140, 140]),
-		(f"문어가 Flight 닭 잡기 (문어 점수)", f"+{SCORE_PC_CATCH_BONUS}점",[200, 150, 255]),
+		(f"카드 매칭 성공",                    f"+{SCORE_MATCH}점",       [255, 255, 0]),
+		(f"카드 매칭 실패",                         f"{SCORE_PENALTY}점",       [255, 0, 255]),
+		(f"연속 성공 콤보 보너스",              f"+{SCORE_COMBO_BONUS}점",  [173, 255, 47]),
+		(f"빠른 판단 보너스",                  f"+{SCORE_SPEED_MIN}~{SCORE_SPEED_MAX}점", [173, 255, 47]),
+		#(f"NPC 카드 탈취 성공",                f"+{SCORE_STEAL}점",        [0, 191, 255]),
+		(f"잡기 성공  (Chase)",           f"+{SCORE_CATCH_BONUS}점",  [0, 191, 255]),
+		(f"적에게 잡힘  (Flight)",           f"{SCORE_CAUGHT_PENALTY}점",[0, 191, 255]),
+		#(f"문어가 Flight 닭 잡기 (문어 점수)", f"+{SCORE_PC_CATCH_BONUS}점",[173, 255, 47]),
 	]
 
 	row_stims = []
@@ -78,7 +78,7 @@ def _show_score_rubric(win, ui_elements, key_exit):
 		score_stim = visual.TextStim(
 			win=win,
 			text=score,
-			pos=(270, y),
+			pos=(180, y),
 			height=20,
 			color=color,
 			colorSpace='rgb255',
