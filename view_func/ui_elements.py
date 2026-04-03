@@ -63,12 +63,7 @@ _PHASE_H       = max(12, round(36 * _S))
 _CUE_BG_W      = max(200, round(320 * _S))
 _CUE_BG_H      = max(80,  round(160 * _S))
 
-# 우측 하단 랭킹 패널
-_RANK_PANEL_W   = max(160, round(190 * _S))
-_RANK_PANEL_H   = max(165, round(200 * _S))
-_RANK_TITLE_H   = max(9,   round(12  * _S))
-_RANK_ENTRY_H   = max(7,   round(10  * _S))
-_RANK_ENTRY_GAP = max(3,   round(5   * _S))
+# 랭킹 패널 크기·위치는 _create_ui_elements() 런타임에 전부 계산
 
 # 라운드 휴식 오버레이
 _BREAK_BG_W    = max(300, round(500 * _S))
@@ -311,51 +306,103 @@ class UIElements:
         }
 
         # ── 우측 하단: 가짜 랭킹 패널 ──
-        _rank_cx = WIDTH / 2 - _RANK_PANEL_W / 2 - round(15 * _S)
-        _rank_cy = -HEIGHT / 2 + _RANK_PANEL_H / 2 + round(15 * _S)
+        #
+        # [핵심] self.win.size를 ground truth로 사용.
+        #   "from config import WIDTH, HEIGHT"는 Python primitive이므로
+        #   import 시점 스냅샷이다. Windows DPI 배율(예: 125%)이 설정된 경우
+        #   tkinter(config 내부)는 논리 해상도를, PsychoPy는 물리 해상도를 사용해
+        #   불일치가 발생한다. self.win.size는 PsychoPy 좌표계의 실제 크기이므로
+        #   항상 정확하다.
+        _win_w = self.win.size[0]   # PsychoPy 좌표 실제 너비 (ground truth)
+        _win_h = self.win.size[1]   # PsychoPy 좌표 실제 높이 (ground truth)
+
+        _rp         = TEXT_SIZE / 28
+        _r_margin   = max(25, round(30 * _rp))   # 화면 가장자리 여백
+        _r_pad      = max(8,  round(10 * _rp))   # 패널 내부 여백
+        _r_title_h  = max(9,  round(11 * _rp))   # 타이틀 텍스트 높이
+        _r_entry_h  = max(7,  round(9  * _rp))   # 항목 텍스트 높이
+        # [핵심] 행 피치(center-to-center)를 텍스트 높이와 분리.
+        #   PsychoPy TextStim의 height는 대문자 높이만 지정한다.
+        #   실제 렌더링 높이(descender + 줄간격)는 약 1.4~1.5배 더 크다.
+        #   행 피치를 entry_h * 1.8로 설정해 실제 렌더 높이에 여유를 준다.
+        _r_row_pitch = max(14, round(_r_entry_h * 1.8))
+        _n_entries  = 7
+
+        # 패널 너비: 화면 폭의 1/4 이내 (긴 닉네임 수용)
+        _r_panel_w = min(max(180, round(205 * _rp)), _win_w // 4)
+
+        # 패널 높이: 실제 행 피치 기준으로 역산 → 텍스트 렌더 높이로 인한 잘림 없음
+        _content_h = (
+            _r_pad                            # 상단 여백
+            + _r_title_h                      # 타이틀
+            + _r_pad                          # 타이틀 ~ 구분선 여백
+            + 2                               # 구분선
+            + _r_pad                          # 구분선 ~ 첫 항목 여백
+            + _n_entries * _r_row_pitch       # 7행 (피치 기준)
+            + _r_pad                          # 하단 여백
+        )
+        # 화면을 벗어나지 않도록 최대 높이 제한
+        _r_panel_h = min(_content_h, _win_h - 2 * _r_margin)
+
+        # 위치: self.win.size 기준으로 우측 하단에 정렬
+        _rank_cx = _win_w / 2 - _r_panel_w / 2 - _r_margin
+        _rank_cy = -_win_h / 2 + _r_panel_h / 2 + _r_margin
+
+        print(f"[ranking] win=({_win_w},{_win_h}) panel=({_r_panel_w:.0f}×{_r_panel_h:.0f}) "
+              f"center=({_rank_cx:.0f},{_rank_cy:.0f}) "
+              f"right_edge={_rank_cx + _r_panel_w/2:.0f} bottom_edge={_rank_cy - _r_panel_h/2:.0f}")
 
         self.ranking_bg = visual.Rect(
             win=self.win,
-            width=_RANK_PANEL_W,
-            height=_RANK_PANEL_H,
+            width=_r_panel_w,
+            height=_r_panel_h,
             pos=(_rank_cx, _rank_cy),
             fillColor=[20, 20, 40],
             lineColor=[80, 130, 220],
-            lineWidth=max(1, round(2 * _S)),
+            lineWidth=max(1, round(2 * _rp)),
             colorSpace='rgb255',
         )
-        _rank_title_y = _rank_cy + _RANK_PANEL_H / 2 - round(7 * _S) - _RANK_TITLE_H / 2
+
+        # 타이틀: 패널 상단에서 _r_pad + title_h/2 내려서 배치
+        _rank_title_y = _rank_cy + _r_panel_h / 2 - _r_pad - _r_title_h / 2
         self.ranking_title = visual.TextStim(
             win=self.win,
             text="순위표 (누적 점수)",
             pos=(_rank_cx, _rank_title_y),
-            height=_RANK_TITLE_H,
+            height=_r_title_h,
             color=[100, 190, 255],
             colorSpace='rgb255',
             bold=True,
+            wrapWidth=_r_panel_w - _r_pad * 2,
         )
-        _rank_div_y = _rank_title_y - _RANK_TITLE_H / 2 - round(5 * _S)
+
+        # 구분선: 타이틀 아래 _r_pad 간격
+        _rank_div_y = _rank_title_y - _r_title_h / 2 - _r_pad
         self.ranking_divider = visual.Rect(
             win=self.win,
-            width=_RANK_PANEL_W - round(16 * _S),
-            height=max(1, round(1 * _S)),
+            width=_r_panel_w - _r_pad * 2,
+            height=2,
             pos=(_rank_cx, _rank_div_y),
             fillColor=[80, 130, 220],
             lineColor=[80, 130, 220],
             colorSpace='rgb255',
         )
-        _entry_left_x = _rank_cx - _RANK_PANEL_W / 2 + round(8 * _S)
-        _first_entry_y = _rank_div_y - round(5 * _S) - _RANK_ENTRY_H / 2
-        for i in range(7):
-            entry_y = _first_entry_y - i * (_RANK_ENTRY_H + _RANK_ENTRY_GAP)
+
+        # 항목: 구분선 아래에서 행 피치 간격으로 순서대로 배치
+        # anchorHoriz='left' + wrapWidth으로 텍스트 넘침 방지
+        _entry_left_x  = _rank_cx - _r_panel_w / 2 + _r_pad
+        _first_entry_y = _rank_div_y - _r_pad - _r_row_pitch / 2
+        for i in range(_n_entries):
+            entry_y = _first_entry_y - i * _r_row_pitch
             entry = visual.TextStim(
                 win=self.win,
                 text="",
                 pos=(_entry_left_x, entry_y),
-                height=_RANK_ENTRY_H,
+                height=_r_entry_h,
                 color=[210, 210, 210],
                 colorSpace='rgb255',
                 anchorHoriz='left',
+                wrapWidth=_r_panel_w - _r_pad * 2,
             )
             self.ranking_entries.append(entry)
     
