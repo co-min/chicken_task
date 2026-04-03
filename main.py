@@ -26,7 +26,7 @@ from game_func.game_state import GameState
 from view_func.board_renderer import BoardRenderer
 from view_func.deck_renderer import DeckRenderer
 from view_func.token_renderer import TokenRenderer
-from view_func.ui_elements import UIElements
+from view_func.ui_elements import UIElements, fetch_random_nicknames
 from phase_func import run_all_phases
 from eye_func.aoi_manager import AOIManager
 from utils.labjack_triggers import close_labjack
@@ -147,8 +147,10 @@ def main():
     token_renderer = TokenRenderer(win, game_state.tokens)
     print("  ✓ TokenRenderer 초기화 완료")
 
-    # UI 요소
-    ui_elements = UIElements(win)
+    # UI 요소 — 랭킹 패널용 가짜 닉네임을 먼저 API로 받아온다
+    print("  [닉네임 API] 가짜 플레이어 닉네임 생성 중...")
+    fake_names = fetch_random_nicknames(count=5)
+    ui_elements = UIElements(win, fake_player_names=fake_names)
     print("  ✓ UIElements 초기화 완료")
 
     # EyeLink 초기화

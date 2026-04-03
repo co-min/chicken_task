@@ -3,6 +3,8 @@
 
 from psychopy import visual
 import sys, os
+import random
+import requests
 sys.path.insert(0, os.path.abspath(os.path.join(__file__, '..', '..')))
 from config import (
     WIDTH, HEIGHT,
@@ -16,6 +18,33 @@ from config import (
     PROGRESS_BAR_COLOR_FULL, PROGRESS_BAR_COLOR_WARN, PROGRESS_BAR_COLOR_CRIT,
     PROGRESS_BAR_BG_COLOR,
 )
+
+_FALLBACK_NAMES = ["토끼", "여우", "다람쥐", "오리", "강아지"]
+
+
+def fetch_random_nicknames(count=5):
+    """
+    rivestsoft 무료 API로 랜덤 한국어 닉네임 count개를 생성한다.
+    API 호출 실패 시 _FALLBACK_NAMES 로 대체한다.
+    """
+    names = []
+    for i in range(count):
+        try:
+            res = requests.post(
+                'https://www.rivestsoft.com/nickname/getRandomNickname.ajax',
+                data={'lang': 'ko'},
+                timeout=3,
+            )
+            res.raise_for_status()
+            name = res.json().get('data', _FALLBACK_NAMES[i % len(_FALLBACK_NAMES)])
+            names.append(name)
+            print(f"  [닉네임 API] {i + 1}번째: {name}")
+        except Exception as e:
+            fallback = _FALLBACK_NAMES[i % len(_FALLBACK_NAMES)]
+            names.append(fallback)
+            print(f"  [닉네임 API] {i + 1}번째 실패({e}) → fallback: {fallback}")
+    return names
+
 
 # 설계 기준(TEXT_SIZE=28) 대비 스케일 → 모든 텍스트 크기에 적용
 _S = TEXT_SIZE / 28
@@ -34,6 +63,13 @@ _PHASE_H       = max(12, round(36 * _S))
 _CUE_BG_W      = max(200, round(320 * _S))
 _CUE_BG_H      = max(80,  round(160 * _S))
 
+# 우측 하단 랭킹 패널
+_RANK_PANEL_W   = max(160, round(190 * _S))
+_RANK_PANEL_H   = max(150, round(180 * _S))
+_RANK_TITLE_H   = max(9,   round(12  * _S))
+_RANK_ENTRY_H   = max(7,   round(10  * _S))
+_RANK_ENTRY_GAP = max(3,   round(5   * _S))
+
 # 라운드 휴식 오버레이
 _BREAK_BG_W    = max(300, round(500 * _S))
 _BREAK_BG_H    = max(100, round(170 * _S))
@@ -50,10 +86,11 @@ _HUD_SCORE_Y   = HEIGHT / 2 - round(88 * _S)   # 점수 표시
 class UIElements:
     """게임 UI 요소를 관리하는 클래스"""
     
-    def __init__(self, win):
+    def __init__(self, win, fake_player_names=None):
         """
         Args:
             win: PsychoPy window 객체
+            fake_player_names: 가짜 플레이어 닉네임 리스트 (5개). None이면 fallback 사용.
         """
         self.win = win
 
@@ -72,6 +109,18 @@ class UIElements:
         self.round_break_title = None
         self.round_break_sub = None
         self.token_choice_buttons = {}
+
+        # 랭킹 패널 요소
+        self.ranking_bg = None
+        self.ranking_title = None
+        self.ranking_divider = None
+        self.ranking_entries = []
+
+        # 가짜 플레이어: [(이름, 점수), ...] — 게임 시작 전 고정
+        names = (fake_player_names or _FALLBACK_NAMES)[:]
+        raw_scores = sorted(random.sample(range(400, 1800), min(5, len(names))), reverse=True)
+        self._fake_players = list(zip(names[:5], raw_scores))
+        self._cumulative_user_score = 0
 
         # 프로그레스 바 내부 상태 (줄어든 _BAR_INNER_W 기준)
         self._bar_max_width = _BAR_INNER_W
@@ -260,6 +309,55 @@ class UIElements:
                 colorSpace='rgb255'
             )
         }
+
+        # ── 우측 하단: 가짜 랭킹 패널 ──
+        _rank_cx = WIDTH / 2 - _RANK_PANEL_W / 2 - round(15 * _S)
+        _rank_cy = -HEIGHT / 2 + _RANK_PANEL_H / 2 + round(15 * _S)
+
+        self.ranking_bg = visual.Rect(
+            win=self.win,
+            width=_RANK_PANEL_W,
+            height=_RANK_PANEL_H,
+            pos=(_rank_cx, _rank_cy),
+            fillColor=[20, 20, 40],
+            lineColor=[80, 130, 220],
+            lineWidth=max(1, round(2 * _S)),
+            colorSpace='rgb255',
+        )
+        _rank_title_y = _rank_cy + _RANK_PANEL_H / 2 - round(7 * _S) - _RANK_TITLE_H / 2
+        self.ranking_title = visual.TextStim(
+            win=self.win,
+            text="순위표 (누적 점수)",
+            pos=(_rank_cx, _rank_title_y),
+            height=_RANK_TITLE_H,
+            color=[100, 190, 255],
+            colorSpace='rgb255',
+            bold=True,
+        )
+        _rank_div_y = _rank_title_y - _RANK_TITLE_H / 2 - round(5 * _S)
+        self.ranking_divider = visual.Rect(
+            win=self.win,
+            width=_RANK_PANEL_W - round(16 * _S),
+            height=max(1, round(1 * _S)),
+            pos=(_rank_cx, _rank_div_y),
+            fillColor=[80, 130, 220],
+            lineColor=[80, 130, 220],
+            colorSpace='rgb255',
+        )
+        _entry_left_x = _rank_cx - _RANK_PANEL_W / 2 + round(8 * _S)
+        _first_entry_y = _rank_div_y - round(5 * _S) - _RANK_ENTRY_H / 2
+        for i in range(6):
+            entry_y = _first_entry_y - i * (_RANK_ENTRY_H + _RANK_ENTRY_GAP)
+            entry = visual.TextStim(
+                win=self.win,
+                text="",
+                pos=(_entry_left_x, entry_y),
+                height=_RANK_ENTRY_H,
+                color=[210, 210, 210],
+                colorSpace='rgb255',
+                anchorHoriz='left',
+            )
+            self.ranking_entries.append(entry)
     
     def draw_timer(self, time_str):
         """
@@ -271,9 +369,9 @@ class UIElements:
         self.timer_text.text = time_str
         self.timer_text.draw()
     
-    def draw_score(self, user_score, pc_score):
-        """점수 텍스트 업데이트 + 그리기."""
-        self.score_text.text = f"내 점수: {user_score}점  |  문어: {pc_score}점"
+    def draw_score(self, round_score, pc_score):
+        """라운드 점수 텍스트 업데이트 + 그리기."""
+        self.score_text.text = f"이번 라운드: {round_score}점  |  문어: {pc_score}점"
         self.score_text.draw()
 
     def set_round_display(self, current_round, total_rounds=None):
@@ -310,12 +408,38 @@ class UIElements:
         self.progress_bar_fg.lineColor = color
         self.progress_bar_fg.draw()
 
+    def update_ranking(self, cumulative_score):
+        """누적 점수를 받아 랭킹 패널 텍스트를 갱신한다. 매 프레임 draw_ranking() 전에 호출."""
+        self._cumulative_user_score = cumulative_score
+        all_players = self._fake_players + [("나", cumulative_score)]
+        all_players.sort(key=lambda x: x[1], reverse=True)
+        rank_labels = ["1위", "2위", "3위", "4위", "5위", "6위"]
+        for i, entry in enumerate(self.ranking_entries):
+            if i < len(all_players):
+                name, score = all_players[i]
+                label = rank_labels[i] if i < len(rank_labels) else f"{i + 1}위"
+                is_me = (name == "나")
+                entry.text = f"{label}  {name}  {score}점"
+                entry.color = [255, 230, 50] if is_me else [210, 210, 210]
+            else:
+                entry.text = ""
+
+    def draw_ranking(self):
+        """랭킹 패널(배경·타이틀·구분선·항목)을 그린다."""
+        self.ranking_bg.draw()
+        self.ranking_title.draw()
+        self.ranking_divider.draw()
+        for entry in self.ranking_entries:
+            if entry.text:
+                entry.draw()
+
     def draw_persistent_hud(self):
-        """타이머·라운드·프로그레스 바·점수를 캐시 상태로 일괄 그리기."""
+        """타이머·라운드·프로그레스 바·점수·랭킹을 캐시 상태로 일괄 그리기."""
         self.round_text.draw()
         self.draw_progress_bar()
         self.timer_text.draw()
         self.score_text.draw()
+        self.draw_ranking()
     
     def draw_message(self, message):
         """
