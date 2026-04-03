@@ -65,7 +65,7 @@ _CUE_BG_H      = max(80,  round(160 * _S))
 
 # 우측 하단 랭킹 패널
 _RANK_PANEL_W   = max(160, round(190 * _S))
-_RANK_PANEL_H   = max(150, round(180 * _S))
+_RANK_PANEL_H   = max(165, round(200 * _S))
 _RANK_TITLE_H   = max(9,   round(12  * _S))
 _RANK_ENTRY_H   = max(7,   round(10  * _S))
 _RANK_ENTRY_GAP = max(3,   round(5   * _S))
@@ -346,7 +346,7 @@ class UIElements:
         )
         _entry_left_x = _rank_cx - _RANK_PANEL_W / 2 + round(8 * _S)
         _first_entry_y = _rank_div_y - round(5 * _S) - _RANK_ENTRY_H / 2
-        for i in range(6):
+        for i in range(7):
             entry_y = _first_entry_y - i * (_RANK_ENTRY_H + _RANK_ENTRY_GAP)
             entry = visual.TextStim(
                 win=self.win,
@@ -408,19 +408,29 @@ class UIElements:
         self.progress_bar_fg.lineColor = color
         self.progress_bar_fg.draw()
 
-    def update_ranking(self, cumulative_score):
-        """누적 점수를 받아 랭킹 패널 텍스트를 갱신한다. 매 프레임 draw_ranking() 전에 호출."""
-        self._cumulative_user_score = cumulative_score
-        all_players = self._fake_players + [("나", cumulative_score)]
+    def update_ranking(self, user_cumulative, pc_cumulative):
+        """
+        누적 점수를 받아 랭킹 패널 텍스트를 갱신한다. 매 프레임 draw_ranking() 전에 호출.
+
+        Args:
+            user_cumulative: 플레이어 누적 점수
+            pc_cumulative:   문어(PC) 누적 점수
+        """
+        self._cumulative_user_score = user_cumulative
+        all_players = self._fake_players + [("나", user_cumulative), ("문어", pc_cumulative)]
         all_players.sort(key=lambda x: x[1], reverse=True)
-        rank_labels = ["1위", "2위", "3위", "4위", "5위", "6위"]
+        rank_labels = ["1위", "2위", "3위", "4위", "5위", "6위", "7위"]
         for i, entry in enumerate(self.ranking_entries):
             if i < len(all_players):
                 name, score = all_players[i]
                 label = rank_labels[i] if i < len(rank_labels) else f"{i + 1}위"
-                is_me = (name == "나")
+                if name == "나":
+                    entry.color = [255, 230, 50]      # 노란색 (플레이어)
+                elif name == "문어":
+                    entry.color = [100, 220, 255]     # 하늘색 (문어 PC)
+                else:
+                    entry.color = [210, 210, 210]
                 entry.text = f"{label}  {name}  {score}점"
-                entry.color = [255, 230, 50] if is_me else [210, 210, 210]
             else:
                 entry.text = ""
 

@@ -104,7 +104,7 @@ def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck
         # 화면 그리기
         _draw_selection_screen(
             win, ui_elements, board_renderer, deck_renderer, token_renderer,
-            selected_token, hovering
+            selected_token, hovering, game_state
         )
         blink_frame_marker(win)
         win.flip()
@@ -134,7 +134,7 @@ def _is_mouse_over_button(mouse_pos, button_pos, button_width, button_height):
 
 
 def _draw_selection_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer,
-                           selected_token, hovering):
+                           selected_token, hovering, game_state=None):
     """
     선택 화면 그리기
     
@@ -189,3 +189,8 @@ def _draw_selection_screen(win, ui_elements, board_renderer, deck_renderer, toke
     # 안내 문구 및 메시지 그리기
     ui_elements.instruction_text.draw()
     ui_elements.message_text.draw()
+
+    # 랭킹 패널: 누적 점수 갱신 후 표시
+    if game_state is not None:
+        ui_elements.update_ranking(game_state.user_score, game_state.pc_score)
+    ui_elements.draw_ranking()

@@ -584,10 +584,10 @@ def _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_ren
                      / max(1, game_state.timer.time_limit))
         ui_elements.set_round_display(game_state.current_round, game_state.total_rounds)
         ui_elements.draw_progress_bar(bar_ratio)
-        # 중앙 상단: 이번 라운드 점수 표시
-        ui_elements.draw_score(game_state.round_score, game_state.pc_score)
-        # 우측 하단 랭킹: 누적 점수 기준으로 갱신
-        ui_elements.update_ranking(game_state.user_score)
+        # 중앙 상단: 이번 라운드 점수 표시 (플레이어·문어 모두 라운드 점수)
+        ui_elements.draw_score(game_state.round_score, game_state.pc_round_score)
+        # 우측 하단 랭킹: 누적 점수 기준으로 갱신 (플레이어·문어 모두 포함)
+        ui_elements.update_ranking(game_state.user_score, game_state.pc_score)
     else:
         ui_elements.draw_progress_bar()   # 캐시 상태로 그리기
         ui_elements.score_text.draw()

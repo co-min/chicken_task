@@ -114,6 +114,7 @@ class GameState:
         # 점수
         self.user_score = 0
         self.pc_score = 0
+        self._pc_round_start_score = 0
         self.user_combo = 0      # 사용자 연속 성공 횟수
         self.pc_combo = 0        # PC 연속 성공 횟수
 
@@ -134,6 +135,11 @@ class GameState:
     def round_score(self):
         """이번 라운드에서 획득한 점수 (난이도 업 판단용)."""
         return self.user_score - self._round_start_score
+
+    @property
+    def pc_round_score(self):
+        """문어(PC)가 이번 라운드에서 획득한 점수."""
+        return self.pc_score - self._pc_round_start_score
 
     @property
     def cumulative_score(self):
@@ -589,6 +595,7 @@ class GameState:
 
         # 라운드 점수 스냅샷 갱신 (다음 라운드 측정 기준)
         self._round_start_score = self.user_score
+        self._pc_round_start_score = self.pc_score
 
         # 2) 새 난이도로 덱 먼저 교체
         # ※ 반드시 _reset_round_board_state() 호출 전에 self.deck을 새 객체로 바꿔야
@@ -992,6 +999,7 @@ class GameState:
 
         self.user_score = 0
         self.pc_score = 0
+        self._pc_round_start_score = 0
         self.user_combo = 0
         self.pc_combo = 0
         self.user_catch_count = 0
