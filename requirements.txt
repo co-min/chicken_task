@@ -27,3 +27,5 @@ pytz==2023.3
 
 # opencv-python
 # intiate.py 
+
+requests
