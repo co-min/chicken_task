@@ -110,9 +110,10 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
                 _run_round_break(win, ui_elements, board_renderer, deck_renderer,
                                  token_renderer, game_state)
                 game_state.advance_round()
-                # advance_round()가 game_state.deck을 새 객체로 교체하므로
-                # deck_renderer와 aoi_manager의 참조도 반드시 갱신해야 한다.
-                # 누락 시 draw()가 OLD deck을 참조하여 flip이 화면에 표시되지 않음.
+                # advance_round()가 game_state.board/deck을 새 객체로 교체하므로
+                # board_renderer·deck_renderer·aoi_manager의 참조도 반드시 갱신해야 한다.
+                # 누락 시 board_renderer가 구 board를 참조 → 화면 조건과 판정 조건 불일치 → 정답 카드도 실패 처리.
+                board_renderer.update_board(game_state.board)
                 deck_renderer.update_deck(game_state.deck)
                 if aoi_manager:
                     aoi_manager.update_deck(game_state.deck)
@@ -307,11 +308,11 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                         _run_round_break(win, ui_elements, board_renderer, deck_renderer,
                                          token_renderer, game_state)
                         game_state.advance_round()
-                        board_renderer.refresh()
-                        # advance_round()가 game_state.deck을 새 객체로 교체하므로
-                        # refresh() 대신 update_deck()으로 참조를 갱신해야 한다.
-                        # refresh()는 self.deck(OLD)의 이미지만 갱신할 뿐 참조를 바꾸지 않으므로
-                        # 이후 draw()가 OLD deck을 읽어 flip이 화면에 표시되지 않는다.
+                        # advance_round()가 game_state.board/deck을 새 객체로 교체하므로
+                        # board_renderer·deck_renderer·aoi_manager 참조를 반드시 update_*()로 갱신해야 한다.
+                        # refresh()는 self.board/self.deck(OLD) 이미지만 갱신할 뿐 참조 자체를 바꾸지 않으므로
+                        # 이후 화면 조건(구 board)과 판정 조건(새 board)이 달라져 정답 카드도 실패 처리된다.
+                        board_renderer.update_board(game_state.board)
                         deck_renderer.update_deck(game_state.deck)
                         if aoi_manager:
                             aoi_manager.update_deck(game_state.deck)
@@ -493,9 +494,9 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
                 _run_round_break(win, ui_elements, board_renderer, deck_renderer,
                                  token_renderer, game_state)
                 game_state.advance_round()
-                board_renderer.refresh()
-                # advance_round()가 game_state.deck을 새 객체로 교체하므로
-                # refresh() 대신 update_deck()으로 참조를 갱신해야 한다.
+                # advance_round()가 game_state.board/deck을 새 객체로 교체하므로
+                # board_renderer·deck_renderer·aoi_manager 참조를 반드시 update_*()로 갱신해야 한다.
+                board_renderer.update_board(game_state.board)
                 deck_renderer.update_deck(game_state.deck)
                 if aoi_manager:
                     aoi_manager.update_deck(game_state.deck)

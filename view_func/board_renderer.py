@@ -139,6 +139,16 @@ class BoardRenderer:
         
         return os.path.join(CONDITION_CARDS_DIR, filename)
     
+    def update_board(self, new_board):
+        """
+        advance_round() 후 새 ConditionBoard 참조로 교체 및 비주얼 갱신.
+        deck_renderer.update_deck()과 동일한 패턴.
+        이 메서드를 호출하지 않으면 board_renderer.board가 구 객체를 가리켜
+        화면 조건과 game_state 조건이 불일치하여 정답 카드를 뒤집어도 실패 처리된다.
+        """
+        self.board = new_board
+        self.refresh()
+
     def refresh(self):
         """보드 재셔플 후 각 위치의 조건 이미지 및 보너스 표시를 갱신"""
         for pos in self.board.track_positions:

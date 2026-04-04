@@ -588,12 +588,19 @@ class GameState:
         """전체 게임 남은 시간 (초)."""
         return self.game_timer.get_remaining()
 
-    def _reset_round_board_state(self):
+    def _reset_round_board_state(self, reshuffle_board=True):
         """
         라운드 공통 초기화: 보드·덱 재셔플, 토큰 위치 초기화, 관찰 메모리 클리어.
         라운드 전환 및 잡기 이벤트(잡거나 잡힐 때) 양쪽에서 호출된다.
+
+        Args:
+            reshuffle_board: False면 board.reshuffle()을 건너뜀.
+                advance_round()에서는 _build_board_for_round()가 이미 새 보드를
+                완전히 초기화했으므로 이중 셔플을 피하기 위해 False로 호출한다.
+                잡기 이벤트에서는 보드 교체 없이 재셔플이 필요하므로 True(기본값).
         """
-        self.board.reshuffle()
+        if reshuffle_board:
+            self.board.reshuffle()
         self.deck.reshuffle()
         self.tokens.reset_token_position('chase')
         self.tokens.reset_token_position('flight')
@@ -639,10 +646,9 @@ class GameState:
         self.board = self._build_board_for_round(self.current_round)
         self.deck = self._build_deck_for_difficulty()
 
-        # 3) 보드·토큰 초기화 (reshuffle은 이미 교체된 새 객체에 적용됨)
-        #    board가 교체되었으므로 _reset_round_board_state()의 board.reshuffle()은
-        #    새 보너스 설정이 포함된 보드에 대해 올바르게 동작한다.
-        self._reset_round_board_state()
+        # 3) 덱·토큰 초기화. board는 _build_board_for_round()에서 이미 완전 초기화됐으므로
+        #    reshuffle_board=False로 이중 셔플을 방지한다.
+        self._reset_round_board_state(reshuffle_board=False)
 
         # 4) 턴 제한 갱신 (game_timer는 계속 진행 중)
         idx = min(self.current_round - 1, len(ROUND_TURN_LIMITS) - 1)
