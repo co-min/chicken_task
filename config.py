@@ -131,17 +131,17 @@ DIFFICULTY_SEQUENCE = [
 #   중간 지점에 해당하지 않지만, 등간격(6칸)으로 분산되어 공간 학습이 용이하다.
 BONUS_SEQUENCE = [
     {'bonus_mode': 'none'},                                    # 라운드 1: 보너스 없음
-    {'bonus_mode': 'none'},                                    # 라운드 2: 보너스 없음
+    {'bonus_mode': 'fixed', 'bonus_slots': [6, 12, 18]},       # 라운드 2: 고정 슬롯
     {'bonus_mode': 'fixed', 'bonus_slots': [6, 12, 18]},      # 라운드 3: 고정 슬롯
     {'bonus_mode': 'fixed', 'bonus_slots': [6, 12, 18]},      # 라운드 4: 고정 슬롯
-    {'bonus_mode': 'fixed', 'bonus_slots': [6, 12, 18]},      # 라운드 5: 고정 슬롯
+    {'bonus_mode': 'random', 'bonus_count': 3},               # 라운드 5: 랜덤 3칸
     {'bonus_mode': 'random', 'bonus_count': 3},                # 라운드 6+: 랜덤 3칸
 ]
 
 BONUS_SCORE_MULTIPLIER = 2          # 보너스 칸 점수 배율 (현재 점수 × 2)
 BONUS_SLOT_INDICES = [6, 12, 18]    # fixed 모드 기본 슬롯 인덱스 (참조용)
 BONUS_BORDER_COLOR = [255, 215, 0]  # 보너스 칸 테두리 색 (금색)
-BONUS_BORDER_WIDTH = 4              # 보너스 칸 테두리 두께 (px)
+BONUS_BORDER_WIDTH = 5              # 보너스 칸 테두리 두께 (px)
 BONUS_LABEL_COLOR = [255, 215, 0]   # 보너스 칸 "×2" 레이블 색
 
 # ==================== SCORE SETTINGS ====================
@@ -150,7 +150,7 @@ SCORE_COMBO_BONUS = 20        # 연속 성공 콤보 추가 보너스
 SCORE_SPEED_MAX = 15          # 빠른 판단 최대 점수
 SCORE_SPEED_MIN = 1           # 빠른 판단 최소 점수
 SCORE_STEAL = 20            # NPC 카드 탈취 보너스
-SCORE_PENALTY = -3          # 오답 패널티
+SCORE_PENALTY = -5          # 오답 패널티
 SCORE_CATCH_BONUS = 20       # 사용자가 문어를 잡을 때 (사용자 보너스)
 SCORE_CAUGHT_PENALTY = -15   # 문어에게 잡힐 때 (사용자 패널티)
 SCORE_PC_CATCH_BONUS = 15    # 문어가 flight를 잡을 때 (PC 보너스)
