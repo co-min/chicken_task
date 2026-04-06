@@ -48,8 +48,12 @@ except ImportError:
 START_CUE_DURATION = 0.8
 
 # LabJack 트리거 코드 (labjack_triggers.py 규약과 동일)
-_LJ_TRIAL_START = 200
-_LJ_TRIAL_END   = 201
+_LJ_TRIAL_START      = 200
+_LJ_TRIAL_END        = 201
+_LJ_CARD_CLICK       = 100   # 사용자 덱 카드 클릭 (운동 반응 onset)
+_LJ_FEEDBACK_SUCCESS = 210   # 피드백: 성공 (FRN/P300 onset)
+_LJ_FEEDBACK_FAILURE = 211   # 피드백: 실패 (FRN/P300 onset)
+_LJ_FEEDBACK_TIMEOUT = 212   # 피드백: 타임아웃
 
 
 def _edf_msg(aoi_manager, message: str):
@@ -224,6 +228,8 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                 color=DARK_GREY,
                 duration=FEEDBACK_DURATION,
                 highlighted_pos=None,
+                labjack_handle=aoi_manager.labjack_handle if aoi_manager else None,
+                trigger_code=_LJ_FEEDBACK_TIMEOUT,
             )
             
             # 시행 종료 마킹
@@ -248,7 +254,10 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
             
             if card_pos is not None:
                 card_row, card_col = card_pos
-                
+
+                # 덱 카드 클릭 즉시 트리거 (운동 반응 onset — flip 전에 전송)
+                _ljack(aoi_manager, _LJ_CARD_CLICK)
+
                 # 카드 선택 처리
                 result = game_state.user_click_card(card_row, card_col, defer_success_move=True)
                 print(f"[USER TURN] 카드 선택: {card_pos}, 결과: {result}")
@@ -278,6 +287,8 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                         color=PURPLE,
                         duration=FEEDBACK_DURATION,
                         highlighted_pos=None,
+                        labjack_handle=aoi_manager.labjack_handle if aoi_manager else None,
+                        trigger_code=_LJ_FEEDBACK_SUCCESS,
                     )
 
                     # 성공 피드백 이후 토큰 이동
@@ -358,6 +369,8 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                         color=DARK_GREY,
                         duration=FEEDBACK_DURATION,
                         highlighted_pos=None,
+                        labjack_handle=aoi_manager.labjack_handle if aoi_manager else None,
+                        trigger_code=_LJ_FEEDBACK_FAILURE,
                     )
                     
                     # 카드 뒤로 감추기 (hide_card 사용)
