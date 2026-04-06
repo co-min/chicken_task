@@ -3,7 +3,6 @@
 # 8가지 단일 조건 × 3회 반복 = 24장, 항상 앞면
 
 import random
-import math
 import sys
 from collections import defaultdict
 from pathlib import Path

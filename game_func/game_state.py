@@ -14,13 +14,26 @@ try:
     from game_func.npc_ai import NPCAI
     from utils.timer import GameTimer
     from utils.card_matcher import check_match
+    from utils.helpers import clamp
     from ..config import (TURN_TIME_LIMIT, PC_THINK_TIME, DEFAULT_GAME_MODE, GAME_MODES,
                           GAME_TIME_LIMIT, SCORE_MATCH, SCORE_COMBO_BONUS, SCORE_SPEED_MAX,
                           SCORE_SPEED_MIN, SCORE_STEAL, SCORE_PENALTY,
                           SCORE_CATCH_BONUS, SCORE_CAUGHT_PENALTY, SCORE_PC_CATCH_BONUS,
                           TOTAL_ROUNDS, ROUND_TURN_LIMITS,
                           DIFFICULTY_SEQUENCE, DIFFICULTY_SCORE_THRESHOLD,
-                          BONUS_SEQUENCE, BONUS_SCORE_MULTIPLIER)
+                          BONUS_SEQUENCE, BONUS_SCORE_MULTIPLIER,
+                          NPC_RATE_MAX, ADAPTIVE_ALPHA_UP, ADAPTIVE_ALPHA_DOWN,
+                          MAX_RATE_STEP_UP, MAX_RATE_STEP_DOWN, SURGE_BONUS_SCALE,
+                          USER_WINDOW_SIZE, MIN_USER_TRIALS_FOR_ADAPT, USER_EWMA_ALPHA,
+                          PERF_VARIABILITY_HIT_W, PERF_VARIABILITY_ELAPSED_W,
+                          TREND_WEIGHT_RECENT, TREND_WEIGHT_PREV,
+                          KNOWLEDGE_EXIST_W, KNOWLEDGE_DENSITY_W,
+                          SKILL_EWMA_W, SKILL_RECENT_W, SKILL_SPEED_W,
+                          ESTIMATED_SKILL_W, ESTIMATED_KNOWLEDGE_W, ESTIMATED_NOVELTY_W,
+                          SURGE_BASE_W, SURGE_SPEED_W, SURGE_CONSECUTIVE_BONUS,
+                          QUICK_SKILL_ACCURACY_W, QUICK_SKILL_SPEED_W,
+                        MEMORY_CONFIDENCE_INIT, MEMORY_CONFIDENCE_INCREMENT,
+                        MISS_PENALTY_PER_STREAK, MISS_PENALTY_MAX_STREAK)
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from game_func.board_class import ConditionBoard
@@ -29,13 +42,26 @@ except ImportError:
     from game_func.npc_ai import NPCAI
     from utils.timer import GameTimer
     from utils.card_matcher import check_match
-    from config import (TURN_TIME_LIMIT, PC_THINK_TIME, TOKEN_TIME_WAIT, DEFAULT_GAME_MODE, GAME_MODES,
+    from utils.helpers import clamp
+    from config import (TURN_TIME_LIMIT, PC_THINK_TIME, DEFAULT_GAME_MODE, GAME_MODES,
                         GAME_TIME_LIMIT, SCORE_MATCH, SCORE_COMBO_BONUS, SCORE_SPEED_MAX,
                         SCORE_SPEED_MIN, SCORE_STEAL, SCORE_PENALTY,
                         SCORE_CATCH_BONUS, SCORE_CAUGHT_PENALTY, SCORE_PC_CATCH_BONUS,
                         TOTAL_ROUNDS, ROUND_TURN_LIMITS,
                         DIFFICULTY_SEQUENCE, DIFFICULTY_SCORE_THRESHOLD,
-                        BONUS_SEQUENCE, BONUS_SCORE_MULTIPLIER)
+                        BONUS_SEQUENCE, BONUS_SCORE_MULTIPLIER,
+                        NPC_RATE_MAX, ADAPTIVE_ALPHA_UP, ADAPTIVE_ALPHA_DOWN,
+                        MAX_RATE_STEP_UP, MAX_RATE_STEP_DOWN, SURGE_BONUS_SCALE,
+                        USER_WINDOW_SIZE, MIN_USER_TRIALS_FOR_ADAPT, USER_EWMA_ALPHA,
+                        PERF_VARIABILITY_HIT_W, PERF_VARIABILITY_ELAPSED_W,
+                        TREND_WEIGHT_RECENT, TREND_WEIGHT_PREV,
+                        KNOWLEDGE_EXIST_W, KNOWLEDGE_DENSITY_W,
+                        SKILL_EWMA_W, SKILL_RECENT_W, SKILL_SPEED_W,
+                        ESTIMATED_SKILL_W, ESTIMATED_KNOWLEDGE_W, ESTIMATED_NOVELTY_W,
+                        SURGE_BASE_W, SURGE_SPEED_W, SURGE_CONSECUTIVE_BONUS,
+                        QUICK_SKILL_ACCURACY_W, QUICK_SKILL_SPEED_W,
+                        MEMORY_CONFIDENCE_INIT, MEMORY_CONFIDENCE_INCREMENT,
+                        MISS_PENALTY_PER_STREAK, MISS_PENALTY_MAX_STREAK)
 
 
 class GameState:
@@ -79,20 +105,20 @@ class GameState:
 
         print(f"[MODE] selected={self.selected_mode_id}, profile={self.selected_mode}")
 
-        # 자동 적응형 AI 상태
+        # 자동 적응형 AI 상태 (config.py에서 튜닝)
         self.npc_rate_min = self.base_random_rate
-        self.npc_rate_max = 0.90
-        self.adaptive_alpha_up = 0.50
-        self.adaptive_alpha_down = 0.15
-        self.max_rate_step_up = 0.12
-        self.max_rate_step_down = 0.04
-        self.surge_bonus_scale = 0.20
-        self.user_window_size = 10
-        self.min_user_trials_for_adapt = 3
+        self.npc_rate_max = NPC_RATE_MAX
+        self.adaptive_alpha_up = ADAPTIVE_ALPHA_UP
+        self.adaptive_alpha_down = ADAPTIVE_ALPHA_DOWN
+        self.max_rate_step_up = MAX_RATE_STEP_UP
+        self.max_rate_step_down = MAX_RATE_STEP_DOWN
+        self.surge_bonus_scale = SURGE_BONUS_SCALE
+        self.user_window_size = USER_WINDOW_SIZE
+        self.min_user_trials_for_adapt = MIN_USER_TRIALS_FOR_ADAPT
 
         # 사용자 수행/선택 패턴 추적
         self.user_accuracy_ewma = self.base_random_rate
-        self.user_ewma_alpha = 0.2
+        self.user_ewma_alpha = USER_EWMA_ALPHA
         self.user_seen_cards = {}  # {(row, col): {'card', 'seen_count', 'last_seen_turn', 'confidence'}}
         self.npc_seen_cards = {}   # {(row, col): {'card', 'seen_count', 'last_seen_turn', 'confidence'}}
         self.user_choice_count = 0
@@ -176,10 +202,6 @@ class GameState:
               f"cols={diff['deck_cols']}, layout={layout_mode}")
         return MainDeck(mode_profile=mode_profile, layout_mode=layout_mode)
 
-    @staticmethod
-    def _clamp(value, min_value, max_value):
-        return max(min_value, min(max_value, value))
-
     def get_next_trial_id(self) -> int:
         """카드 선택 시도가 시작될 때마다 호출. 단조 증가하는 시행 번호 반환.
         EDF sendMessage 및 LabJack 트리거 코드의 공통 키로 사용한다."""
@@ -232,19 +254,19 @@ class GameState:
         hit_std = hit_variance ** 0.5
 
         elapsed_times = [trial.get('elapsed_time', TURN_TIME_LIMIT) for trial in recent_trials]
-        normalized_elapsed = [self._clamp(t / TURN_TIME_LIMIT, 0.0, 1.0) for t in elapsed_times]
+        normalized_elapsed = [clamp(t / TURN_TIME_LIMIT, 0.0, 1.0) for t in elapsed_times]
         mean_elapsed = sum(normalized_elapsed) / count
         elapsed_variance = sum((t - mean_elapsed) ** 2 for t in normalized_elapsed) / count
         elapsed_std = elapsed_variance ** 0.5
 
-        variability = self._clamp((0.65 * hit_std) + (0.35 * elapsed_std), 0.0, 1.0)
+        variability = clamp((PERF_VARIABILITY_HIT_W * hit_std) + (PERF_VARIABILITY_ELAPSED_W * elapsed_std), 0.0, 1.0)
 
         trend_score = 0.0
         if count >= 2:
             trend_score = hits[-1] - hits[-2]
         if count >= 3:
-            trend_score = (0.7 * trend_score) + (0.3 * (hits[-2] - hits[-3]))
-        trend_score = self._clamp(trend_score, -1.0, 1.0)
+            trend_score = (TREND_WEIGHT_RECENT * trend_score) + (TREND_WEIGHT_PREV * (hits[-2] - hits[-3]))
+        trend_score = clamp(trend_score, -1.0, 1.0)
 
         return {
             'count': count,
@@ -277,14 +299,14 @@ class GameState:
                 'card': card,
                 'seen_count': 1,
                 'last_seen_turn': self.turn_count,
-                'confidence': 0.60,
+                'confidence': MEMORY_CONFIDENCE_INIT,
             }
             return
 
         seen_info['card'] = card
         seen_info['seen_count'] += 1
         seen_info['last_seen_turn'] = self.turn_count
-        seen_info['confidence'] = self._clamp(seen_info['confidence'] + 0.10, 0.0, 1.0)
+        seen_info['confidence'] = clamp(seen_info['confidence'] + MEMORY_CONFIDENCE_INCREMENT, 0.0, 1.0)
 
     def _build_npc_memory_context(self, condition=None):
         """
@@ -299,7 +321,7 @@ class GameState:
                     merged[pos] = {
                         'pos': pos,
                         'card': info.get('card'),
-                        'confidence': float(info.get('confidence', 0.6)),
+                        'confidence': float(info.get('confidence', MEMORY_CONFIDENCE_INIT)),
                         'seen_count': int(info.get('seen_count', 1)),
                         'last_seen_turn': int(info.get('last_seen_turn', self.turn_count)),
                         'source': source,
@@ -307,7 +329,7 @@ class GameState:
                     continue
 
                 existing['card'] = info.get('card', existing['card'])
-                existing['confidence'] = max(existing['confidence'], float(info.get('confidence', 0.6)))
+                existing['confidence'] = max(existing['confidence'], float(info.get('confidence', MEMORY_CONFIDENCE_INIT)))
                 existing['seen_count'] += int(info.get('seen_count', 1))
                 existing['last_seen_turn'] = max(
                     existing['last_seen_turn'],
@@ -402,7 +424,7 @@ class GameState:
         match_density = known_match_count / known_total
 
         # 일치 카드 존재 여부를 우선 반영하고, 밀도로 미세 조정
-        return self._clamp((0.7 * has_known_match) + (0.3 * match_density), 0.0, 1.0)
+        return clamp((KNOWLEDGE_EXIST_W * has_known_match) + (KNOWLEDGE_DENSITY_W * match_density), 0.0, 1.0)
 
     def _get_recent_miss_streak(self):
         """최근 사용자 연속 오답 길이 계산."""
@@ -434,9 +456,9 @@ class GameState:
 
         elapsed_times = [t.get('elapsed_time', TURN_TIME_LIMIT) for t in recent_trials]
         mean_elapsed = sum(elapsed_times) / len(elapsed_times)
-        speed_score = self._clamp(1.0 - (mean_elapsed / TURN_TIME_LIMIT), 0.0, 1.0)
+        speed_score = clamp(1.0 - (mean_elapsed / TURN_TIME_LIMIT), 0.0, 1.0)
 
-        global_skill = (0.7 * self.user_accuracy_ewma) + (0.2 * recent_accuracy) + (0.1 * speed_score)
+        global_skill = (SKILL_EWMA_W * self.user_accuracy_ewma) + (SKILL_RECENT_W * recent_accuracy) + (SKILL_SPEED_W * speed_score)
         knowledge_score = self._estimate_condition_knowledge(next_condition)
 
         repeat_rate = 0.0
@@ -445,29 +467,29 @@ class GameState:
         novelty_score = 1.0 - repeat_rate
 
         miss_streak = self._get_recent_miss_streak()
-        miss_penalty = 0.05 * min(miss_streak, 3)
+        miss_penalty = MISS_PENALTY_PER_STREAK * min(miss_streak, MISS_PENALTY_MAX_STREAK)
 
         # 사용자가 방금 잘한 턴을 빠르게 반영 (급상승 대응)
         surge_bonus = 0.0
         last_user_trial = self._get_last_user_trial()
         if last_user_trial is not None and last_user_trial.get('is_match'):
             last_elapsed = last_user_trial.get('elapsed_time', TURN_TIME_LIMIT)
-            last_speed = self._clamp(1.0 - (last_elapsed / TURN_TIME_LIMIT), 0.0, 1.0)
-            surge_bonus += self.surge_bonus_scale * (0.6 + 0.4 * last_speed)
+            last_speed = clamp(1.0 - (last_elapsed / TURN_TIME_LIMIT), 0.0, 1.0)
+            surge_bonus += self.surge_bonus_scale * (SURGE_BASE_W + SURGE_SPEED_W * last_speed)
 
             # 최근 2연속 성공이면 추가 가중
             recent_user_trials = self._get_recent_user_trials()
             if len(recent_user_trials) >= 2 and recent_user_trials[-2].get('is_match'):
-                surge_bonus += 0.05
+                surge_bonus += SURGE_CONSECUTIVE_BONUS
 
         estimated = (
-            (0.55 * global_skill)
-            + (0.35 * knowledge_score)
-            + (0.10 * novelty_score)
+            (ESTIMATED_SKILL_W * global_skill)
+            + (ESTIMATED_KNOWLEDGE_W * knowledge_score)
+            + (ESTIMATED_NOVELTY_W * novelty_score)
             + surge_bonus
             - miss_penalty
         )
-        return self._clamp(estimated, self.npc_rate_min, self.npc_rate_max)
+        return clamp(estimated, self.npc_rate_min, self.npc_rate_max)
 
     def _estimate_user_skill(self):
         """
@@ -485,10 +507,10 @@ class GameState:
 
         elapsed_times = [t.get('elapsed_time', TURN_TIME_LIMIT) for t in recent_trials]
         mean_elapsed = sum(elapsed_times) / len(elapsed_times)
-        speed_score = self._clamp(1.0 - (mean_elapsed / TURN_TIME_LIMIT), 0.0, 1.0)
+        speed_score = clamp(1.0 - (mean_elapsed / TURN_TIME_LIMIT), 0.0, 1.0)
 
-        # 정확도 중심으로 점수 산출 (정확도 80%, 속도 20%)
-        return 0.8 * accuracy + 0.2 * speed_score
+        # 정확도 중심으로 점수 산출 (config.py QUICK_SKILL_*_W로 튜닝)
+        return QUICK_SKILL_ACCURACY_W * accuracy + QUICK_SKILL_SPEED_W * speed_score
 
     def _update_adaptive_npc_rate(self):
         """다음 사용자 성공확률 추정치를 따라 NPC 정답률을 조정."""
@@ -509,7 +531,7 @@ class GameState:
 
         smoothed_rate = ((1 - adaptive_alpha) * current_rate) + (adaptive_alpha * target_rate)
         delta = smoothed_rate - current_rate
-        delta = self._clamp(delta, -max_rate_step, max_rate_step)
+        delta = clamp(delta, -max_rate_step, max_rate_step)
 
         self.npc_ai.set_success_rate(current_rate + delta)
     
@@ -517,7 +539,7 @@ class GameState:
 
     def _calculate_speed_bonus(self, elapsed_time):
         """경과 시간 기반 속도 보너스 계산 (SCORE_SPEED_MIN ~ SCORE_SPEED_MAX)."""
-        ratio = 1.0 - self._clamp(elapsed_time / TURN_TIME_LIMIT, 0.0, 1.0)
+        ratio = 1.0 - clamp(elapsed_time / TURN_TIME_LIMIT, 0.0, 1.0)
         return max(SCORE_SPEED_MIN, round(SCORE_SPEED_MAX * ratio))
 
     def _is_npc_steal(self, selected_card):

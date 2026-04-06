@@ -8,11 +8,19 @@ from pathlib import Path
 
 try:
     from ..utils.card_matcher import check_match
-    from ..config import PC_SUCCESS_RATE
+    from ..utils.helpers import clamp
+    from ..config import (PC_SUCCESS_RATE,
+                          NPC_REFERENCE_MIN_PROB, NPC_REFERENCE_MAX_PROB, NPC_REFERENCE_BASE_PROB,
+                          NPC_HINT_FOLLOW_PROB, NPC_CONTEXT_BLEND_RATIO, NPC_TURN_MAX_RATE_SWING,
+                          NPC_PLAYER_PARITY_BIAS, NPC_MIN_EDGE_OVER_USER, NPC_MAX_EDGE_OVER_USER)
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from utils.card_matcher import check_match
-    from config import PC_SUCCESS_RATE
+    from utils.helpers import clamp
+    from config import (PC_SUCCESS_RATE,
+                        NPC_REFERENCE_MIN_PROB, NPC_REFERENCE_MAX_PROB, NPC_REFERENCE_BASE_PROB,
+                        NPC_HINT_FOLLOW_PROB, NPC_CONTEXT_BLEND_RATIO, NPC_TURN_MAX_RATE_SWING,
+                        NPC_PLAYER_PARITY_BIAS, NPC_MIN_EDGE_OVER_USER, NPC_MAX_EDGE_OVER_USER)
 
 
 class NPCAI:
@@ -30,18 +38,18 @@ class NPCAI:
         Args:
             success_rate (float): 정답 확률 (0.0 ~ 1.0, 기본값 1/deck)
         """
-        self.success_rate = self._clamp_rate(success_rate)
+        self.success_rate = clamp(success_rate, 0.0, 1.0)
         self.last_effective_success_rate = self.success_rate
-        # 메모리는 참고만 하도록 비율 제어
-        self.reference_min_prob = 0.33
-        self.reference_max_prob = 0.72
-        self.reference_base_prob = 0.50
-        self.recent_hint_follow_prob = 0.60
-        self.context_blend_ratio = 0.55
-        self.turn_max_rate_swing = 0.12
-        self.player_parity_bias = 0.17
-        self.min_edge_over_user = 0.02
-        self.max_edge_over_user = 0.06
+        # 메모리는 참고만 하도록 비율 제어 (config.py에서 튜닝)
+        self.reference_min_prob      = NPC_REFERENCE_MIN_PROB
+        self.reference_max_prob      = NPC_REFERENCE_MAX_PROB
+        self.reference_base_prob     = NPC_REFERENCE_BASE_PROB
+        self.recent_hint_follow_prob = NPC_HINT_FOLLOW_PROB
+        self.context_blend_ratio     = NPC_CONTEXT_BLEND_RATIO
+        self.turn_max_rate_swing     = NPC_TURN_MAX_RATE_SWING
+        self.player_parity_bias      = NPC_PLAYER_PARITY_BIAS
+        self.min_edge_over_user      = NPC_MIN_EDGE_OVER_USER
+        self.max_edge_over_user      = NPC_MAX_EDGE_OVER_USER
 
     def set_success_rate(self, success_rate, sync_effective=False):
         """
@@ -51,7 +59,7 @@ class NPCAI:
             success_rate (float): 새 정답 확률 (0.0 ~ 1.0)
             sync_effective (bool): True면 last_effective_success_rate도 동기화
         """
-        self.success_rate = self._clamp_rate(success_rate)
+        self.success_rate = clamp(success_rate, 0.0, 1.0)
         if sync_effective:
             self.last_effective_success_rate = self.success_rate
 
@@ -80,24 +88,24 @@ class NPCAI:
             max_rate_swing -= 0.02
 
         if variability is not None:
-            variability = self._clamp_rate(variability, 0.0, 1.0)
+            variability = clamp(variability, 0.0, 1.0)
             # 로그 변동성이 낮을수록 사용자 수준을 더 빠르게 추종
             blend_ratio += 0.08 * (0.5 - variability)
             max_rate_swing += 0.05 * (0.5 - variability)
 
         if trend_score is not None:
-            trend_score = self._clamp_rate(trend_score, -1.0, 1.0)
+            trend_score = clamp(trend_score, -1.0, 1.0)
             # 최근 급상승/급하락이면 반응 속도를 조금 높임
             blend_ratio += 0.03 * trend_score
             max_rate_swing += 0.03 * abs(trend_score)
 
         if target_rate is not None:
-            target_rate = self._clamp_rate(target_rate, 0.0, 1.0)
+            target_rate = clamp(target_rate, 0.0, 1.0)
             distance = abs(target_rate - self.last_effective_success_rate)
             max_rate_swing += 0.25 * distance
 
-        blend_ratio = self._clamp_rate(blend_ratio, 0.40, 0.78)
-        max_rate_swing = self._clamp_rate(max_rate_swing, 0.04, 0.16)
+        blend_ratio = clamp(blend_ratio, 0.40, 0.78)
+        max_rate_swing = clamp(max_rate_swing, 0.04, 0.16)
         return (blend_ratio, max_rate_swing)
 
     def _resolve_effective_success_rate(self, memory_context):
@@ -112,12 +120,12 @@ class NPCAI:
         max_rate = 1.0
 
         if memory_context:
-            min_rate = self._clamp_rate(memory_context.get('npc_rate_min', 0.0), 0.0, 1.0)
-            max_rate = self._clamp_rate(memory_context.get('npc_rate_max', 1.0), min_rate, 1.0)
+            min_rate = clamp(memory_context.get('npc_rate_min', 0.0), 0.0, 1.0)
+            max_rate = clamp(memory_context.get('npc_rate_max', 1.0), min_rate, 1.0)
 
             target_rate = memory_context.get('npc_target_success_rate')
             if target_rate is not None:
-                target_rate = self._clamp_rate(target_rate, min_rate, max_rate)
+                target_rate = clamp(target_rate, min_rate, max_rate)
                 effective_rate = (
                     (1.0 - blend_ratio) * effective_rate
                     + (blend_ratio * target_rate)
@@ -126,21 +134,21 @@ class NPCAI:
             # 최근 사용자 정확도/실력값을 소폭 반영해 체감 동기화 강화
             user_skill = memory_context.get('user_skill_score')
             if user_skill is not None:
-                user_skill = self._clamp_rate(user_skill, 0.0, 1.0)
+                user_skill = clamp(user_skill, 0.0, 1.0)
                 effective_rate += 0.04 * (user_skill - 0.5)
 
             recent_user_accuracy = memory_context.get('recent_user_accuracy')
             if recent_user_accuracy is not None:
-                recent_user_accuracy = self._clamp_rate(recent_user_accuracy, 0.0, 1.0)
+                recent_user_accuracy = clamp(recent_user_accuracy, 0.0, 1.0)
                 effective_rate += 0.02 * (recent_user_accuracy - 0.5)
 
             # 사용자와 비슷하거나 약간 우위 성능을 유지하기 위한 완만한 보정
             effective_rate += self.player_parity_bias
             if target_rate is not None:
                 trials_count = int(memory_context.get('user_recent_trials_count', 0) or 0)
-                edge_scale = self._clamp_rate((trials_count - 3) / 8.0, 0.0, 1.0)
+                edge_scale = clamp((trials_count - 3) / 8.0, 0.0, 1.0)
                 edge = self.min_edge_over_user + ((self.max_edge_over_user - self.min_edge_over_user) * edge_scale)
-                parity_floor = self._clamp_rate(target_rate + edge, min_rate, max_rate)
+                parity_floor = clamp(target_rate + edge, min_rate, max_rate)
                 effective_rate = max(effective_rate, parity_floor)
 
         # 턴마다 변동폭을 제한해 급격한 난이도 출렁임 방지
@@ -150,14 +158,10 @@ class NPCAI:
         elif delta < -max_rate_swing:
             effective_rate = self.last_effective_success_rate - max_rate_swing
 
-        effective_rate = self._clamp_rate(effective_rate, min_rate, max_rate)
+        effective_rate = clamp(effective_rate, min_rate, max_rate)
         self.last_effective_success_rate = effective_rate
         return effective_rate
 
-    def _clamp_rate(self, value, min_rate=0.0, max_rate=1.0):
-        """확률 값을 안전한 범위로 제한."""
-        return max(min_rate, min(max_rate, float(value)))
-    
     def select_card(self, deck, condition, memory_context=None):
         """
         PC가 선택할 카드 좌표 결정
@@ -209,9 +213,9 @@ class NPCAI:
                 reference_prob = self._estimate_reference_probability(memory_candidates)
                 user_skill = memory_context.get('user_skill_score') if memory_context else None
                 if user_skill is not None:
-                    user_skill = self._clamp_rate(user_skill, 0.0, 1.0)
+                    user_skill = clamp(user_skill, 0.0, 1.0)
                     reference_prob += 0.12 * (user_skill - 0.5)
-                    reference_prob = self._clamp_rate(
+                    reference_prob = clamp(
                         reference_prob,
                         self.reference_min_prob,
                         self.reference_max_prob,
@@ -265,7 +269,7 @@ class NPCAI:
             + 0.20 * (avg_weight - 0.5)
             + 0.15 * (npc_like_ratio - 0.5)
         )
-        return self._clamp_rate(reference_prob, self.reference_min_prob, self.reference_max_prob)
+        return clamp(reference_prob, self.reference_min_prob, self.reference_max_prob)
 
     def _choose_mixed_candidate(self, memory_candidates, all_candidates, reference_prob):
         """
@@ -300,7 +304,7 @@ class NPCAI:
             if is_match != match:
                 continue
 
-            confidence = self._clamp_rate(entry.get('confidence', 0.5), 0.0, 1.0)
+            confidence = clamp(entry.get('confidence', 0.5), 0.0, 1.0)
             last_seen_turn = int(entry.get('last_seen_turn', current_turn))
             age = max(0, current_turn - last_seen_turn)
             recency = max(0.0, 1.0 - (age / recency_window))

@@ -194,34 +194,3 @@ def initiate_labjack():
         print("[OK] LabJack T4 연결 완료")
     return handle
 
-
-# if el_tracker:
-#             el_tracker.setOfflineMode()
-#             el_tracker.startRecording(1, 1, 1, 1)
-#             el_tracker.sendMessage("TRIAL_START")
-#             pylink.pumpDelay(100)
-
-# if el_tracker:  # EyeLink 연결된 경우만
-#         try:
-#             el_tracker.stopRecording()
-#             pylink.pumpDelay(100)  # 안전하게 flush
-#             el_tracker.closeDataFile()
-#             edf_local_path = os.path.join(save_directory, "test.edf")
-#             el_tracker.receiveDataFile("test.edf", edf_local_path)
-#             el_tracker.close()
-#             print(f"EDF 파일 저장 완료: {edf_local_path}")
-#         except RuntimeError as e:
-#             print(f"EDF 저장 중 오류: {e}")
-
-
-# 중간 중간 코드에서 시그널 보내고 싶은 곳에
-# if el_tracker:
-#             el_tracker.sendMessage("PHASE_SELECT_FE_END")
-#             if frame_count ==1 :
-#                 win.callOnFlip(send_trigger, handle)
-#                 trigger_on = True
-#                 trigger_off_time = core.getTime() + 0.005
-#             win.flip()
-#             if trigger_on and core.getTime() >= trigger_off_time:
-#                 win.callOnFlip(reset_trigger, handle)
-#                 trigger_on = False

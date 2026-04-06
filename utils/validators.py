@@ -7,7 +7,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(__file__, '..', '..')))
 
 from config import (
-    KEY_CHASE, KEY_FLIGHT, KEY_CONFIRM, KEY_EXIT,
+    KEY_CHASE, KEY_FLIGHT, KEY_EXIT,
     DECK_LEFT_MARGIN, DECK_TOP_MARGIN, DECK_CARD_WIDTH, DECK_CARD_HEIGHT, DECK_CARD_SPACING,
     BOARD_LEFT_MARGIN, BOARD_TOP_MARGIN, BOARD_CARD_WIDTH, BOARD_CARD_HEIGHT, BOARD_CARD_SPACING,
     BOARD_ROWS, BOARD_COLS,
@@ -60,19 +60,6 @@ def is_token_selection_key(key):
     elif key == KEY_FLIGHT:
         return 'flight'
     return None
-
-
-def is_confirm_key(key):
-    """
-    확인 키인지 검증 (ENTER)
-    
-    Args:
-        key (str): 키 이름
-    
-    Returns:
-        bool: 확인 키이면 True
-    """
-    return key == KEY_CONFIRM
 
 
 def is_exit_key(key):
@@ -308,7 +295,7 @@ def validate_phase_transition(current_phase, requested_action):
     # Phase별 허용 액션
     valid_actions = {
         'not_started': [],
-        'token_selection': ['select_token', 'confirm_selection'],
+        'token_selection': ['select_token'],
         'game_play': ['click_card', 'pc_turn'],
         'victory': [],
         'defeat': []
@@ -427,13 +414,6 @@ def validate_user_input(keys, mouse_pressed, mouse_pos, game_state):
                         'data': token
                     }
                 
-                if is_confirm_key(key):
-                    return {
-                        'type': 'key',
-                        'action': 'confirm_selection',
-                        'data': None
-                    }
-        
         # 마우스 클릭
         if mouse_pressed[0]:  # 좌클릭
             button = get_clicked_button(mouse_pos)

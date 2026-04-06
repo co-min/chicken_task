@@ -190,7 +190,7 @@ KEY_EXIT = 'escape'           # 게임 종료
 
 
 # ==================== EXPERIMENT SETTINGS ====================
-USE_PRACTICE = 1              # 0: 연습 없음, 1: 연습 있음
+USE_PRACTICE = 0              # 0: 연습 없음, 1: 연습 있음 (phase_func_practice 미구현으로 비활성화)
 PRACTICE_TRIALS = 1           # 연습 시행 수
 
 # ==================== EYE TRACKING ====================
@@ -375,3 +375,69 @@ def _apply_screen_scale():
 
 if AUTO_DETECT_WINDOW_SIZE:
     _apply_screen_scale()
+
+
+# ==================== NPC AI TUNING PARAMETERS ====================
+# npc_ai.py NPCAI 클래스 초기값 (튜닝 가능)
+NPC_REFERENCE_MIN_PROB   = 0.33   # 메모리 참고 최소 비율
+NPC_REFERENCE_MAX_PROB   = 0.72   # 메모리 참고 최대 비율
+NPC_REFERENCE_BASE_PROB  = 0.50   # 메모리 참고 기본 비율
+NPC_HINT_FOLLOW_PROB     = 0.60   # 직전 사용자 힌트 따라가기 확률
+NPC_CONTEXT_BLEND_RATIO  = 0.55   # 사용자 추정치 혼합 비율 (0=무시, 1=완전반영)
+NPC_TURN_MAX_RATE_SWING  = 0.12   # 턴별 최대 정답률 변동폭 (급격한 출렁임 방지)
+NPC_PLAYER_PARITY_BIAS   = 0.17   # 사용자 대비 우위 보정 기본값
+NPC_MIN_EDGE_OVER_USER   = 0.02   # 사용자 대비 최소 우위
+NPC_MAX_EDGE_OVER_USER   = 0.06   # 사용자 대비 최대 우위
+
+# ==================== ADAPTIVE AI PARAMETERS ====================
+# game_state.py GameState 초기값 (튜닝 가능)
+NPC_RATE_MAX              = 0.90   # NPC 최대 정답률 상한
+ADAPTIVE_ALPHA_UP         = 0.50   # 정답률 상승 시 EWMA 알파 (빠른 추종)
+ADAPTIVE_ALPHA_DOWN       = 0.15   # 정답률 하강 시 EWMA 알파 (느린 하강)
+MAX_RATE_STEP_UP          = 0.12   # 단일 업데이트 최대 상승 폭
+MAX_RATE_STEP_DOWN        = 0.04   # 단일 업데이트 최대 하강 폭
+SURGE_BONUS_SCALE         = 0.20   # 사용자 급상승 보너스 스케일
+USER_WINDOW_SIZE          = 10     # 최근 시행 분석 윈도우 크기 (시행 수)
+MIN_USER_TRIALS_FOR_ADAPT = 3      # 적응 알고리즘 활성화 최소 시행 수
+USER_EWMA_ALPHA           = 0.2    # 사용자 정확도 EWMA 알파
+
+# ==================== ALGORITHM WEIGHTS ====================
+# 수식 내 혼합 가중치 (합이 1.0인 쌍은 쌍으로 관리)
+# 변동성 산출: 정확도 std × W_HIT + 시간 std × W_ELAPSED = 1.0
+PERF_VARIABILITY_HIT_W     = 0.65
+PERF_VARIABILITY_ELAPSED_W = 0.35
+
+# 추세 산출: 최근 1단계 × W_RECENT + 이전 1단계 × W_PREV = 1.0
+TREND_WEIGHT_RECENT  = 0.7
+TREND_WEIGHT_PREV    = 0.3
+
+# 조건 지식 점수: 일치 존재 여부 × W_EXIST + 일치 밀도 × W_DENSITY = 1.0
+KNOWLEDGE_EXIST_W   = 0.7
+KNOWLEDGE_DENSITY_W = 0.3
+
+# 전역 실력 추정: EWMA × 0.7 + 최근정확도 × 0.2 + 속도 × 0.1 = 1.0
+SKILL_EWMA_W   = 0.7
+SKILL_RECENT_W = 0.2
+SKILL_SPEED_W  = 0.1
+
+# 성공확률 추정: 실력 × 0.55 + 지식 × 0.35 + 참신성 × 0.10 = 1.0
+ESTIMATED_SKILL_W     = 0.55
+ESTIMATED_KNOWLEDGE_W = 0.35
+ESTIMATED_NOVELTY_W   = 0.10
+
+# 급상승 보너스 산출: 기본 × 0.6 + 속도 × 0.4 = 1.0
+SURGE_BASE_W  = 0.6
+SURGE_SPEED_W = 0.4
+SURGE_CONSECUTIVE_BONUS = 0.05   # 2연속 성공 추가 보너스
+
+# 실력 점수 (빠른 산출용): 정확도 × 0.8 + 속도 × 0.2 = 1.0
+QUICK_SKILL_ACCURACY_W = 0.8
+QUICK_SKILL_SPEED_W    = 0.2
+
+# 관찰 메모리 신뢰도
+MEMORY_CONFIDENCE_INIT      = 0.60  # 첫 관찰 시 초기 신뢰도
+MEMORY_CONFIDENCE_INCREMENT = 0.10  # 재관찰마다 신뢰도 증가량
+
+# 연속 오답 패널티
+MISS_PENALTY_PER_STREAK = 0.05  # 연속 오답 1회당 패널티
+MISS_PENALTY_MAX_STREAK = 3     # 패널티가 적용되는 최대 연속 오답 수
