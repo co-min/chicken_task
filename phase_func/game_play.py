@@ -192,18 +192,24 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
     while game_state.phase == game_state.PHASE_GAME_PLAY and \
           game_state.current_turn == game_state.TURN_USER:
 
-        # 타겟 위치 업데이트 (매 루프마다)
-        target_pos = game_state.get_target_position()
+        # 타겟 위치 업데이트: seq_memory 활성 시 현재 step 타겟, 아니면 일반 타겟
+        if game_state.seq_memory_active:
+            target_pos = game_state.get_seq_memory_current_target()
+        else:
+            target_pos = game_state.get_target_position()
 
         # 새 시도 시작: EDF + LabJack에 TRIAL_START 전송
         if not _trial_active:
             _trial_id = game_state.get_next_trial_id()
             if aoi_manager:
                 aoi_manager.current_trial_id = _trial_id  # gaze_event 동기화
+            # 순차 메모리 발동 시도 (첫 번째 시도 시작 시에만 체크)
+            game_state.try_activate_seq_memory()
             _edf_msg(aoi_manager,
                      f"TRIAL_START {_trial_id} USER"
                      f" ROUND {game_state.current_round}"
-                     f" TURN {game_state.turn_count}")
+                     f" TURN {game_state.turn_count}"
+                     + (" SEQ_MEMORY" if game_state.seq_memory_active else ""))
             _ljack_on_flip(win, aoi_manager, _LJ_TRIAL_START)
             _trial_active = True
         
@@ -258,41 +264,85 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                 # 덱 카드 클릭 즉시 트리거 (운동 반응 onset — flip 전에 전송)
                 _ljack(aoi_manager, _LJ_CARD_CLICK)
 
-                # 카드 선택 처리
-                result = game_state.user_click_card(card_row, card_col, defer_success_move=True)
-                print(f"[USER TURN] 카드 선택: {card_pos}, 결과: {result}")
+                # ── 카드 선택 처리 (seq_memory 활성 여부에 따라 분기) ──
+                if game_state.seq_memory_active:
+                    result = game_state.check_seq_memory_card(card_row, card_col)
+                    print(f"[USER TURN][SEQ {game_state.seq_memory_step}/{len(game_state.seq_memory_targets)}] "
+                          f"카드 선택: {card_pos}, 결과: {result}")
+                else:
+                    result = game_state.user_click_card(card_row, card_col, defer_success_move=True)
+                    print(f"[USER TURN] 카드 선택: {card_pos}, 결과: {result}")
+
                 # 시행 결과 즉시 CSV에 기록 (크래시 안전)
                 if save_paths and game_state.trial_history:
                     save_trial(save_paths['trial'], game_state.trial_history[-1],
                                game_state, subject_id)
 
-                # 카드 뒤집기 애니메이션 (game_state.user_click_card에서 이미 flip 수행됨)
+                # 카드 뒤집기 애니메이션 (flip은 check_seq_memory_card / user_click_card 내부에서 수행됨)
                 sound_play(sounds, 'flip')
                 _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, game_state, target_pos)
                 trigger_frame_marker()   # 이벤트: 사용자 카드 뒤집기
                 blink_frame_marker(win)
                 win.flip()
                 core.wait(CARD_FLIP_DURATION)
-                
-                # 결과 처리
-                if result == 'success':
+
+                # ── seq_memory step_success: 피드백 후 다음 스텝 계속 ──
+                if result == 'step_success':
                     sound_play(sounds, 'correct')
+                    step_now  = game_state.seq_memory_step       # 방금 완료된 step (이미 +1됨)
+                    step_total = len(game_state.seq_memory_targets)
                     run_feedback_phase(
-                        win,
-                        ui_elements,
-                        board_renderer,
-                        deck_renderer,
-                        token_renderer,
-                        message="성공",
+                        win, ui_elements, board_renderer, deck_renderer, token_renderer,
+                        message=f"순차 {step_now}/{step_total} 성공!",
                         color=PURPLE,
                         duration=FEEDBACK_DURATION,
                         highlighted_pos=None,
                         labjack_handle=aoi_manager.labjack_handle if aoi_manager else None,
                         trigger_code=_LJ_FEEDBACK_SUCCESS,
                     )
+                    game_state.deck.hide_card(card_row, card_col)
+                    # 다음 스텝: trial_id 갱신, _trial_active 유지
+                    _trial_id = game_state.get_next_trial_id()
+                    if aoi_manager:
+                        aoi_manager.current_trial_id = _trial_id
+                    _edf_msg(aoi_manager,
+                             f"TRIAL_START {_trial_id} USER"
+                             f" ROUND {game_state.current_round}"
+                             f" TURN {game_state.turn_count} SEQ_MEMORY step {step_now}")
+                    _ljack_on_flip(win, aoi_manager, _LJ_TRIAL_START)
+                    # target_pos를 다음 스텝으로 갱신하고 루프 계속 (타이머 리셋 없음)
+                    target_pos = game_state.get_seq_memory_current_target()
+                    continue
 
-                    # 성공 피드백 이후 토큰 이동
-                    move_result = game_state.complete_user_success_move()
+                # ── seq_memory all_success 또는 일반 success ──
+                if result in ('all_success', 'success'):
+                    sound_play(sounds, 'correct')
+
+                    if result == 'all_success':
+                        # 순차 메모리 전체 성공 → 토큰 점프 이동
+                        step_total = len(game_state.seq_memory_targets)
+                        run_feedback_phase(
+                            win, ui_elements, board_renderer, deck_renderer, token_renderer,
+                            message=f"순차 {step_total}/{step_total} 완료!  {step_total}칸 이동!",
+                            color=GOLD,
+                            duration=FEEDBACK_DURATION,
+                            highlighted_pos=None,
+                            labjack_handle=aoi_manager.labjack_handle if aoi_manager else None,
+                            trigger_code=_LJ_FEEDBACK_SUCCESS,
+                        )
+                        move_result = game_state.complete_seq_memory_move()
+                    else:
+                        # 일반 성공
+                        run_feedback_phase(
+                            win, ui_elements, board_renderer, deck_renderer, token_renderer,
+                            message="성공",
+                            color=PURPLE,
+                            duration=FEEDBACK_DURATION,
+                            highlighted_pos=None,
+                            labjack_handle=aoi_manager.labjack_handle if aoi_manager else None,
+                            trigger_code=_LJ_FEEDBACK_SUCCESS,
+                        )
+                        move_result = game_state.complete_user_success_move()
 
                     # 카드 뒤로 감추기
                     game_state.deck.hide_card(card_row, card_col)
@@ -309,20 +359,14 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                             duration=FEEDBACK_DURATION * 2,
                             highlighted_pos=None,
                         )
-                        # 토큰이 시작 위치로 초기화된 직후 시선 안정화 유예
                         _show_reset_prep_cue(win, ui_elements, board_renderer, deck_renderer,
                                              token_renderer, game_state)
                         _edf_msg(aoi_manager, f"TRIAL_END {_trial_id} MATCH 1 RESULT user_caught_npc")
                         _ljack(aoi_manager, _LJ_TRIAL_END)
                         _trial_active = False
-                        # 잡기 이벤트 → 라운드 갱신
                         _run_round_break(win, ui_elements, board_renderer, deck_renderer,
                                          token_renderer, game_state)
                         game_state.advance_round()
-                        # advance_round()가 game_state.board/deck을 새 객체로 교체하므로
-                        # board_renderer·deck_renderer·aoi_manager 참조를 반드시 update_*()로 갱신해야 한다.
-                        # refresh()는 self.board/self.deck(OLD) 이미지만 갱신할 뿐 참조 자체를 바꾸지 않으므로
-                        # 이후 화면 조건(구 board)과 판정 조건(새 board)이 달라져 정답 카드도 실패 처리된다.
                         board_renderer.update_board(game_state.board)
                         deck_renderer.update_deck(game_state.deck)
                         if aoi_manager:
@@ -333,19 +377,16 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                         print(f"[ROUND ADVANCE] 잡기(사용자) → 라운드 {game_state.current_round} 시작")
                         return 'continue'
 
-                    # 시행 종료 마킹 (다음 루프 반복에서 새 TRIAL_START 전송)
-                    _edf_msg(aoi_manager, f"TRIAL_END {_trial_id} MATCH 1 RESULT success")
+                    # 시행 종료 마킹
+                    edf_result = 'seq_all_success' if result == 'all_success' else 'success'
+                    _edf_msg(aoi_manager, f"TRIAL_END {_trial_id} MATCH 1 RESULT {edf_result}")
                     _ljack(aoi_manager, _LJ_TRIAL_END)
                     _trial_active = False
 
-                    # 모든 피드백이 끝난 뒤 타이머 리셋 후 다음 타겟 계속
+                    # 타이머 리셋 후 다음 타겟 계속
                     core.wait(TRIAL_INTERVAL)
                     _show_start_cue(
-                        win,
-                        ui_elements,
-                        board_renderer,
-                        deck_renderer,
-                        token_renderer,
+                        win, ui_elements, board_renderer, deck_renderer, token_renderer,
                         game_state=game_state,
                         selected_token=game_state.selected_token,
                         turn_count=game_state.turn_count,
@@ -356,30 +397,27 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                     game_state.timer.reset()
                     print(f"[USER TURN] 성공({move_result}), 타이머 리셋, 다음 타겟으로 계속")
                     continue
-                
+
                 elif result == 'failure':
                     sound_play(sounds, 'error')
+                    # seq_memory 실패 시 메시지 구분
+                    if game_state.seq_memory_active:
+                        # check_seq_memory_card 내부에서 이미 deactivate + end_user_turn 호출됨
+                        fail_msg = "순차 실패 - 이동 없음"
+                    else:
+                        fail_msg = "실패"
                     run_feedback_phase(
-                        win,
-                        ui_elements,
-                        board_renderer,
-                        deck_renderer,
-                        token_renderer,
-                        message="실패",
+                        win, ui_elements, board_renderer, deck_renderer, token_renderer,
+                        message=fail_msg,
                         color=DARK_GREY,
                         duration=FEEDBACK_DURATION,
                         highlighted_pos=None,
                         labjack_handle=aoi_manager.labjack_handle if aoi_manager else None,
                         trigger_code=_LJ_FEEDBACK_FAILURE,
                     )
-                    
-                    # 카드 뒤로 감추기 (hide_card 사용)
                     game_state.deck.hide_card(card_row, card_col)
-
-                    # 시행 종료 마킹
                     _edf_msg(aoi_manager, f"TRIAL_END {_trial_id} MATCH 0 RESULT failure")
                     _ljack(aoi_manager, _LJ_TRIAL_END)
-                    # 턴 종료 (end_user_turn에서 selected_token 리셋됨)
                     print(f"[USER TURN] 실패, 턴 종료")
                     return 'continue'
 
@@ -440,32 +478,46 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
         # PC 생각 시간
         core.wait(PC_THINK_TIME)
         
-        # PC 카드 선택 및 실행 (NPC AI 사용, result와 card_pos 반환)
+        # PC 카드 선택 및 실행 (seq_memory 활성 여부에 따라 분기)
         _pc_trial_id = game_state.get_next_trial_id()
         if aoi_manager:
             aoi_manager.current_trial_id = _pc_trial_id  # gaze_event 동기화
+
+        # seq_memory 발동 시도 (매 PC 시도 시작 시)
+        game_state.try_activate_pc_seq_memory()
+
+        # 현재 타겟: seq_memory 활성이면 현재 step 타겟, 아니면 일반 타겟
+        if game_state.seq_memory_active:
+            pc_target_pos = game_state.get_seq_memory_current_target()
+        # else: 위에서 계산된 pc_target_pos 유지
+
         _edf_msg(aoi_manager,
                  f"TRIAL_START {_pc_trial_id} PC"
                  f" ROUND {game_state.current_round}"
-                 f" TURN {game_state.turn_count}")
+                 f" TURN {game_state.turn_count}"
+                 + (" SEQ_MEMORY" if game_state.seq_memory_active else ""))
         _ljack_on_flip(win, aoi_manager, _LJ_TRIAL_START)
-        result, card_pos = game_state.pc_turn_step(defer_success_move=True)
+
+        if game_state.seq_memory_active:
+            result, card_pos = game_state.check_pc_seq_memory_card()
+        else:
+            result, card_pos = game_state.pc_turn_step(defer_success_move=True)
+
         print(f"[PC TURN] 카드 선택: {card_pos}, 결과: {result}")
         # 시행 결과 즉시 CSV에 기록 (크래시 안전)
         if save_paths and game_state.trial_history:
             save_trial(save_paths['trial'], game_state.trial_history[-1],
                        game_state, subject_id)
-        
-        # 1단계: 카드 뒤집기 애니메이션 (타겟 하이라이트 유지)
-        # ui_elements.message_text.text = f"문어가 ({card_pos[0]}, {card_pos[1]}) 카드 선택"
+
+        # 1단계: 카드 뒤집기 애니메이션
         sound_play(sounds, 'npc_flip')
         _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, game_state, pc_target_pos)
         trigger_frame_marker()   # 이벤트: PC 카드 뒤집기
         blink_frame_marker(win)
         win.flip()
         core.wait(CARD_FLIP_DURATION)
-        
-        # 2단계: 기본 결과 피드백 표시
+
+        # 2단계: 기본 결과 피드백
         if result == 'failure':
             sound_play(sounds, 'error')
             run_feedback_phase(
@@ -473,18 +525,58 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
                 message="문어 실패", color=DARK_GREY,
                 duration=FEEDBACK_DURATION, highlighted_pos=pc_target_pos,
             )
-        else:  # 'success'
+        elif result == 'step_success':
             sound_play(sounds, 'correct')
+            step_now   = game_state.seq_memory_step
+            step_total = len(game_state.seq_memory_targets)
             run_feedback_phase(
                 win, ui_elements, board_renderer, deck_renderer, token_renderer,
-                message="문어 성공", color=PURPLE,
+                message=f"문어 순차 {step_now}/{step_total} 성공!",
+                color=PURPLE,
                 duration=FEEDBACK_DURATION, highlighted_pos=pc_target_pos,
             )
+        else:  # 'success' or 'all_success'
+            sound_play(sounds, 'correct')
+            if result == 'all_success':
+                step_total = len(game_state.seq_memory_targets)
+                run_feedback_phase(
+                    win, ui_elements, board_renderer, deck_renderer, token_renderer,
+                    message=f"문어 순차 {step_total}칸 완료!",
+                    color=GOLD,
+                    duration=FEEDBACK_DURATION, highlighted_pos=pc_target_pos,
+                )
+            else:
+                run_feedback_phase(
+                    win, ui_elements, board_renderer, deck_renderer, token_renderer,
+                    message="문어 성공", color=PURPLE,
+                    duration=FEEDBACK_DURATION, highlighted_pos=pc_target_pos,
+                )
 
         # 3단계: 결과에 따른 처리
-        if result == 'success':
-            move_result = game_state.complete_pc_success_move()
-            game_state.deck.hide_card(card_pos[0], card_pos[1])
+        if result == 'step_success':
+            # 다음 스텝으로 계속: card_pos 카드 감추기, trial_id 갱신
+            if card_pos:
+                game_state.deck.hide_card(card_pos[0], card_pos[1])
+            _pc_trial_id = game_state.get_next_trial_id()
+            if aoi_manager:
+                aoi_manager.current_trial_id = _pc_trial_id
+            _edf_msg(aoi_manager,
+                     f"TRIAL_START {_pc_trial_id} PC"
+                     f" ROUND {game_state.current_round}"
+                     f" TURN {game_state.turn_count} SEQ_MEMORY step {game_state.seq_memory_step}")
+            _ljack_on_flip(win, aoi_manager, _LJ_TRIAL_START)
+            pc_target_pos = game_state.get_seq_memory_current_target()
+            core.wait(PC_THINK_TIME)
+            continue
+
+        if result in ('success', 'all_success'):
+            if result == 'all_success':
+                move_result = game_state.complete_pc_seq_memory_move()
+            else:
+                move_result = game_state.complete_pc_success_move()
+
+            if card_pos:
+                game_state.deck.hide_card(card_pos[0], card_pos[1])
 
             # 잡기 이벤트: 문어가 flight를 잡았을 때
             if move_result == 'npc_caught_user':
@@ -498,39 +590,36 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
                     duration=FEEDBACK_DURATION * 2,
                     highlighted_pos=None,
                 )
-                # 토큰이 시작 위치로 초기화된 직후 시선 안정화 유예
                 _show_reset_prep_cue(win, ui_elements, board_renderer, deck_renderer,
                                      token_renderer, game_state)
-                _edf_msg(aoi_manager, f"TRIAL_END {_pc_trial_id} MATCH 1 RESULT npc_caught_user")
+                edf_result = 'seq_npc_caught_user' if result == 'all_success' else 'npc_caught_user'
+                _edf_msg(aoi_manager, f"TRIAL_END {_pc_trial_id} MATCH 1 RESULT {edf_result}")
                 _ljack(aoi_manager, _LJ_TRIAL_END)
-                # 잡기 이벤트 → 라운드 갱신
                 _run_round_break(win, ui_elements, board_renderer, deck_renderer,
                                  token_renderer, game_state)
                 game_state.advance_round()
-                # advance_round()가 game_state.board/deck을 새 객체로 교체하므로
-                # board_renderer·deck_renderer·aoi_manager 참조를 반드시 update_*()로 갱신해야 한다.
                 board_renderer.update_board(game_state.board)
                 deck_renderer.update_deck(game_state.deck)
                 if aoi_manager:
                     aoi_manager.update_deck(game_state.deck)
                 print(f"[ROUND ADVANCE] 잡기(문어) → 라운드 {game_state.current_round} 시작")
-                # PC 턴 종료 → 사용자 턴으로 전환 (turn 카운트 증가, 상태 전환)
                 game_state.end_pc_turn()
                 print(f"[문어] flight 잡음! PC 턴 종료 → 사용자 턴")
                 return 'continue'
 
-            # 일반 성공: PC 턴 계속
-            _edf_msg(aoi_manager, f"TRIAL_END {_pc_trial_id} MATCH 1 RESULT success")
+            # 일반/seq 성공: PC 턴 계속
+            edf_result = 'seq_all_success' if result == 'all_success' else 'success'
+            _edf_msg(aoi_manager, f"TRIAL_END {_pc_trial_id} MATCH 1 RESULT {edf_result}")
             _ljack(aoi_manager, _LJ_TRIAL_END)
-            print(f"[문어] 성공, 다음 타겟으로 계속")
+            print(f"[문어] 성공({result}), 다음 타겟으로 계속")
             core.wait(TRIAL_INTERVAL)
             continue
 
         elif result == 'failure':
-            game_state.deck.hide_card(card_pos[0], card_pos[1])
+            if card_pos:
+                game_state.deck.hide_card(card_pos[0], card_pos[1])
             _edf_msg(aoi_manager, f"TRIAL_END {_pc_trial_id} MATCH 0 RESULT failure")
             _ljack(aoi_manager, _LJ_TRIAL_END)
-            # PC 턴 종료 (사용자 턴으로 전환됨)
             print(f"[문어] 실패, 턴 종료")
             return 'continue'
     
@@ -587,8 +676,10 @@ def _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_ren
     Args:
         game_state: GameState 인스턴스 (HUD 업데이트용). None이면 캐시 상태로 그림.
         highlighted_pos: 하이라이트할 보드 위치 (row, col) 또는 None
+                         seq_memory 활성 시 현재 step 타겟 위치
     """
-    board_renderer.draw(highlighted_pos)
+    seq_cells = game_state.seq_memory_targets if (game_state and game_state.seq_memory_active) else None
+    board_renderer.draw(highlighted_pos, seq_cells=seq_cells)
     deck_renderer.draw()
     token_renderer.draw()
 

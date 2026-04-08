@@ -33,7 +33,9 @@ try:
                           SURGE_BASE_W, SURGE_SPEED_W, SURGE_CONSECUTIVE_BONUS,
                           QUICK_SKILL_ACCURACY_W, QUICK_SKILL_SPEED_W,
                         MEMORY_CONFIDENCE_INIT, MEMORY_CONFIDENCE_INCREMENT,
-                        MISS_PENALTY_PER_STREAK, MISS_PENALTY_MAX_STREAK)
+                        MISS_PENALTY_PER_STREAK, MISS_PENALTY_MAX_STREAK,
+                        SEQ_MEMORY_SCORE_THRESHOLD, SEQ_MEMORY_PC_THRESHOLD,
+                        SEQ_MEMORY_TRIGGER_PROB, SEQ_MEMORY_MIN_STEPS, SEQ_MEMORY_MAX_STEPS)
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from game_func.board_class import ConditionBoard
@@ -61,7 +63,9 @@ except ImportError:
                         SURGE_BASE_W, SURGE_SPEED_W, SURGE_CONSECUTIVE_BONUS,
                         QUICK_SKILL_ACCURACY_W, QUICK_SKILL_SPEED_W,
                         MEMORY_CONFIDENCE_INIT, MEMORY_CONFIDENCE_INCREMENT,
-                        MISS_PENALTY_PER_STREAK, MISS_PENALTY_MAX_STREAK)
+                        MISS_PENALTY_PER_STREAK, MISS_PENALTY_MAX_STREAK,
+                        SEQ_MEMORY_SCORE_THRESHOLD, SEQ_MEMORY_PC_THRESHOLD,
+                        SEQ_MEMORY_TRIGGER_PROB, SEQ_MEMORY_MIN_STEPS, SEQ_MEMORY_MAX_STEPS)
 
 
 class GameState:
@@ -156,6 +160,12 @@ class GameState:
         self.pc_move_count = 0
         self.trial_history = []  # 시행 결과 리스트
         self.trial_id = 0        # EDF/LabJack 동기화용 단조 증가 시행 번호
+
+        # Sequential Memory 상태
+        self.seq_memory_active  = False  # 현재 순차 메모리 활성 여부
+        self.seq_memory_targets = []     # [(row, col), ...] 순서대로
+        self.seq_memory_step    = 0      # 현재 진행 단계 인덱스
+        self.seq_memory_is_pc   = False  # PC 턴 순차 메모리 여부
 
     # ==================== 난이도 ====================
 
@@ -629,6 +639,7 @@ class GameState:
         self.tokens.reset_token_position('octopus')
         self.user_seen_cards.clear()
         self.npc_seen_cards.clear()
+        self.deactivate_seq_memory()
 
     def advance_round(self):
         """
@@ -892,9 +903,263 @@ class GameState:
 
         return 'success'
     
+    # ==================== SEQUENTIAL MEMORY ====================
+
+    def deactivate_seq_memory(self):
+        """순차 메모리 비활성화 및 상태 초기화."""
+        self.seq_memory_active  = False
+        self.seq_memory_targets = []
+        self.seq_memory_step    = 0
+        self.seq_memory_is_pc   = False
+
+    def _compute_seq_targets(self, token_name: str, n_steps: int) -> list:
+        """
+        token_name 토큰의 현재 위치에서 n_steps칸 앞까지 순차 타겟 수집.
+        중간에 다른 토큰이 점령한 칸은 건너뜀.
+        """
+        all_positions = self.tokens.get_all_positions()
+        occupied = {
+            pos for name, pos in all_positions.items()
+            if name != token_name
+        }
+
+        token = self.tokens.get_token(token_name)
+        if not token:
+            return []
+
+        targets = []
+        pos = self.tokens.get_next_position(token.get_position())
+
+        while pos is not None and len(targets) < n_steps:
+            if pos in occupied:
+                pos = self.tokens.get_next_position(pos)
+                continue
+            targets.append(pos)
+            pos = self.tokens.get_next_position(pos)
+
+        return targets
+
+    def try_activate_seq_memory(self) -> bool:
+        """
+        사용자 새 시도 시작 시 호출.
+        round_score >= threshold + 확률 조건 충족 시 순차 메모리 활성화.
+        이미 활성 중이면 True 반환 (재발동 없음).
+        Returns: 활성화 여부
+        """
+        if self.seq_memory_active:
+            return True
+        if self.round_score < SEQ_MEMORY_SCORE_THRESHOLD:
+            return False
+        if random.random() >= SEQ_MEMORY_TRIGGER_PROB:
+            return False
+        if self.selected_token is None:
+            return False
+
+        n = random.randint(SEQ_MEMORY_MIN_STEPS, SEQ_MEMORY_MAX_STEPS)
+        targets = self._compute_seq_targets(self.selected_token, n)
+        if len(targets) < 2:
+            return False
+
+        self.seq_memory_targets = targets
+        self.seq_memory_step    = 0
+        self.seq_memory_active  = True
+        self.seq_memory_is_pc   = False
+        print(f"[SEQ MEMORY] 사용자 발동! {len(targets)}칸 순차 타겟: {targets}")
+        return True
+
+    def try_activate_pc_seq_memory(self) -> bool:
+        """
+        PC 새 시도 시작 시 호출.
+        pc_round_score >= threshold + 확률 조건 충족 시 순차 메모리 활성화.
+        Returns: 활성화 여부
+        """
+        if self.seq_memory_active:
+            return True
+        if self.pc_round_score < SEQ_MEMORY_PC_THRESHOLD:
+            return False
+        if random.random() >= SEQ_MEMORY_TRIGGER_PROB:
+            return False
+
+        n = random.randint(SEQ_MEMORY_MIN_STEPS, SEQ_MEMORY_MAX_STEPS)
+        targets = self._compute_seq_targets('octopus', n)
+        if len(targets) < 2:
+            return False
+
+        self.seq_memory_targets = targets
+        self.seq_memory_step    = 0
+        self.seq_memory_active  = True
+        self.seq_memory_is_pc   = True
+        print(f"[SEQ MEMORY] PC 발동! {len(targets)}칸 순차 타겟: {targets}")
+        return True
+
+    def get_seq_memory_current_target(self):
+        """현재 처리해야 할 순차 타겟 위치 반환."""
+        if not self.seq_memory_active or self.seq_memory_step >= len(self.seq_memory_targets):
+            return None
+        return self.seq_memory_targets[self.seq_memory_step]
+
+    def check_seq_memory_card(self, card_row, card_col) -> str:
+        """
+        순차 메모리 모드에서 사용자 카드 클릭 처리.
+        타이머는 리셋하지 않고 seq 전체를 하나의 타이머로 공유.
+        Returns: 'step_success' | 'all_success' | 'failure'
+        """
+        current_target = self.get_seq_memory_current_target()
+        if current_target is None:
+            self.deactivate_seq_memory()
+            self.end_user_turn()
+            return 'failure'
+
+        condition = self.board.get_condition(*current_target)
+        elapsed   = self.timer.get_elapsed()
+
+        self.deck.flip_card(card_row, card_col)
+        card     = self.deck.get_card(card_row, card_col)
+        is_match = check_match(condition, card)
+
+        trial = {
+            'trial_id':          self.trial_id,
+            'round':             self.current_round,
+            'turn':              self.turn_count,
+            'token':             self.selected_token,
+            'target_pos':        current_target,
+            'condition':         condition,
+            'selected_card_pos': (card_row, card_col),
+            'selected_card':     card,
+            'is_match':          is_match,
+            'elapsed_time':      elapsed,
+            'timestamp':         time.time(),
+            'seq_memory_step':   self.seq_memory_step,
+        }
+        self.trial_history.append(trial)
+        self._record_user_observation((card_row, card_col), card, is_match)
+
+        if not is_match:
+            self._add_user_penalty_score()
+            self.deactivate_seq_memory()
+            self.end_user_turn()
+            return 'failure'
+
+        self._add_user_match_score(elapsed, is_steal=False)
+        self.seq_memory_step += 1
+
+        if self.seq_memory_step >= len(self.seq_memory_targets):
+            return 'all_success'
+
+        return 'step_success'
+
+    def complete_seq_memory_move(self) -> str:
+        """
+        사용자 순차 메모리 전체 성공 후 토큰을 최종 타겟 위치로 점프 이동.
+        Returns: 'user_caught_npc' | 'token_switched' | 'success'
+        """
+        if not self.seq_memory_targets:
+            self.deactivate_seq_memory()
+            return 'success'
+
+        final_pos = self.seq_memory_targets[-1]
+        steps     = len(self.seq_memory_targets)
+        moved_token = self.selected_token
+
+        self.tokens.move_token(moved_token, final_pos)
+        self.user_move_count += steps
+        self.deactivate_seq_memory()
+
+        print(f"[SEQ MEMORY] {moved_token} {steps}칸 점프 → {final_pos}")
+
+        catch_result = self.check_catch_event()
+        if catch_result:
+            return catch_result
+
+        # flight가 chase 바로 뒤에 붙었는지 확인
+        if moved_token == 'flight' and self._is_flight_directly_behind_chase():
+            self.selected_token = 'chase'
+            print(f"[전환] flight seq_memory 이동 후 chase 바로 뒤에 위치 → 선택 닭을 chase로 전환")
+            return 'token_switched'
+
+        return 'success'
+
+    def check_pc_seq_memory_card(self) -> tuple:
+        """
+        순차 메모리 모드에서 PC 카드 선택 및 판정.
+        Returns: (result, card_pos)
+          result: 'step_success' | 'all_success' | 'failure'
+        """
+        current_target = self.get_seq_memory_current_target()
+        if current_target is None:
+            self.deactivate_seq_memory()
+            self.end_pc_turn()
+            return ('failure', None)
+
+        condition = self.board.get_condition(*current_target)
+        memory_context = self._build_npc_memory_context(condition)
+        memory_context['recent_user_hint_pos']  = self._get_recent_user_hint_pos(condition)
+        memory_context['recent_npc_failed_pos'] = self._get_recent_npc_failed_pos()
+        memory_context['known_wrong_positions'] = self._get_known_wrong_positions(condition)
+
+        selected_pos, is_match = self.npc_ai.select_card(
+            self.deck, condition, memory_context=memory_context,
+        )
+
+        self.deck.flip_card(selected_pos[0], selected_pos[1])
+        card = self.deck.get_card(selected_pos[0], selected_pos[1])
+
+        trial = {
+            'trial_id':          self.trial_id,
+            'round':             self.current_round,
+            'turn':              self.turn_count,
+            'token':             'octopus',
+            'target_pos':        current_target,
+            'condition':         condition,
+            'selected_card_pos': selected_pos,
+            'selected_card':     card,
+            'is_match':          is_match,
+            'elapsed_time':      0,
+            'timestamp':         time.time(),
+            'seq_memory_step':   self.seq_memory_step,
+        }
+        self.trial_history.append(trial)
+        self._record_npc_observation(selected_pos, card)
+
+        if not is_match:
+            self._add_pc_penalty_score()
+            self.deactivate_seq_memory()
+            self.end_pc_turn()
+            return ('failure', selected_pos)
+
+        self._add_pc_match_score()
+        self.seq_memory_step += 1
+
+        if self.seq_memory_step >= len(self.seq_memory_targets):
+            return ('all_success', selected_pos)
+
+        return ('step_success', selected_pos)
+
+    def complete_pc_seq_memory_move(self) -> str:
+        """
+        PC 순차 메모리 전체 성공 후 octopus를 최종 타겟 위치로 점프 이동.
+        Returns: 'npc_caught_user' | 'success'
+        """
+        if not self.seq_memory_targets:
+            self.deactivate_seq_memory()
+            return 'success'
+
+        final_pos = self.seq_memory_targets[-1]
+        steps     = len(self.seq_memory_targets)
+
+        self.tokens.move_token('octopus', final_pos)
+        self.pc_move_count += steps
+        self.deactivate_seq_memory()
+
+        print(f"[SEQ MEMORY] octopus {steps}칸 점프 → {final_pos}")
+
+        catch_result = self.check_catch_event()
+        return catch_result if catch_result else 'success'
+
     def end_user_turn(self):
         """사용자 턴 종료 → PC 턴 시작"""
         self.timer.stop()
+        self.deactivate_seq_memory()
         self.current_turn = self.TURN_PC
         self.phase = self.PHASE_GAME_PLAY
         self.selected_token = None  # 다음 사용자 턴을 위해 리셋
@@ -990,6 +1255,7 @@ class GameState:
     
     def end_pc_turn(self):
         """PC 턴 종료 → 사용자 턴 시작"""
+        self.deactivate_seq_memory()
         self.current_turn = self.TURN_USER
         self.phase = self.PHASE_TOKEN_SELECTION
         self.selected_token = None  # 사용자가 다시 닭을 선택하도록

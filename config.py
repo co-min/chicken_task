@@ -27,14 +27,6 @@ TOTAL_CARDS = BOARD_ROWS * BOARD_COLS  # 레거시 기본(모드 선택 전) 카
 #   2) 덱 가로세로 비율 = 0.68 (deck_w = deck_h × 0.68)
 #   3) 덱 카드는 작게 + 간격 넓게 → EyeLink AOI 충분한 분리
 #   4) 레이아웃은 auto-scale 후 화면 가운데 정렬, 좌우 각 50px 여백 확보
-#
-# 기준 검증 (참조값):
-#   board_h=79, board_sp=5 → board_total_h = 5×79+4×5 = 415
-#   deck_sp=17 → deck_h = (415-2×17)/3 = 127,  deck_w = 127×0.68 = 86
-#   board: 9×56+8×5=544,  deck: 6×86+5×17=601,  gap=80
-#   _design_layout_w = 544+80+601 = 1225
-#   at 1920px: s≈1.51 → 좌우 여백≈30px, 보드-덱 gap≈121px
-#   board height: 5×79+4×5=415,  deck height: 3×127+2×17=415 ✓ (동일)
 BOARD_DECK_CENTER_GAP = 80    # 보드↔덱 사이 여백 (EyeLink AOI 분리 기준)
 BOARD_DECK_TOP_MARGIN = 120   # 상단 HUD 아래 여백 (HUD 텍스트 겹침 방지)
 
@@ -106,7 +98,14 @@ PROGRESS_BAR_BG_COLOR   = [55,  55,  55]  # 배경
 
 # ==================== DIFFICULTY SETTINGS ====================
 # 이번 라운드 점수 >= 임계값이면 다음 라운드에서 난이도 1단계 업
-DIFFICULTY_SCORE_THRESHOLD = 250
+DIFFICULTY_SCORE_THRESHOLD = 300
+
+# Sequential Memory
+# threshold 150 점 이상이면 seqential memory 요소가 추가됨
+# 특정 점수 이상이면 타겟이 {target, target+1} or {target, target+1, target+2}
+# 연속된 조건에 순서대로 메인덱 카드 뒤집기
+# 하나라도 실패 시, 제자리. 성공하면 그만큼 이동함. 
+
 
 # 6단계 선형 난이도 시퀀스 (deck_rows=3 고정, deck_cols·layout_mode만 변경)
 DIFFICULTY_SEQUENCE = [
@@ -143,6 +142,15 @@ BONUS_SLOT_INDICES = [6, 12, 18]    # fixed 모드 기본 슬롯 인덱스 (참�
 BONUS_BORDER_COLOR = [255, 215, 0]  # 보너스 칸 테두리 색 (금색)
 BONUS_BORDER_WIDTH = 5              # 보너스 칸 테두리 두께 (px)
 BONUS_LABEL_COLOR = [255, 215, 0]   # 보너스 칸 "×2" 레이블 색
+
+# ==================== SEQUENTIAL MEMORY SETTINGS ====================
+SEQ_MEMORY_SCORE_THRESHOLD = 50    # 사용자 라운드 점수 임계값 (이상이면 발동 가능)
+SEQ_MEMORY_PC_THRESHOLD    = 200    # PC 라운드 점수 임계값
+SEQ_MEMORY_TRIGGER_PROB    = 0.20   # 임계값 초과 시 새 시도마다 발동 확률
+SEQ_MEMORY_MIN_STEPS       = 2      # 최소 순차 타겟 수
+SEQ_MEMORY_MAX_STEPS       = 3      # 최대 순차 타겟 수
+SEQ_MEMORY_BORDER_COLOR    = [0, 255, 200]  # 순차 타겟 테두리 색 (은회색)
+SEQ_MEMORY_BORDER_WIDTH    = 5      # 순차 타겟 테두리 두께 (px)
 
 # ==================== SCORE SETTINGS ====================
 SCORE_MATCH = 10             # 카드 매칭 성공
@@ -378,7 +386,7 @@ if AUTO_DETECT_WINDOW_SIZE:
 
 
 # ==================== NPC AI TUNING PARAMETERS ====================
-# npc_ai.py NPCAI 클래스 초기값 (튜닝 가능)
+# npc_ai.py NPCAI 클래스 초기값 (튜닝)
 NPC_REFERENCE_MIN_PROB   = 0.33   # 메모리 참고 최소 비율
 NPC_REFERENCE_MAX_PROB   = 0.72   # 메모리 참고 최대 비율
 NPC_REFERENCE_BASE_PROB  = 0.50   # 메모리 참고 기본 비율
@@ -390,9 +398,9 @@ NPC_MIN_EDGE_OVER_USER   = 0.02   # 사용자 대비 최소 우위
 NPC_MAX_EDGE_OVER_USER   = 0.06   # 사용자 대비 최대 우위
 
 # ==================== ADAPTIVE AI PARAMETERS ====================
-# game_state.py GameState 초기값 (튜닝 가능)
-NPC_RATE_MAX              = 0.90   # NPC 최대 정답률 상한
-ADAPTIVE_ALPHA_UP         = 0.50   # 정답률 상승 시 EWMA 알파 (빠른 추종)
+# game_state.py GameState 초기값 (튜닝)
+NPC_RATE_MAX              = 0.75   # NPC 최대 정답률 상한
+ADAPTIVE_ALPHA_UP         = 0.45   # 정답률 상승 시 EWMA 알파 (빠른 추종)
 ADAPTIVE_ALPHA_DOWN       = 0.15   # 정답률 하강 시 EWMA 알파 (느린 하강)
 MAX_RATE_STEP_UP          = 0.12   # 단일 업데이트 최대 상승 폭
 MAX_RATE_STEP_DOWN        = 0.04   # 단일 업데이트 최대 하강 폭

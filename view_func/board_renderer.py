@@ -9,6 +9,7 @@ from config import (
     WIDTH, HEIGHT,
     HIGHLIGHT_COLOR, HIGHLIGHT_WIDTH,
     BONUS_BORDER_COLOR, BONUS_BORDER_WIDTH, BONUS_LABEL_COLOR, TEXT_SIZE,
+    SEQ_MEMORY_BORDER_COLOR, SEQ_MEMORY_BORDER_WIDTH,
 )
 
 # 이미지 경로
@@ -30,10 +31,11 @@ class BoardRenderer:
         self.board = board
 
         # 카드 비주얼 요소 생성
-        self.card_images = {}   # {(row, col): ImageStim}
-        self.highlights = {}    # {(row, col): Rect}  — 타겟 하이라이트
-        self.bonus_borders = {} # {(row, col): Rect}  — 보너스 칸 금색 테두리
-        self.bonus_labels = {}  # {(row, col): TextStim} — "×2" 레이블
+        self.card_images = {}    # {(row, col): ImageStim}
+        self.highlights = {}     # {(row, col): Rect}  — 타겟 하이라이트
+        self.seq_highlights = {} # {(row, col): Rect}  — 순차 메모리 타겟 테두리
+        self.bonus_borders = {}  # {(row, col): Rect}  — 보너스 칸 금색 테두리
+        self.bonus_labels = {}   # {(row, col): TextStim} — "×2" 레이블
 
         self._create_visuals()
     
@@ -69,6 +71,20 @@ class BoardRenderer:
                 autoDraw=False
             )
             self.highlights[(row, col)] = highlight
+
+            # 순차 메모리 타겟 테두리 (은회색)
+            seq_highlight = visual.Rect(
+                win=self.win,
+                width=BOARD_CARD_WIDTH + SEQ_MEMORY_BORDER_WIDTH * 2,
+                height=BOARD_CARD_HEIGHT + SEQ_MEMORY_BORDER_WIDTH * 2,
+                pos=(x, y),
+                fillColor=None,
+                lineColor=SEQ_MEMORY_BORDER_COLOR,
+                lineWidth=SEQ_MEMORY_BORDER_WIDTH,
+                colorSpace='rgb255',
+                autoDraw=False
+            )
+            self.seq_highlights[(row, col)] = seq_highlight
 
             # 보너스 칸 금색 테두리
             bonus_border = visual.Rect(
@@ -158,17 +174,19 @@ class BoardRenderer:
             self.card_images[pos].image = image_path
             # 보너스 여부는 draw()에서 매 프레임 조건을 읽어 판단하므로 별도 처리 불필요
 
-    def draw(self, highlighted_pos=None):
+    def draw(self, highlighted_pos=None, seq_cells=None):
         """
         보드를 화면에 그리기
 
         렌더링 순서 (z-order):
           1. 카드 이미지
           2. 보너스 금색 테두리 + "×2" 레이블  ← 카드 위
-          3. 타겟 하이라이트                    ← 최상단 (보너스 테두리 위)
+          3. 순차 메모리 은회색 테두리          ← 미래 스텝 표시
+          4. 타겟 하이라이트                    ← 최상단 (현재 스텝 강조)
 
         Args:
-            highlighted_pos: 하이라이트할 위치 (row, col) 튜플 또는 None
+            highlighted_pos: 현재 타겟 위치 (row, col) 튜플 또는 None
+            seq_cells: 순차 메모리 전체 타겟 위치 리스트 [(row,col), ...] 또는 None
         """
         for pos in self.board.track_positions:
             self.card_images[pos].draw()
@@ -179,7 +197,11 @@ class BoardRenderer:
                 self.bonus_borders[pos].draw()
                 self.bonus_labels[pos].draw()
 
-            # 타겟 하이라이트 (보너스 테두리보다 위에 그려서 명확히 구분)
+            # 순차 메모리 타겟: 은회색 테두리 (현재 스텝 포함 모든 타겟 칸)
+            if seq_cells and pos in seq_cells:
+                self.seq_highlights[pos].draw()
+
+            # 타겟 하이라이트 (보너스·seq 테두리보다 위에 그려서 현재 스텝 명확히 구분)
             if highlighted_pos and highlighted_pos == pos:
                 self.highlights[pos].draw()
     
