@@ -6,10 +6,10 @@ import sys
 import platform
 from datetime import datetime
 
-from .set_opts.set_device_opt import set_device_opt
-from .set_opts.set_visual_opt import set_visual_opt
-from .set_opts.set_game_opt import set_game_opt
-from .config import USE_EYELINK, USE_LABJACK
+from set_opts.set_device_opt import set_device_opt
+from set_opts.set_visual_opt import set_visual_opt
+from set_opts.set_game_opt import set_game_opt
+from config import USE_EYELINK, USE_LABJACK
 
 if USE_EYELINK:
     from .set_opts.set_eyelink import set_eye_opt
@@ -164,8 +164,8 @@ def initiate_eyelink(win, save_directory, edf_name="test.edf"):
 
             el_tracker.doTrackerSetup()  # Defaults to primary monitor if None
             print("Calibration complete.")
-        except RuntimeError:
-            print("⚠ EyeLink calibration skipped.")
+        except Exception as e:
+            print(f"⚠ EyeLink calibration skipped: {e}")
         
     else:
         print("EyeLink not detected.")

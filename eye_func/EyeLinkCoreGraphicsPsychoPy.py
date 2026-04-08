@@ -364,8 +364,14 @@ class EyeLinkCoreGraphicsPsychoPy(pylink.EyeLinkCustomDisplay):
 
     def setup_cal_display(self):
         """ Set up the calibration display before entering
-        the calibration/validation routine""" 
+        the calibration/validation routine"""
 
+        # flip() once to activate the FBO before clearBuffer(),
+        # preventing GLException('invalid operation') with pyglet backend
+        try:
+            self._display.flip()
+        except Exception:
+            pass
         self._display.clearBuffer()
 
         self._calibInst.autoDraw = True
