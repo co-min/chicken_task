@@ -140,6 +140,10 @@ class AOIManager:
         self.subject_id:       str        = ''
         self.current_trial_id: int        = 0      # game_play.py에서 갱신
 
+        # Sequential Memory 상태 (game_play.py에서 trial_id 갱신 시 함께 갱신)
+        self.is_seq_memory:    bool      = False   # 현재 trial이 seq_memory 모드인지
+        self.seq_memory_step:  int | None = None   # 현재 스텝 인덱스 (일반 trial은 None)
+
         # AOI 테이블: aoi_id → {'type', 'pos', 'rect', 'trigger_code'}
         self.aois: dict = {}
         self._build_aois()
@@ -420,6 +424,8 @@ class AOIManager:
                 self.gaze_file, self.subject_id,
                 self.current_trial_id, 'enter',
                 aoi_id, aoi, t,
+                is_seq_memory=self.is_seq_memory,
+                seq_memory_step=self.seq_memory_step,
             )
 
     def _on_exit(self, aoi_id: str, t: float):
@@ -437,6 +443,8 @@ class AOIManager:
                 self.gaze_file, self.subject_id,
                 self.current_trial_id, 'exit',
                 aoi_id, aoi, t, dwell_time=dwell,
+                is_seq_memory=self.is_seq_memory,
+                seq_memory_step=self.seq_memory_step,
             )
 
         self._entry_time.pop(aoi_id, None)

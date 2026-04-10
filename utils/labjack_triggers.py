@@ -11,8 +11,15 @@
 #   10 ~ 33  : 보드 카드 AOI 진입 (AOI_TRIGGER_BOARD_OFFSET + position_index)
 #   40 ~ 66  : 덱 카드  AOI 진입 (AOI_TRIGGER_DECK_OFFSET  + position_index)
 #   100      : 사용자 덱 카드 클릭 (game_play.py 에서 직접 호출)
-#   200      : 시행 시작
-#   201      : 시행 종료
+#   200      : 시행 시작 (TRIAL_START)
+#   201      : 시행 종료 (TRIAL_END)
+#   210      : 피드백 — 일반 성공 (FRN/P300 onset)
+#   211      : 피드백 — 일반 실패
+#   212      : 피드백 — 타임아웃
+#   220      : Sequential Memory 활성화 onset (즉시 전송, VSync 불필요)
+#   221      : Sequential Memory 스텝 성공 피드백
+#   222      : Sequential Memory 전체 성공 피드백
+#   223      : Sequential Memory 실패 피드백 (이동 없음)
 
 try:
     import ljm

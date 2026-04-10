@@ -33,6 +33,9 @@ _HEADERS = [
     'aoi_row',
     'aoi_col',
     'labjack_trigger_code',  # 진입 시 전송한 TTL 코드 (이탈은 0)
+    # ── Sequential Memory ────────────────────────────────────
+    'is_seq_memory',       # 1 = seq_memory 모드 trial, 0 = 일반 trial
+    'seq_memory_step',     # 현재 스텝 인덱스 (0-based), 일반 trial은 빈칸
     # ── 타이밍 ──────────────────────────────────────────────
     'psychopy_time',       # core.getTime() 기준
     'dwell_time',          # 이탈 시에만 기록 (진입은 0.0)
@@ -72,6 +75,8 @@ def save_gaze_event(
     aoi_info: dict,
     psychopy_time: float,
     dwell_time: float = 0.0,
+    is_seq_memory: bool = False,
+    seq_memory_step: int | None = None,
 ):
     """
     AOI 진입·이탈 이벤트 1개를 gaze_events.csv에 append한다.
@@ -95,6 +100,10 @@ def save_gaze_event(
         core.getTime() 반환값.
     dwell_time : float
         AOI에 머문 시간(초). 이탈 이벤트에만 의미 있음.
+    is_seq_memory : bool
+        해당 trial이 seq_memory 모드인지 여부.
+    seq_memory_step : int | None
+        현재 seq_memory 스텝 인덱스 (0-based). 일반 trial이면 None.
     """
     pos = aoi_info.get('pos') or (None, None)
 
@@ -107,6 +116,8 @@ def save_gaze_event(
         'aoi_row':              pos[0] if pos[0] is not None else '',
         'aoi_col':              pos[1] if pos[1] is not None else '',
         'labjack_trigger_code': aoi_info.get('trigger_code', '') if event_type == 'enter' else 0,
+        'is_seq_memory':        1 if is_seq_memory else 0,
+        'seq_memory_step':      seq_memory_step if seq_memory_step is not None else '',
         'psychopy_time':        round(psychopy_time, 6),
         'dwell_time':           round(dwell_time, 6) if event_type == 'exit' else 0.0,
     }

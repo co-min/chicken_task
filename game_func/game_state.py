@@ -1042,6 +1042,7 @@ class GameState:
             'elapsed_time':      elapsed,
             'timestamp':         time.time(),
             'seq_memory_step':   self.seq_memory_step,
+            'seq_memory_total':  len(self.seq_memory_targets),
         }
         self.trial_history.append(trial)
         self._record_user_observation((card_row, card_col), card, is_match)
@@ -1130,6 +1131,7 @@ class GameState:
             'elapsed_time':      0,
             'timestamp':         time.time(),
             'seq_memory_step':   self.seq_memory_step,
+            'seq_memory_total':  len(self.seq_memory_targets),
         }
         self.trial_history.append(trial)
         self._record_npc_observation(selected_pos, card)
@@ -1365,10 +1367,48 @@ class GameState:
         
         print("게임 리셋 완료")
     
+    def get_seq_memory_summary(self) -> dict:
+        """
+        trial_history로부터 Sequential Memory 통계를 집계한다.
+
+        - 발동 횟수 기준: seq_memory_step == 0 인 trial (각 seq의 첫 번째 스텝)
+        - 전체 성공 기준: seq_memory_step == seq_memory_total - 1 이면서 is_match == True
+        - 실패 기준: is_match == False 인 seq trial
+        """
+        seq_trials = [t for t in self.trial_history
+                      if t.get('seq_memory_step') is not None]
+        user_seq   = [t for t in seq_trials if t.get('token') != 'octopus']
+        pc_seq     = [t for t in seq_trials if t.get('token') == 'octopus']
+
+        def _activations(trials):
+            return sum(1 for t in trials if t.get('seq_memory_step', -1) == 0)
+
+        def _all_success(trials):
+            # 마지막 스텝(step == total-1)을 성공한 횟수
+            return sum(
+                1 for t in trials
+                if t.get('is_match') and
+                   t.get('seq_memory_step', -1) == (t.get('seq_memory_total', 0) - 1)
+            )
+
+        def _step_fail(trials):
+            return sum(1 for t in trials if not t.get('is_match'))
+
+        return {
+            'user_activations':      _activations(user_seq),
+            'user_all_success':      _all_success(user_seq),
+            'user_step_fail':        _step_fail(user_seq),
+            'user_total_seq_trials': len(user_seq),
+            'pc_activations':        _activations(pc_seq),
+            'pc_all_success':        _all_success(pc_seq),
+            'pc_step_fail':          _step_fail(pc_seq),
+            'pc_total_seq_trials':   len(pc_seq),
+        }
+
     def get_summary(self):
         """
         게임 요약 정보
-        
+
         Returns:
             dict: 요약 정보
         """
@@ -1394,6 +1434,7 @@ class GameState:
             'user_seen_cards': len(self.user_seen_cards),
             'npc_seen_cards': len(self.npc_seen_cards),
             'npc_success_rate': round(self.npc_ai.success_rate, 4),
-            'token_positions': self.tokens.get_all_positions()
+            'token_positions': self.tokens.get_all_positions(),
+            'seq_memory': self.get_seq_memory_summary(),
         }
 

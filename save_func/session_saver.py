@@ -15,7 +15,19 @@
 #     "game_mode": "selection1",
 #     "hardware": {"use_eyelink": true, "use_labjack": false},
 #     "outcome": null,              ← 'victory' | 'defeat' | 'timeout' | 'exit'
-#     "summary": {},                ← game_state.get_summary() 결과
+#     "summary": {                  ← game_state.get_summary() 결과
+#       ...
+#       "seq_memory": {             ← Sequential Memory 집계 (get_seq_memory_summary())
+#         "user_activations": N,    ← 사용자 seq_memory 발동 횟수
+#         "user_all_success": N,    ← 사용자 전체 성공 (n칸 점프) 횟수
+#         "user_step_fail": N,      ← 사용자 스텝 실패 횟수
+#         "user_total_seq_trials": N,
+#         "pc_activations": N,
+#         "pc_all_success": N,
+#         "pc_step_fail": N,
+#         "pc_total_seq_trials": N
+#       }
+#     },
 #     "trial_count": 0,
 #     "save_dir": "/path/to/Data/P001_20260331_143000"
 #   }

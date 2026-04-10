@@ -37,6 +37,10 @@ _HEADERS = [
     'elapsed_time',        # 반응 시간(초)
     'cumulative_user_score',
     'cumulative_pc_score',
+    # ── Sequential Memory ────────────────────────────────────
+    'is_seq_memory',       # 1 = seq_memory 모드 trial, 0 = 일반 trial
+    'seq_memory_step',     # 현재 스텝 인덱스 (0-based), 일반 trial은 빈칸
+    'seq_memory_total',    # 전체 순차 타겟 수, 일반 trial은 빈칸
     # ── 타임스탬프 ───────────────────────────────────────────
     'timestamp',           # UNIX epoch (time.time())
 ]
@@ -89,6 +93,9 @@ def save_trial(file_path: str, trial_entry: dict, game_state, subject_id: str):
     target    = trial_entry.get('target_pos') or (None, None)
     condition = trial_entry.get('condition') or {}
 
+    seq_step  = trial_entry.get('seq_memory_step', None)
+    seq_total = trial_entry.get('seq_memory_total', None)
+
     row = {
         'trial_id':              trial_entry.get('trial_id', ''),
         'subject_id':            subject_id,
@@ -109,6 +116,9 @@ def save_trial(file_path: str, trial_entry: dict, game_state, subject_id: str):
         'elapsed_time':          round(trial_entry.get('elapsed_time', 0.0), 4),
         'cumulative_user_score': game_state.user_score,
         'cumulative_pc_score':   game_state.pc_score,
+        'is_seq_memory':         1 if seq_step is not None else 0,
+        'seq_memory_step':       seq_step if seq_step is not None else '',
+        'seq_memory_total':      seq_total if seq_total is not None else '',
         'timestamp':             round(trial_entry.get('timestamp', 0.0), 6),
     }
 
