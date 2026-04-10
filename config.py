@@ -140,7 +140,7 @@ BONUS_SEQUENCE = [
 BONUS_SCORE_MULTIPLIER = 2          # 보너스 칸 점수 배율 (현재 점수 × 2)
 BONUS_SLOT_INDICES = [6, 12, 18]    # fixed 모드 기본 슬롯 인덱스 (참조용)
 BONUS_BORDER_COLOR = [255, 215, 0]  # 보너스 칸 테두리 색 (금색)
-BONUS_BORDER_WIDTH = 5              # 보너스 칸 테두리 두께 (px)
+BONUS_BORDER_WIDTH = 1              # 보너스 칸 테두리 두께 (px)
 BONUS_LABEL_COLOR = [255, 215, 0]   # 보너스 칸 "×2" 레이블 색
 
 # ==================== SEQUENTIAL MEMORY SETTINGS ====================
@@ -170,7 +170,7 @@ PC_THINK_TIME = 1.8           # 초 (PC 선택까지 대기 시간)
 
 # ==================== VISUAL SETTINGS ====================
 # Highlight colors
-HIGHLIGHT_COLOR = [0, 255, 200]  # Mint color for target
+HIGHLIGHT_COLOR = [100, 180, 255]  # Sky blue for current target
 HIGHLIGHT_WIDTH = 4              # Border width
 
 # Text settings

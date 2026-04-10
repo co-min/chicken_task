@@ -678,8 +678,9 @@ def _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_ren
         highlighted_pos: 하이라이트할 보드 위치 (row, col) 또는 None
                          seq_memory 활성 시 현재 step 타겟 위치
     """
-    seq_cells = game_state.seq_memory_targets if (game_state and game_state.seq_memory_active) else None
-    board_renderer.draw(highlighted_pos, seq_cells=seq_cells)
+    seq_cells  = game_state.seq_memory_targets if (game_state and game_state.seq_memory_active) else None
+    done_cells = game_state.seq_memory_targets[:game_state.seq_memory_step] if seq_cells else None
+    board_renderer.draw(highlighted_pos, seq_cells=seq_cells, done_cells=done_cells)
     deck_renderer.draw()
     token_renderer.draw()
 
