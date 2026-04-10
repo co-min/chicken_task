@@ -42,7 +42,7 @@ class BoardRenderer:
     
     def _create_visuals(self):
         """모든 카드의 비주얼 요소를 생성"""
-        _label_h = max(8, round(TEXT_SIZE * 0.45))  # "×2" 레이블 높이
+        _label_h = max(12, round(TEXT_SIZE * 0.5))  # "×2" 레이블 높이
 
         for row, col in self.board.track_positions:
             x = self._get_card_x(col)
@@ -73,7 +73,7 @@ class BoardRenderer:
             )
             self.highlights[(row, col)] = highlight
 
-            # 완료된 순차 스텝 어두운 오버레이 (체크된 느낌)
+            # 완료된 순차 스텝 어두운 오버레이
             done_overlay = visual.Rect(
                 win=self.win,
                 width=BOARD_CARD_WIDTH,
@@ -258,85 +258,3 @@ class BoardRenderer:
         return None
 
 
-# 테스트 코드
-if __name__ == "__main__":
-    # 경고 억제
-    import warnings
-    warnings.filterwarnings('ignore')
-    from psychopy import logging
-    logging.console.setLevel(logging.ERROR)
-    
-    from psychopy import core
-    from game_func.board_class import ConditionBoard
-    from set_opts.set_visual_opt import set_visual_opt
-    from utils.card_matcher import get_condition_text
-    
-    print("\n### BoardRenderer 테스트 ###\n")
-    
-    # 윈도우 생성
-    visual_opt = set_visual_opt()
-    visual_opt['fullscreen'] = False  # 테스트용
-    
-    win = visual.Window(
-        size=visual_opt['win_size'],
-        color=visual_opt['bg_color'],
-        fullscr=visual_opt['fullscreen'],
-        units=visual_opt['units'],
-        colorSpace=visual_opt['color_space'],
-        allowGUI=True,
-        pos=visual_opt.get('pos'),
-        screen=visual_opt.get('screen', 0)
-    )
-    
-    # 보드 생성
-    board = ConditionBoard()
-    
-    # 렌더러 생성
-    renderer = BoardRenderer(win, board)
-    
-    # 타이틀 텍스트
-    title = visual.TextStim(
-        win=win,
-        text="운동장 조건 카드 보드 (클릭하여 테스트, ESC로 종료)",
-        pos=(0, HEIGHT / 2 - 70),
-        height=40,
-        color=[255, 255, 255],
-        colorSpace='rgb255'
-    )
-    
-    # 마우스 생성
-    mouse = visual.event.Mouse(win=win)
-    
-    print("렌더링 시작...")
-    print("마우스로 카드를 클릭하면 하이라이트됩니다.")
-    print("ESC 키를 눌러 종료하세요.\n")
-    
-    # 메인 루프
-    highlighted = None
-    
-    while True:
-        # 키보드 체크
-        keys = visual.event.getKeys(['escape'])
-        if 'escape' in keys:
-            break
-        
-        # 마우스 클릭 체크
-        if mouse.getPressed()[0]:  # 왼쪽 버튼
-            pos = renderer.get_clicked_position(mouse.getPos())
-            if pos:
-                highlighted = pos
-                condition = board.get_condition(pos[0], pos[1])
-                print(f"클릭: {pos}, 조건: {get_condition_text(condition)}")
-            
-            # 더블 클릭 방지
-            core.wait(0.2)
-        
-        # 화면 그리기
-        title.draw()
-        renderer.draw(highlighted_pos=highlighted)
-        win.flip()
-    
-    win.close()
-    core.quit()
-    
-    print("[OK] BoardRenderer 테스트 완료!")

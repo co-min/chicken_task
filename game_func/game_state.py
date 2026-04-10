@@ -166,6 +166,7 @@ class GameState:
         self.seq_memory_targets = []     # [(row, col), ...] 순서대로
         self.seq_memory_step    = 0      # 현재 진행 단계 인덱스
         self.seq_memory_is_pc   = False  # PC 턴 순차 메모리 여부
+        self.seq_memory_skip_on_switch = False  # token_switched 직후 한 번 발동 억제 플래그
 
     # ==================== 난이도 ====================
 
@@ -648,17 +649,6 @@ class GameState:
         2) 새 난이도에 맞는 덱 먼저 생성 (참조 교체)
         3) 라운드 카운터 증가, 보드·토큰 초기화
         4) 타이머·턴 제한 갱신
-
-        [중요] deck 교체를 _reset_round_board_state() 보다 먼저 수행해야 한다.
-        기존 순서(_reset → 교체)의 문제:
-          _reset_round_board_state() 내부에서 self.deck.reshuffle()이 호출되지만,
-          바로 다음 줄에서 self.deck이 새 객체로 교체된다.
-          이 때 외부(뷰, 렌더러 등)에서 이전 deck 객체 참조를 저장하고 있다면,
-          새 deck(self.deck)에서 flip_card()를 호출해도 외부 참조는 OLD deck을
-          바라보므로 face_up 변경이 화면에 반영되지 않아 뒤집기가 동작하지 않는다.
-        해결: deck을 먼저 교체한 뒤 _reset_round_board_state()를 호출하면,
-          이미 새 객체가 self.deck에 들어있으므로 reshuffle()이 올바른 대상에
-          호출되고, 외부에서도 항상 self.deck(최신 객체)을 통해 접근해야 한다.
         """
         # 1) 난이도 업 체크
         if self.round_score >= DIFFICULTY_SCORE_THRESHOLD:
@@ -673,8 +663,8 @@ class GameState:
         self._pc_round_start_score = self.pc_score
 
         # 2) 라운드 카운터 증가 후, 새 보너스 설정 보드와 난이도 덱을 함께 교체.
-        # ※ 반드시 _reset_round_board_state() 호출 전에 교체해야
-        #   reshuffle()이 새 객체에 적용되고, 외부 참조와의 불일치가 방지된다.
+        # 반드시 _reset_round_board_state() 호출 전에 교체해야
+        # reshuffle()이 새 객체에 적용되고, 외부 참조와의 불일치가 방지된다.
         self.current_round += 1
         self.board = self._build_board_for_round(self.current_round)
         self.deck = self._build_deck_for_difficulty()
@@ -898,12 +888,13 @@ class GameState:
         # flight 이동 후 chase 바로 뒤에 붙었는지 확인
         if moved_token == 'flight' and self._is_flight_directly_behind_chase():
             self.selected_token = 'chase'
+            self.seq_memory_skip_on_switch = True  # 전환 직후 첫 시도에서 seq_memory 억제
             print(f"[전환] flight가 chase 바로 뒤에 위치 → 선택 닭을 chase로 전환")
             return 'token_switched'
 
         return 'success'
-    
-    # ==================== SEQUENTIAL MEMORY ====================
+
+    # SEQUENTIAL MEMORY
 
     def deactivate_seq_memory(self):
         """순차 메모리 비활성화 및 상태 초기화."""
@@ -915,7 +906,17 @@ class GameState:
     def _compute_seq_targets(self, token_name: str, n_steps: int) -> list:
         """
         token_name 토큰의 현재 위치에서 n_steps칸 앞까지 순차 타겟 수집.
-        중간에 다른 토큰이 점령한 칸은 건너뜀.
+
+        [차단 토큰 규칙]
+        경로상 다른 토큰이 점유한 칸을 만나면, 그 바로 다음 칸(+1)까지만
+        타겟으로 포함하고 수집을 중단한다.
+        - 이유: 다른 토큰 뒤까지 seq_memory가 뻗어나가면 게임 밸런스가
+          무너지고 (차단 토큰 너머를 한 번에 점프), 논리적으로도
+          토큰이 서로 겹치거나 추월하는 이상한 상황이 연출될 수 있다.
+        - +1을 허용하는 이유: 차단 토큰 바로 너머 한 칸은 여전히
+          "도달 가능한 목표"로서 자연스럽기 때문이다 (완전 차단이 아닌 제한).
+        - 차단 토큰 바로 뒤(이동 토큰 next = 차단 토큰)인 경우,
+          타겟은 [차단+1] 단 1개 → len(targets) < 2 조건에 의해 자동 발동 불가.
         """
         all_positions = self.tokens.get_all_positions()
         occupied = {
@@ -932,8 +933,11 @@ class GameState:
 
         while pos is not None and len(targets) < n_steps:
             if pos in occupied:
-                pos = self.tokens.get_next_position(pos)
-                continue
+                # 차단 토큰 발견: 바로 다음 칸(+1)이 비어 있으면 마지막 타겟으로 추가 후 중단
+                next_pos = self.tokens.get_next_position(pos)
+                if next_pos is not None and next_pos not in occupied:
+                    targets.append(next_pos)
+                break
             targets.append(pos)
             pos = self.tokens.get_next_position(pos)
 
@@ -948,6 +952,14 @@ class GameState:
         """
         if self.seq_memory_active:
             return True
+        # token_switched 직후 한 번은 seq_memory를 억제한다.
+        # 이유: flight→chase 전환 시 chase가 다른 토큰 바로 뒤에 위치하는 경우가 많아
+        #       확률 롤만 소비되고 결국 발동 불가로 끝나는 상황을 방지.
+        # 플래그는 이 검사에서 즉시 소비(one-shot)되어 다음 시도부터는 정상 동작.
+        if self.seq_memory_skip_on_switch:
+            self.seq_memory_skip_on_switch = False
+            print("[SEQ MEMORY] token_switched 직후 → 이번 시도 발동 억제")
+            return False
         if self.round_score < SEQ_MEMORY_SCORE_THRESHOLD:
             return False
         if random.random() >= SEQ_MEMORY_TRIGGER_PROB:
@@ -1074,6 +1086,7 @@ class GameState:
         # flight가 chase 바로 뒤에 붙었는지 확인
         if moved_token == 'flight' and self._is_flight_directly_behind_chase():
             self.selected_token = 'chase'
+            self.seq_memory_skip_on_switch = True  # 전환 직후 첫 시도에서 seq_memory 억제
             print(f"[전환] flight seq_memory 이동 후 chase 바로 뒤에 위치 → 선택 닭을 chase로 전환")
             return 'token_switched'
 
@@ -1160,6 +1173,7 @@ class GameState:
         """사용자 턴 종료 → PC 턴 시작"""
         self.timer.stop()
         self.deactivate_seq_memory()
+        self.seq_memory_skip_on_switch = False  # 턴 종료 시 잔류 플래그 초기화
         self.current_turn = self.TURN_PC
         self.phase = self.PHASE_GAME_PLAY
         self.selected_token = None  # 다음 사용자 턴을 위해 리셋

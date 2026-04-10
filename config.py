@@ -73,8 +73,8 @@ COLOR_RGB = {
 
 # ==================== TIMING SETTINGS ====================
 TURN_TIME_LIMIT = 15          # 초 (매 시도마다 리셋)
-CARD_FLIP_DURATION = 2       # 초 (카드 앞면 노출 시간)
-FEEDBACK_DURATION = 0.5       # 초 (피드백 표시 시간)
+CARD_FLIP_DURATION = 3       # 초 (카드 앞면 노출 시간)
+FEEDBACK_DURATION = 0.7       # 초 (피드백 표시 시간)
 TRIAL_INTERVAL = 1          # 초 (시행 간 간격)
 TOKEN_TIME_WAIT = 1
 CATCH_RESET_PREP_DURATION = 1.2  # 초 (잡기 이벤트 후 토큰 위치 초기화 유예 시간)
@@ -83,9 +83,9 @@ GAME_TIME_LIMIT = 1800         # 초 (전체 게임 제한 시간, 30분)
 # ==================== ROUND SETTINGS ====================
 # 라운드 제한 없음 — 잡기(catch) 이벤트마다 라운드 증가, 30분 게임 시간 내 무제한
 TOTAL_ROUNDS = 0
-ROUND_BREAK_DURATION = 3      # 초 (라운드 간 휴식 시간)
+ROUND_BREAK_DURATION = 10      # 초 (라운드 간 휴식 시간)
 # 라운드별 턴 제한 시간 (1→5라운드, 1초씩 감소)
-ROUND_TURN_LIMITS = [12, 10, 8]
+ROUND_TURN_LIMITS = [15, 12, 10]
 
 # ==================== PROGRESS BAR ====================
 PROGRESS_BAR_WIDTH  = 700     # px (기준 해상도 기준)
@@ -98,7 +98,7 @@ PROGRESS_BAR_BG_COLOR   = [55,  55,  55]  # 배경
 
 # ==================== DIFFICULTY SETTINGS ====================
 # 이번 라운드 점수 >= 임계값이면 다음 라운드에서 난이도 1단계 업
-DIFFICULTY_SCORE_THRESHOLD = 300
+DIFFICULTY_SCORE_THRESHOLD = 500
 
 # Sequential Memory
 # threshold 150 점 이상이면 seqential memory 요소가 추가됨
@@ -124,10 +124,7 @@ DIFFICULTY_SEQUENCE = [
 #   'none'  — 보너스 없음 (초반: 순수 인지 능력 측정)
 #   'fixed' — 트랙 인덱스 bonus_slots에 '점수 2배' 고정 배치 (중반)
 #   'random'— 트랙 내 bonus_count칸을 무작위로 '점수 2배' 배치 (후반)
-#
-# fixed 모드 설계 근거:
-#   24칸 트랙에서 6·12·18번은 각 변(상단 9칸, 우측 4칸, 하단 8칸, 좌측 3칸)의
-#   중간 지점에 해당하지 않지만, 등간격(6칸)으로 분산되어 공간 학습이 용이하다.
+
 BONUS_SEQUENCE = [
     {'bonus_mode': 'none'},                                    # 라운드 1: 보너스 없음
     {'bonus_mode': 'fixed', 'bonus_slots': [6, 12, 18]},       # 라운드 2: 고정 슬롯
@@ -149,7 +146,7 @@ SEQ_MEMORY_PC_THRESHOLD    = 200    # PC 라운드 점수 임계값
 SEQ_MEMORY_TRIGGER_PROB    = 0.20   # 임계값 초과 시 새 시도마다 발동 확률
 SEQ_MEMORY_MIN_STEPS       = 2      # 최소 순차 타겟 수
 SEQ_MEMORY_MAX_STEPS       = 3      # 최대 순차 타겟 수
-SEQ_MEMORY_BORDER_COLOR    = [0, 255, 200]  # 순차 타겟 테두리 색 (은회색)
+SEQ_MEMORY_BORDER_COLOR    = [0, 255, 200]  # 순차 타겟 테두리 색
 SEQ_MEMORY_BORDER_WIDTH    = 5      # 순차 타겟 테두리 두께 (px)
 
 # ==================== SCORE SETTINGS ====================
@@ -387,9 +384,9 @@ if AUTO_DETECT_WINDOW_SIZE:
 
 # ==================== NPC AI TUNING PARAMETERS ====================
 # npc_ai.py NPCAI 클래스 초기값 (튜닝)
-NPC_REFERENCE_MIN_PROB   = 0.33   # 메모리 참고 최소 비율
-NPC_REFERENCE_MAX_PROB   = 0.72   # 메모리 참고 최대 비율
-NPC_REFERENCE_BASE_PROB  = 0.50   # 메모리 참고 기본 비율
+NPC_REFERENCE_MIN_PROB   = 0.20   # 메모리 참고 최소 비율
+NPC_REFERENCE_MAX_PROB   = 0.70   # 메모리 참고 최대 비율
+NPC_REFERENCE_BASE_PROB  = 0.40   # 메모리 참고 기본 비율
 NPC_HINT_FOLLOW_PROB     = 0.60   # 직전 사용자 힌트 따라가기 확률
 NPC_CONTEXT_BLEND_RATIO  = 0.55   # 사용자 추정치 혼합 비율 (0=무시, 1=완전반영)
 NPC_TURN_MAX_RATE_SWING  = 0.12   # 턴별 최대 정답률 변동폭 (급격한 출렁임 방지)
@@ -399,8 +396,8 @@ NPC_MAX_EDGE_OVER_USER   = 0.06   # 사용자 대비 최대 우위
 
 # ==================== ADAPTIVE AI PARAMETERS ====================
 # game_state.py GameState 초기값 (튜닝)
-NPC_RATE_MAX              = 0.75   # NPC 최대 정답률 상한
-ADAPTIVE_ALPHA_UP         = 0.45   # 정답률 상승 시 EWMA 알파 (빠른 추종)
+NPC_RATE_MAX              = 0.70   # NPC 최대 정답률 상한
+ADAPTIVE_ALPHA_UP         = 0.40   # 정답률 상승 시 EWMA 알파 (빠른 추종)
 ADAPTIVE_ALPHA_DOWN       = 0.15   # 정답률 하강 시 EWMA 알파 (느린 하강)
 MAX_RATE_STEP_UP          = 0.12   # 단일 업데이트 최대 상승 폭
 MAX_RATE_STEP_DOWN        = 0.04   # 단일 업데이트 최대 하강 폭
