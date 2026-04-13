@@ -296,20 +296,10 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                 win.flip()
                 core.wait(CARD_FLIP_DURATION)
 
-                # ── seq_memory step_success: 피드백 후 다음 스텝 계속 ──
+                # ── seq_memory step_success: 피드백 없이 다음 스텝으로 계속 ──
                 if result == 'step_success':
-                    sound_play(sounds, 'correct')
                     step_now  = game_state.seq_memory_step       # 방금 완료된 step (이미 +1됨)
                     step_total = len(game_state.seq_memory_targets)
-                    run_feedback_phase(
-                        win, ui_elements, board_renderer, deck_renderer, token_renderer,
-                        message=f"순차 {step_now}/{step_total} 성공!",
-                        color=PURPLE,
-                        duration=FEEDBACK_DURATION,
-                        highlighted_pos=None,
-                        labjack_handle=aoi_manager.labjack_handle if aoi_manager else None,
-                        trigger_code=_LJ_SEQ_STEP_SUCCESS,
-                    )
                     game_state.deck.hide_card(card_row, card_col)
                     # 다음 스텝: trial_id 갱신, _trial_active 유지
                     _trial_id = game_state.get_next_trial_id()
@@ -558,17 +548,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
                 trigger_code=_LJ_SEQ_FAILURE if _checked_as_pc_seq else 0,
             )
         elif result == 'step_success':
-            sound_play(sounds, 'correct')
-            step_now   = game_state.seq_memory_step
-            step_total = len(game_state.seq_memory_targets)
-            run_feedback_phase(
-                win, ui_elements, board_renderer, deck_renderer, token_renderer,
-                message=f"문어 순차 {step_now}/{step_total} 성공!",
-                color=PURPLE,
-                duration=FEEDBACK_DURATION, highlighted_pos=pc_target_pos,
-                labjack_handle=aoi_manager.labjack_handle if aoi_manager else None,
-                trigger_code=_LJ_SEQ_STEP_SUCCESS,
-            )
+            pass  # 중간 스텝 성공은 피드백 없이 조용히 다음 스텝으로 진행
         else:  # 'success' or 'all_success'
             sound_play(sounds, 'correct')
             if result == 'all_success':
