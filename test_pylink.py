@@ -2,9 +2,10 @@ import pylink
 from psychopy import visual, core, event, gui
 import os
 import sys
+from config import EYELINK_IP
 
 # --- 1. 실험 설정 및 더미 모드 여부 결정 ---
-exp_info = {'dummy_mode': True}
+exp_info = {'dummy_mode': False}
 dlg = gui.DlgFromDict(dictionary=exp_info, title='EyeLink Test')
 if not dlg.OK:
     core.quit()
@@ -14,7 +15,7 @@ edf_fname = "TEST.EDF"  # EDF 파일명은 8자 이내(확장자 제외)
 # --- 2. EyeLink 연결 설정 ---
 try:
     if not dummy_mode:
-        tk = pylink.EyeLink("100.1.1.1")
+        tk = pylink.EyeLink(EYELINK_IP)
     else:
         tk = pylink.EyeLink(None)
 except AttributeError:
@@ -32,7 +33,7 @@ except RuntimeError as e:
 
 # --- 3. PsychoPy 윈도우 설정 ---
 # EyeLink는 픽셀 단위를 기본으로 사용하므로 'pix' 권장. 두 번째 모니터(인덱스 1)에 표시
-win = visual.Window([1024, 768], fullscr=False, monitor=1, units='pix')
+win = visual.Window([1024, 768], fullscr=False, screen=2, monitor='testMonitor', units='pix')
 
 # --- 4. EyeLink 그래픽 및 보정 설정 ---
 # PsychoPy 화면에 보정 타겟을 그리기 위한 설정

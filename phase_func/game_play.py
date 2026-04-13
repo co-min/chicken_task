@@ -1,6 +1,3 @@
-# Phase 1 + : GamePlay
-# 게임 플레이 단계 - 사용자와 PC가 교대로 카드를 선택하며 게임 진행
-
 import sys
 from pathlib import Path
 from psychopy import core, event
@@ -672,9 +669,6 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
 def _run_round_break(win, ui_elements, board_renderer, deck_renderer, token_renderer, game_state):
     """
     라운드 간 휴식 화면 표시 (ROUND_BREAK_DURATION 초 카운트다운).
-    - 현재 보드/덱/토큰 상태를 그대로 유지
-    - 중앙에 라운드 완료 + 다음 라운드 예고 메시지 표시
-    - 피험자 시선 보정(Drift Correction) 기회 제공
     """
     next_round = game_state.current_round + 1
     for remaining in range(ROUND_BREAK_DURATION, 0, -1):
@@ -690,10 +684,10 @@ def _get_clicked_card(mouse_pos, deck_rows, deck_cols):
     마우스 클릭 위치에서 카드 인덱스 계산
 
     Args:
-        mouse_pos: (x, y) 마우스 좌표 (PsychoPy 좌표계)
+        mouse_pos: (x, y) 마우스 좌표
 
     Returns:
-        tuple: (row, col) 또는 None (클릭한 카드가 없음)
+        tuple: (row, col) 또는 None
     """
     screen_x = mouse_pos[0] + WIDTH / 2
     screen_y = HEIGHT / 2 - mouse_pos[1]
@@ -733,12 +727,11 @@ def _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_ren
                      / max(1, game_state.timer.time_limit))
         ui_elements.set_round_display(game_state.current_round, game_state.total_rounds)
         ui_elements.draw_progress_bar(bar_ratio)
-        # 중앙 상단: 이번 라운드 점수 표시 (플레이어·문어 모두 라운드 점수)
+        
         ui_elements.draw_score(game_state.round_score, game_state.pc_round_score)
-        # 우측 하단 랭킹: 누적 점수 기준으로 갱신 (플레이어·문어 모두 포함)
         ui_elements.update_ranking(game_state.user_score, game_state.pc_score)
     else:
-        ui_elements.draw_progress_bar()   # 캐시 상태로 그리기
+        ui_elements.draw_progress_bar()   
         ui_elements.score_text.draw()
 
     ui_elements.draw_ranking()
@@ -761,7 +754,7 @@ def _show_start_cue(
     target_pos,
     sounds=None,
 ):
-    """다음 시도를 시작하기 직전에 큰 시작 문구를 잠깐 표시"""
+    """다음 시도를 시작하기 직전 문구 표시"""
     ui_elements.set_user_turn_hud(
         selected_token=selected_token,
         turn_count=turn_count,
@@ -786,10 +779,6 @@ def _show_start_cue(
 
 def _show_reset_prep_cue(win, ui_elements, board_renderer, deck_renderer, token_renderer, game_state):
     """잡기 이벤트 후 토큰 위치 초기화 유예 시간.
-
-    모든 토큰이 이미 시작 위치로 초기화된 상태에서 호출된다.
-    '준비...' 메시지를 CATCH_RESET_PREP_DURATION 초간 표시하여
-    피험자의 시선이 새 배치에 적응할 시간을 확보하고 안구 추적 노이즈를 줄인다.
     """
     ui_elements.message_text.text = "준비..."
     ui_elements.message_text.color = TEXT_COLOR

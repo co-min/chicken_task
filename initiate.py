@@ -9,12 +9,12 @@ from datetime import datetime
 from set_opts.set_device_opt import set_device_opt
 from set_opts.set_visual_opt import set_visual_opt
 from set_opts.set_game_opt import set_game_opt
-from config import USE_EYELINK, USE_LABJACK
+from config import USE_EYELINK, USE_LABJACK, EYELINK_IP
 
 if USE_EYELINK:
-    from .set_opts.set_eyelink import set_eye_opt
+    from set_opts.set_eyelink import set_eye_opt
     import pylink
-    from .eye_func.EyeLinkCoreGraphicsPsychoPy import EyeLinkCoreGraphicsPsychoPy
+    from eye_func.EyeLinkCoreGraphicsPsychoPy import EyeLinkCoreGraphicsPsychoPy
 
 if USE_LABJACK:
     from .utils.labjack_triggers import init_labjack, close_labjack
@@ -115,7 +115,7 @@ def initiate_eyelink(win, save_directory, edf_name="test.edf"):
         if USE_EYELINK == 0:
             el_tracker = None  # Skip connection when disabled
         else:
-            el_tracker = pylink.EyeLink("100.1.1.1")  # Default EyeLink IP
+            el_tracker = pylink.EyeLink(EYELINK_IP)
     except (RuntimeError, ModuleNotFoundError):
         print("⚠ EyeLink tracker not detected. EyeLink functionality will be disabled.")
         return None

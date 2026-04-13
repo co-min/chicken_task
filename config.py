@@ -73,11 +73,11 @@ COLOR_RGB = {
 
 # ==================== TIMING SETTINGS ====================
 TURN_TIME_LIMIT = 15          # 초 (매 시도마다 리셋)
-CARD_FLIP_DURATION = 3       # 초 (카드 앞면 노출 시간)
-FEEDBACK_DURATION = 0.7       # 초 (피드백 표시 시간)
+CARD_FLIP_DURATION = 2       # 초 (카드 앞면 노출 시간)
+FEEDBACK_DURATION = 0.3       # 초 (피드백 표시 시간)
 TRIAL_INTERVAL = 1          # 초 (시행 간 간격)
 TOKEN_TIME_WAIT = 1
-CATCH_RESET_PREP_DURATION = 1.2  # 초 (잡기 이벤트 후 토큰 위치 초기화 유예 시간)
+CATCH_RESET_PREP_DURATION = 1  # 초 (잡기 이벤트 후 토큰 위치 초기화 유예 시간)
 GAME_TIME_LIMIT = 1800         # 초 (전체 게임 제한 시간, 30분)
 
 # ==================== ROUND SETTINGS ====================
@@ -200,6 +200,7 @@ PRACTICE_TRIALS = 1           # 연습 시행 수
 
 # ==================== EYE TRACKING ====================
 USE_EYELINK = 0               # 0: 미사용, 1: 사용
+EYELINK_IP  = "100.1.1.1"    # EyeLink host PC IP 주소
 
 # ==================== LABJACK T4 ====================
 USE_LABJACK = 0               # 0: 미사용, 1: 사용

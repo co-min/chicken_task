@@ -1,6 +1,4 @@
-# game_state.py
-# Chicken Task - Game State Management (게임 상태 관리)
-# 모든 게임 로직 통합
+# Game State Management 
 
 import time
 import random
@@ -905,18 +903,7 @@ class GameState:
 
     def _compute_seq_targets(self, token_name: str, n_steps: int) -> list:
         """
-        token_name 토큰의 현재 위치에서 n_steps칸 앞까지 순차 타겟 수집.
-
-        [차단 토큰 규칙]
-        경로상 다른 토큰이 점유한 칸을 만나면, 그 바로 다음 칸(+1)까지만
-        타겟으로 포함하고 수집을 중단한다.
-        - 이유: 다른 토큰 뒤까지 seq_memory가 뻗어나가면 게임 밸런스가
-          무너지고 (차단 토큰 너머를 한 번에 점프), 논리적으로도
-          토큰이 서로 겹치거나 추월하는 이상한 상황이 연출될 수 있다.
-        - +1을 허용하는 이유: 차단 토큰 바로 너머 한 칸은 여전히
-          "도달 가능한 목표"로서 자연스럽기 때문이다 (완전 차단이 아닌 제한).
-        - 차단 토큰 바로 뒤(이동 토큰 next = 차단 토큰)인 경우,
-          타겟은 [차단+1] 단 1개 → len(targets) < 2 조건에 의해 자동 발동 불가.
+        token_name 토큰의 현재 위치에서 n_steps칸 앞까지 순차 타겟 수집
         """
         all_positions = self.tokens.get_all_positions()
         occupied = {
@@ -952,10 +939,7 @@ class GameState:
         """
         if self.seq_memory_active:
             return True
-        # token_switched 직후 한 번은 seq_memory를 억제한다.
-        # 이유: flight→chase 전환 시 chase가 다른 토큰 바로 뒤에 위치하는 경우가 많아
-        #       확률 롤만 소비되고 결국 발동 불가로 끝나는 상황을 방지.
-        # 플래그는 이 검사에서 즉시 소비(one-shot)되어 다음 시도부터는 정상 동작.
+        # token_switched 직후 한 번은 seq_memory를 억제
         if self.seq_memory_skip_on_switch:
             self.seq_memory_skip_on_switch = False
             print("[SEQ MEMORY] token_switched 직후 → 이번 시도 발동 억제")
