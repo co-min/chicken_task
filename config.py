@@ -141,8 +141,8 @@ BONUS_BORDER_WIDTH = 3              # 보너스 칸 테두리 두께 (px)
 BONUS_LABEL_COLOR = [255, 215, 0]   # 보너스 칸 "×2" 레이블 색
 
 # ==================== SEQUENTIAL MEMORY SETTINGS ====================
-SEQ_MEMORY_SCORE_THRESHOLD = 50    # 사용자 라운드 점수 임계값 (이상이면 발동 가능)
-SEQ_MEMORY_PC_THRESHOLD    = 200    # PC 라운드 점수 임계값
+SEQ_MEMORY_SCORE_THRESHOLD = 100    # 사용자 라운드 점수 임계값 (이상이면 발동 가능)
+SEQ_MEMORY_PC_THRESHOLD    = 100    # PC 라운드 점수 임계값
 SEQ_MEMORY_TRIGGER_PROB    = 0.20   # 임계값 초과 시 새 시도마다 발동 확률
 SEQ_MEMORY_MIN_STEPS       = 2      # 최소 순차 타겟 수
 SEQ_MEMORY_MAX_STEPS       = 3      # 최대 순차 타겟 수
