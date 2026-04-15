@@ -5,12 +5,14 @@ from psychopy import core
 try:
 	from ..view_func.frame_marker import blink_frame_marker, trigger_frame_marker
 	from ..utils.labjack_triggers import send_trigger
+	from ..utils.timer import checked_wait
 except ImportError:
 	import sys
 	from pathlib import Path
 	sys.path.insert(0, str(Path(__file__).parent.parent))
 	from view_func.frame_marker import blink_frame_marker, trigger_frame_marker
 	from utils.labjack_triggers import send_trigger
+	from utils.timer import checked_wait
 
 
 def run_feedback_phase(
@@ -48,4 +50,4 @@ def run_feedback_phase(
 	if labjack_handle is not None and trigger_code:
 		win.callOnFlip(send_trigger, labjack_handle, trigger_code)
 	win.flip()
-	core.wait(duration)
+	checked_wait(duration, label=f"feedback('{message}')")

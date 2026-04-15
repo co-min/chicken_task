@@ -3,6 +3,42 @@
 # 15초 타이머, 성공 시 리셋 기능
 
 import time
+from psychopy import core
+
+
+# ---------------------------------------------------------------------------
+# 타이밍 검사 유틸리티
+# ---------------------------------------------------------------------------
+
+# 대기 시간 허용 오차 (초). 이 값을 초과하면 TIMING MISMATCH 로그 출력.
+WAIT_TOLERANCE_S = 0.005  # 5 ms
+
+
+def checked_wait(duration: float, label: str = "wait", tolerance_s: float = WAIT_TOLERANCE_S):
+    """
+    core.wait(duration) 을 실행하고 실제 경과 시간을 측정
+    실제 경과 시간이 기대값과 tolerance_s 이상 차이가 나면 경고 출력
+
+    Parameters
+    ----------
+    duration : float
+        기대 대기 시간 (초).
+    label : str
+        로그 메시지에 표시할 식별자 (어떤 wait 인지 구분용).
+    tolerance_s : float
+        허용 오차 (초). 기본 5 ms.
+    """
+    t_start = core.getTime()
+    core.wait(duration)
+    t_actual = core.getTime() - t_start
+    
+    if abs(t_actual - duration) > tolerance_s:
+        print(
+            f"[TIMING MISMATCH] {label}: "
+            f"expected {duration * 1000:.2f} ms, "
+            f"actual {t_actual * 1000:.2f} ms "
+            f"(diff {(t_actual - duration) * 1000:+.2f} ms)"
+        )
 
 
 class GameTimer:
@@ -131,55 +167,3 @@ class StopWatch:
         else:
             return 0.0
 
-
-# ==================== 테스트 코드 ====================
-if __name__ == "__main__":
-    import time
-    
-    print("\n### GameTimer 테스트 ###\n")
-    
-    # 타이머 생성 (테스트용 5초)
-    timer = GameTimer(time_limit=5.0)
-    print(f"초기 상태: running={timer.is_running}, expired={timer.is_expired()}")
-    print(f"표시 텍스트: {timer.get_display_text()}")
-    
-    # 타이머 시작
-    print("\n타이머 시작...")
-    timer.start()
-    print(f"running={timer.is_running}")
-    
-    # 2초 대기
-    time.sleep(2.0)
-    print(f"\n2초 경과:")
-    print(f"  경과 시간: {timer.get_elapsed():.2f}초")
-    print(f"  남은 시간: {timer.get_remaining():.2f}초")
-    print(f"  표시 텍스트: {timer.get_display_text()}")
-    print(f"  만료? {timer.is_expired()}")
-    
-    # 리셋 테스트
-    print("\n타이머 리셋...")
-    timer.reset()
-    print(f"리셋 후 경과 시간: {timer.get_elapsed():.2f}초")
-    
-    # 만료까지 대기
-    print("\n만료까지 대기...")
-    while not timer.is_expired():
-        time.sleep(0.5)
-        print(f"  {timer.get_display_text()}", end="\r")
-    
-    print(f"\n타이머 만료! 경과 시간: {timer.get_elapsed():.2f}초")
-    
-    # StopWatch 테스트
-    print("\n### StopWatch 테스트 ###\n")
-    
-    sw = StopWatch()
-    sw.start()
-    print("스톱워치 시작...")
-    
-    time.sleep(1.5)
-    print(f"경과 시간: {sw.get_elapsed():.2f}초")
-    
-    sw.stop()
-    print("스톱워치 정지")
-    
-    print("\n[OK] timer 테스트 완료!")

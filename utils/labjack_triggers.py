@@ -19,7 +19,7 @@
 #   220      : Sequential Memory 활성화 onset (즉시 전송, VSync 불필요)
 #   221      : Sequential Memory 스텝 성공 피드백
 #   222      : Sequential Memory 전체 성공 피드백
-#   223      : Sequential Memory 실패 피드백 (이동 없음)
+#   223      : Sequential Memory 실패 피드백 
 
 try:
     import ljm
@@ -28,6 +28,9 @@ except ImportError:
     _LJM_AVAILABLE = False
 
 import time
+
+# 펄스 타이밍 허용 오차 (초). 이 값을 초과하면 TIMING MISMATCH 로그 출력.
+_PULSE_TOLERANCE_S = 0.001  # 1 ms
 
 
 # ============================================================================
@@ -105,13 +108,30 @@ def send_trigger(handle: int | None, code: int, pulse_s: float = 0.005):
         0–255 범위의 8비트 트리거 코드. EIO0(LSB)~EIO7(MSB) 에 출력됩니다.
     pulse_s : float
         펄스 지속 시간(초). 기본 5ms.
+
+    Notes
+    -----
+    time.sleep() 은 Windows OS 스케줄러 영향으로 수 ms~수십 ms 오차가 발생합니다.
+    대신 perf_counter 기반 busy-wait 을 사용해 정밀도를 높이고,
+    실제 펄스 폭이 허용 오차(_PULSE_TOLERANCE_S)를 초과하면 경고를 출력합니다.
     """
     if handle is None or not _LJM_AVAILABLE:
         return
     try:
+        t_start = time.perf_counter()
         ljm.eWriteName(handle, "EIO_STATE", int(code))
-        time.sleep(pulse_s)
+        # busy-wait: time.sleep() 대신 perf_counter 루프로 정밀 대기
+        while time.perf_counter() - t_start < pulse_s:
+            pass
         ljm.eWriteName(handle, "EIO_STATE", 0)
+        t_actual = time.perf_counter() - t_start
+        if abs(t_actual - pulse_s) > _PULSE_TOLERANCE_S:
+            print(
+                f"[TIMING MISMATCH] send_trigger code={code}: "
+                f"expected {pulse_s * 1000:.2f} ms, "
+                f"actual {t_actual * 1000:.2f} ms "
+                f"(diff {(t_actual - pulse_s) * 1000:+.2f} ms)"
+            )
     except Exception as e:
         print(f"[LabJack] 트리거 전송 오류 (code={code}): {e}")
 

@@ -34,11 +34,13 @@ try:
     from ..view_func.frame_marker import blink_frame_marker, trigger_frame_marker
     from ..sounds import load_sounds, play as sound_play
     from ..utils.labjack_triggers import send_trigger
+    from ..utils.timer import checked_wait
     from ..save_func.trial_saver import save_trial
 except ImportError:
     from view_func.frame_marker import blink_frame_marker, trigger_frame_marker
     from sounds import load_sounds, play as sound_play
     from utils.labjack_triggers import send_trigger
+    from utils.timer import checked_wait
     from save_func.trial_saver import save_trial
 
 
@@ -85,7 +87,7 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
 
     턴 시스템:
     - 사용자 턴: 닭 선택 → 카드 선택 → 성공(계속)/실패(PC 턴)
-    - PC 턴: AI 카드 선택 (60% 정답률) → 성공(계속)/실패(사용자 턴)
+    - PC 턴: AI 카드 선택 → 성공(계속)/실패(사용자 턴)
 
     Args:
         win: PsychoPy window 객체
@@ -152,8 +154,8 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
                 # PC 턴 종료 → 사용자 턴으로 전환됨
                 print(f"[TURN SWITCH] 문어 → 사용자 (턴 {game_state.turn_count})")
         
-        # 프레임 대기
-        core.wait(0.005)
+        # 메인 루프 폴링 대기
+        checked_wait(0.005, label="main_loop_poll")
 
 
 def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
@@ -294,7 +296,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                 trigger_frame_marker()   # 이벤트: 사용자 카드 뒤집기
                 blink_frame_marker(win)
                 win.flip()
-                core.wait(CARD_FLIP_DURATION)
+                checked_wait(CARD_FLIP_DURATION, label="user_card_flip")
 
                 # ── seq_memory step_success: 피드백 없이 다음 스텝으로 계속 ──
                 if result == 'step_success':
@@ -386,7 +388,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                     _trial_active = False
 
                     # 타이머 리셋 후 다음 타겟 계속
-                    core.wait(TRIAL_INTERVAL)
+                    checked_wait(TRIAL_INTERVAL, label="user_trial_interval")
                     _show_start_cue(
                         win, ui_elements, board_renderer, deck_renderer, token_renderer,
                         game_state=game_state,
@@ -433,6 +435,8 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                     pass
         
         # 화면 그리기 (타겟 하이라이트 포함)
+        # 프레임 시작 시각을 기록해 실제 루프 주기를 측정한다.
+        _frame_t0 = core.getTime()
         _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, game_state, target_pos)
         blink_frame_marker(win)
         win.flip()
@@ -441,7 +445,24 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
         if aoi_manager:
             aoi_manager.update(core.getTime())
 
-        core.wait(0.016)
+        # win.flip() 자체가 VSync(~16.67 ms)만큼 블록하므로,
+        # 남은 시간만큼만 추가로 대기해 목표 주기(16 ms)를 맞춘다.
+        # 이미 목표를 초과했다면(overrun) 대기 없이 즉시 다음 프레임으로 진입하고 경고를 출력한다.
+        _FRAME_TARGET_S = 0.016
+        _FRAME_TOLERANCE_S = 0.003   # 3 ms 허용 오차
+        _elapsed = core.getTime() - _frame_t0
+        _remaining = _FRAME_TARGET_S - _elapsed
+        if _remaining > 0:
+            core.wait(_remaining)
+        _actual_frame = core.getTime() - _frame_t0
+
+        if abs(_actual_frame - _FRAME_TARGET_S) > _FRAME_TOLERANCE_S:
+            print(
+                f"[TIMING MISMATCH] user_turn frame: "
+                f"expected {_FRAME_TARGET_S * 1000:.1f} ms, "
+                f"actual {_actual_frame * 1000:.1f} ms "
+                f"(diff {(_actual_frame - _FRAME_TARGET_S) * 1000:+.1f} ms)"
+            )
 
     return 'continue'
 
@@ -452,7 +473,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
     PC 턴 실행 (NPC AI 사용)
     
     흐름:
-    1. NPC AI가 카드 선택 (60% 정답률)
+    1. NPC AI가 카드 선택
     2. 카드 뒤집기 애니메이션
     3. 결과 판정 표시
     4. 성공 시: 토큰 이동 애니메이션 → 다음 타겟으로 계속
@@ -483,8 +504,8 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
         win.flip()
 
         # PC 생각 시간
-        core.wait(PC_THINK_TIME)
-        
+        checked_wait(PC_THINK_TIME, label="pc_think_time")
+
         # PC 카드 선택 및 실행 (seq_memory 활성 여부에 따라 분기)
         _pc_trial_id = game_state.get_next_trial_id()
 
@@ -534,7 +555,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
         trigger_frame_marker()   # 이벤트: PC 카드 뒤집기
         blink_frame_marker(win)
         win.flip()
-        core.wait(CARD_FLIP_DURATION)
+        checked_wait(CARD_FLIP_DURATION, label="pc_card_flip")
 
         # 2단계: 기본 결과 피드백
         if result == 'failure':
@@ -585,7 +606,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
                      f" SEQ_MEMORY step {game_state.seq_memory_step}/{len(game_state.seq_memory_targets)}")
             _ljack_on_flip(win, aoi_manager, _LJ_TRIAL_START)
             pc_target_pos = game_state.get_seq_memory_current_target()
-            core.wait(PC_THINK_TIME)
+            checked_wait(PC_THINK_TIME, label="pc_seq_think_time")
             continue
 
         if result in ('success', 'all_success'):
@@ -631,7 +652,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
             _edf_msg(aoi_manager, f"TRIAL_END {_pc_trial_id} MATCH 1 RESULT {edf_result}")
             _ljack(aoi_manager, _LJ_TRIAL_END)
             print(f"[문어] 성공({result}), 다음 타겟으로 계속")
-            core.wait(TRIAL_INTERVAL)
+            checked_wait(TRIAL_INTERVAL, label="pc_trial_interval")
             continue
 
         elif result == 'failure':
@@ -656,7 +677,7 @@ def _run_round_break(win, ui_elements, board_renderer, deck_renderer, token_rend
                           game_state, highlighted_pos=None)
         ui_elements.draw_round_break(game_state.current_round, next_round, remaining)
         win.flip()
-        core.wait(1.0)
+        checked_wait(1.0, label="round_break_countdown")
 
 
 def _get_clicked_card(mouse_pos, deck_rows, deck_cols):
@@ -754,7 +775,7 @@ def _show_start_cue(
     trigger_frame_marker()   # 이벤트: 시행 시작 큐
     blink_frame_marker(win)
     win.flip()
-    core.wait(START_CUE_DURATION)
+    checked_wait(START_CUE_DURATION, label="start_cue")
 
 
 def _show_reset_prep_cue(win, ui_elements, board_renderer, deck_renderer, token_renderer, game_state):
@@ -768,4 +789,4 @@ def _show_reset_prep_cue(win, ui_elements, board_renderer, deck_renderer, token_
     trigger_frame_marker()   # 이벤트: 위치 초기화 유예 시작
     blink_frame_marker(win)
     win.flip()
-    core.wait(CATCH_RESET_PREP_DURATION)
+    checked_wait(CATCH_RESET_PREP_DURATION, label="catch_reset_prep")
