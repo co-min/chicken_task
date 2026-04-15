@@ -119,6 +119,7 @@ def send_trigger(handle: int | None, code: int, pulse_s: float = 0.005):
         return
     try:
         t_start = time.perf_counter()
+        print(f"[LabJack] SEND code={code} ({t_start:.4f}s)")
         ljm.eWriteName(handle, "EIO_STATE", int(code))
         # busy-wait: time.sleep() 대신 perf_counter 루프로 정밀 대기
         while time.perf_counter() - t_start < pulse_s:

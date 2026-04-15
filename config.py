@@ -137,7 +137,7 @@ BONUS_SEQUENCE = [
 BONUS_SCORE_MULTIPLIER = 2          # 보너스 칸 점수 배율 (현재 점수 × 2)
 BONUS_SLOT_INDICES = [6, 12, 18]    # fixed 모드 기본 슬롯 인덱스 (참조용)
 BONUS_BORDER_COLOR = [255, 215, 0]  # 보너스 칸 테두리 색 (금색)
-BONUS_BORDER_WIDTH = 1              # 보너스 칸 테두리 두께 (px)
+BONUS_BORDER_WIDTH = 3              # 보너스 칸 테두리 두께 (px)
 BONUS_LABEL_COLOR = [255, 215, 0]   # 보너스 칸 "×2" 레이블 색
 
 # ==================== SEQUENTIAL MEMORY SETTINGS ====================
@@ -203,7 +203,7 @@ USE_EYELINK = 0               # 0: 미사용, 1: 사용
 EYELINK_IP  = "100.1.1.1"    # EyeLink host PC IP 주소
 
 # ==================== LABJACK T4 ====================
-USE_LABJACK = 0               # 0: 미사용, 1: 사용
+USE_LABJACK = 1               # 0: 미사용, 1: 사용
 
 # ==================== AOI (Area of Interest) ====================
 # AOI 진입으로 인정하기 위한 최소 시선 체류 시간 (초)

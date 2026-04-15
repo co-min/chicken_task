@@ -17,7 +17,7 @@ if USE_EYELINK:
     from eye_func.EyeLinkCoreGraphicsPsychoPy import EyeLinkCoreGraphicsPsychoPy
 
 if USE_LABJACK:
-    from .utils.labjack_triggers import init_labjack, close_labjack
+    from utils.labjack_triggers import init_labjack, close_labjack
 
 def define_save_directory(base_dir, subject_id):
     """

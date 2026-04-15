@@ -441,16 +441,19 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
         blink_frame_marker(win)
         win.flip()
 
-        # AOI 시선 추적 업데이트 (flip 직후 호출하여 프레임 타임스탬프와 동기화)
-        if aoi_manager:
-            aoi_manager.update(core.getTime())
+        # flip 직후 타임스탬프를 찍어 VSync 소요 시간만 _elapsed에 반영한다.
+        # aoi_manager.update() 처리 시간이 _elapsed에 섞이지 않도록 순서를 분리한다.
+        _post_flip_t = core.getTime()
 
-        # win.flip() 자체가 VSync(~16.67 ms)만큼 블록하므로,
-        # 남은 시간만큼만 추가로 대기해 목표 주기(16 ms)를 맞춘다.
-        # 이미 목표를 초과했다면(overrun) 대기 없이 즉시 다음 프레임으로 진입하고 경고를 출력한다.
-        _FRAME_TARGET_S = 0.016
+        # AOI 시선 추적 업데이트 (flip 직후 타임스탬프로 동기화)
+        if aoi_manager:
+            aoi_manager.update(_post_flip_t)
+
+        # VSync(~16.67 ms, 60 Hz) 후 남은 시간만큼 추가 대기해 목표 주기를 맞춘다.
+        # 이미 초과했다면(overrun) 즉시 다음 프레임으로 진입하고 경고를 출력한다.
+        _FRAME_TARGET_S = 1.0 / 60.0
         _FRAME_TOLERANCE_S = 0.003   # 3 ms 허용 오차
-        _elapsed = core.getTime() - _frame_t0
+        _elapsed = _post_flip_t - _frame_t0
         _remaining = _FRAME_TARGET_S - _elapsed
         if _remaining > 0:
             core.wait(_remaining)
