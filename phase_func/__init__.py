@@ -5,12 +5,14 @@ from .game_play import run_game_play_phase
 from .ending import run_ending_phase
 
 try:
-	from ..config import DEFAULT_GAME_MODE
+	from ..config import DEFAULT_GAME_MODE, USE_PRACTICE
+	from ..phase_func_practice import run_practice_game
 except ImportError:
 	import sys
 	from pathlib import Path
 	sys.path.insert(0, str(Path(__file__).parent.parent))
-	from config import DEFAULT_GAME_MODE
+	from config import DEFAULT_GAME_MODE, USE_PRACTICE
+	from phase_func_practice import run_practice_game
 
 
 def run_all_phases(
@@ -65,6 +67,35 @@ def run_all_phases(
 	if tutorial_result == 'exit':
 		run_ending_phase(win, ui_elements, game_state, 'exit')
 		return 'exit'
+
+	if USE_PRACTICE:
+		print("[3.5/4] 연습 게임 phase...")
+		practice_result = run_practice_game(
+			win, game_state, ui_elements,
+			board_renderer, deck_renderer, token_renderer,
+		)
+		if practice_result == 'exit':
+			run_ending_phase(win, ui_elements, game_state, 'exit')
+			return 'exit'
+		# 연습 후 game_state 초기화 (점수·타이머 리셋)
+		game_state.__init__(selected_mode_id=game_state.selected_mode_id)
+		game_state.set_selected_mode(selected_mode_id)
+		board_renderer.board = game_state.board
+		board_renderer.card_images = {}
+		board_renderer.highlights = {}
+		board_renderer._create_visuals()
+		deck_renderer.deck = game_state.deck
+		deck_renderer.card_backs = []
+		deck_renderer.card_fronts = []
+		deck_renderer.highlights = []
+		deck_renderer._create_visuals()
+		token_renderer.token_manager = game_state.tokens
+		token_renderer.token_stims = {}
+		token_renderer._create_visuals()
+		if aoi_manager is not None:
+			aoi_manager.board = game_state.board
+			aoi_manager.deck  = game_state.deck
+			aoi_manager._build_aois()
 
 	print("[4/4] 게임 플레이 phase...")
 	game_state.start_game()
