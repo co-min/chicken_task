@@ -1,4 +1,5 @@
 import sys
+import time
 from pathlib import Path
 from psychopy import core, event
 
@@ -33,13 +34,13 @@ except ImportError:
 try:
     from ..view_func.frame_marker import blink_frame_marker, trigger_frame_marker
     from ..sounds import load_sounds, play as sound_play
-    from ..utils.labjack_triggers import send_trigger
+    from ..utils.labjack_triggers import send_trigger, send_trigger_async, reset_trigger
     from ..utils.timer import checked_wait
     from ..save_func.trial_saver import save_trial
 except ImportError:
     from view_func.frame_marker import blink_frame_marker, trigger_frame_marker
     from sounds import load_sounds, play as sound_play
-    from utils.labjack_triggers import send_trigger
+    from utils.labjack_triggers import send_trigger, send_trigger_async, reset_trigger
     from utils.timer import checked_wait
     from save_func.trial_saver import save_trial
 
@@ -71,11 +72,29 @@ def _ljack(aoi_manager, code: int):
         send_trigger(aoi_manager.labjack_handle, code)
 
 
-def _ljack_on_flip(win, aoi_manager, code: int):
+def _ljack_on_flip(win, aoi_manager, code: int) -> bool:
     """다음 win.flip() 직후 VSync 타이밍에 맞춰 TTL 트리거를 전송한다 (TRIAL_START 용).
-    callOnFlip을 사용해 화면 갱신 순간과 트리거를 정확히 동기화한다."""
+    callOnFlip + send_trigger_async 로 HIGH만 설정하고 즉시 반환해 flip 지연을 제거한다.
+    5ms 펄스 LOW 리셋은 호출자가 win.flip() 반환 후 _deferred_lj_reset() 으로 처리한다.
+    Returns True if trigger was registered (caller should call _deferred_lj_reset)."""
     if aoi_manager and aoi_manager.labjack_handle:
-        win.callOnFlip(send_trigger, aoi_manager.labjack_handle, code)
+        win.callOnFlip(send_trigger_async, aoi_manager.labjack_handle, code)
+        return True
+    return False
+
+
+_TRIGGER_PULSE_S = 0.005  # LabJack TTL 펄스 폭 (send_trigger 기본값과 동일)
+
+
+def _deferred_lj_reset(labjack_handle, flip_perf_t: float):
+    """callOnFlip(send_trigger_async) 이후 5ms 펄스가 완료될 때까지 busy-wait 후 핀을 LOW로 리셋한다.
+    win.flip() 반환 직후 flip_perf_t = time.perf_counter() 를 캡처해서 인자로 전달한다."""
+    _remaining = _TRIGGER_PULSE_S - (time.perf_counter() - flip_perf_t)
+    if _remaining > 0:
+        _deadline = flip_perf_t + _TRIGGER_PULSE_S
+        while time.perf_counter() < _deadline:
+            pass
+    reset_trigger(labjack_handle)
 
 
 def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_renderer,
@@ -192,6 +211,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
     # 2. 카드 선택 루프 (같은 토큰으로 계속 진행)
     _trial_active = False  # True인 동안은 TRIAL_START를 중복 전송하지 않는다
     _trial_id = None
+    _pending_lj_reset = False  # callOnFlip(send_trigger_async) 등록 후 deferred reset 필요 여부
     while game_state.phase == game_state.PHASE_GAME_PLAY and \
           game_state.current_turn == game_state.TURN_USER:
 
@@ -220,7 +240,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                      f" TURN {game_state.turn_count}"
                      + (f" SEQ_MEMORY step 0/{len(game_state.seq_memory_targets)}"
                         if game_state.seq_memory_active else ""))
-            _ljack_on_flip(win, aoi_manager, _LJ_TRIAL_START)
+            _pending_lj_reset = _ljack_on_flip(win, aoi_manager, _LJ_TRIAL_START)
             _trial_active = True
         
         # 사용자 턴 HUD 업데이트
@@ -313,7 +333,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                              f"TRIAL_START {_trial_id} USER"
                              f" ROUND {game_state.current_round}"
                              f" TURN {game_state.turn_count} SEQ_MEMORY step {step_now}/{step_total}")
-                    _ljack_on_flip(win, aoi_manager, _LJ_TRIAL_START)
+                    _pending_lj_reset = _ljack_on_flip(win, aoi_manager, _LJ_TRIAL_START)
                     # target_pos를 다음 스텝으로 갱신하고 루프 계속 (타이머 리셋 없음)
                     target_pos = game_state.get_seq_memory_current_target()
                     continue
@@ -441,8 +461,11 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
         blink_frame_marker(win)
         win.flip()
 
+        # flip 직후 perf_counter 캡처: deferred trigger reset 타이밍 기준점
+        _flip_perf_t = time.perf_counter()
+
         # flip 직후 타임스탬프를 찍어 VSync 소요 시간만 _elapsed에 반영한다.
-        # aoi_manager.update() 처리 시간이 _elapsed에 섞이지 않도록 순서를 분리한다.
+        # send_trigger_async 는 비블로킹이므로 flip() 이 VSync 직후 즉시 반환된다.
         _post_flip_t = core.getTime()
 
         # AOI 시선 추적 업데이트 (flip 직후 타임스탬프로 동기화)
@@ -466,6 +489,13 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                 f"actual {_actual_frame * 1000:.1f} ms "
                 f"(diff {(_actual_frame - _FRAME_TARGET_S) * 1000:+.1f} ms)"
             )
+
+        # Deferred trigger reset: callOnFlip(send_trigger_async)로 VSync 시점에 HIGH 설정 후
+        # 5ms 펄스가 완료되도록 여기서 LOW로 리셋한다. _actual_frame 측정 이후에 실행되므로
+        # 프레임 타이밍 계측에 영향을 주지 않는다.
+        if _pending_lj_reset and aoi_manager and aoi_manager.labjack_handle:
+            _deferred_lj_reset(aoi_manager.labjack_handle, _flip_perf_t)
+            _pending_lj_reset = False
 
     return 'continue'
 

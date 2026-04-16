@@ -195,7 +195,7 @@ KEY_EXIT = 'escape'           # 게임 종료
 
 
 # ==================== EXPERIMENT SETTINGS ====================
-USE_PRACTICE = 1              # 0: 연습 없음, 1: 연습 있음
+USE_PRACTICE = 0              # 0: 연습 없음, 1: 연습 있음
 PRACTICE_TRIALS = 3           # 일반 연습 시행 수
 PRACTICE_SEQ_TRIALS = 2       # 순서 기억 연습 시행 수 (0이면 생략)
 PRACTICE_SEQ_STEPS = 2        # 순서 기억 연습 1회당 타겟 수
