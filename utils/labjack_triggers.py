@@ -119,10 +119,10 @@ def send_trigger(handle: int | None, code: int, pulse_s: float = 0.005):
 
 
 def send_trigger_async(handle: int | None, code: int):
-    """
-    EIO_STATE 를 즉시 설정합니다 (비블로킹).
-    리셋은 AOIManager 또는 호출자가 직접 처리해야 합니다.
-    """
+
+    # EIO_STATE 설정(비블로킹).
+    # 리셋은 AOIManager 또는 호출자가 직접 처리.
+
     if handle is None or not _LJM_AVAILABLE:
         return
     try:

@@ -33,6 +33,7 @@ _event_frame = -(FRAME_MARKER_DURATION + 1)
 # win이 바뀌면(새 창 생성 시) 자동으로 재생성됨
 _marker_rect = None
 _marker_win  = None
+_marker_pos  = None
 
 
 def trigger_frame_marker():
@@ -64,7 +65,16 @@ def blink_frame_marker(win):
     global _current_frame
     _current_frame += 1
     if _current_frame - _event_frame < FRAME_MARKER_DURATION:
-        draw_white_marker(win, FRAME_MARKER_POS, FRAME_MARKER_SIZE)
+        # FRAME_MARKER_POS가 None이면 모니터 크기에 맞게 좌하단으로 자동 계산
+        if FRAME_MARKER_POS is None:
+            w, h = win.size
+            pos = (
+                -w // 2 + FRAME_MARKER_SIZE[0] // 2,
+                -h // 2 + FRAME_MARKER_SIZE[1] // 2,
+            )
+        else:
+            pos = FRAME_MARKER_POS
+        draw_white_marker(win, pos, FRAME_MARKER_SIZE)
 
 
 def draw_white_marker(win, pos, size):
@@ -108,11 +118,11 @@ def draw_white_marker(win, pos, size):
     Eye-tracking 실험에서 프레임 동기화를 위해 화면 모서리에
     작은 흰색 마커를 그려서 비디오 프레임과 동기화하는 용도로 사용 가능
     """
-    global _marker_rect, _marker_win
+    global _marker_rect, _marker_win, _marker_pos
 
-    # 싱글톤: win이 바뀌었거나 아직 생성되지 않은 경우에만 새로 만든다.
-    # 동일 win에서는 매 프레임 객체 생성 없이 캐시된 Rect를 재사용한다.
-    if _marker_rect is None or _marker_win is not win:
+    # 싱글톤: win·pos가 바뀌었거나 아직 생성되지 않은 경우에만 새로 만든다.
+    # 동일 win/pos에서는 매 프레임 객체 생성 없이 캐시된 Rect를 재사용한다.
+    if _marker_rect is None or _marker_win is not win or _marker_pos != pos:
         _marker_rect = visual.Rect(
             win,
             width=size[0],          # 마커의 너비 (픽셀 단위)
@@ -123,6 +133,7 @@ def draw_white_marker(win, pos, size):
             units='pix'             # 좌표와 크기를 픽셀 단위로 지정
         )
         _marker_win = win
+        _marker_pos = pos
 
     # 캐시된 Rect를 화면 버퍼에 그림
     # 실제 화면에 표시되려면 win.flip()이 호출되어야 함
