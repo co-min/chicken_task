@@ -73,11 +73,11 @@ COLOR_RGB = {
 
 # ==================== TIMING SETTINGS ====================
 TURN_TIME_LIMIT = 15          # 초 (매 시도마다 리셋)
-CARD_FLIP_DURATION = 2       # 초 (카드 앞면 노출 시간)
+CARD_FLIP_DURATION = 0.7       # 초 (카드 앞면 노출 시간)
 FEEDBACK_DURATION = 0.3       # 초 (피드백 표시 시간)
-TRIAL_INTERVAL = 1          # 초 (시행 간 간격)
+TRIAL_INTERVAL = 0.7          # 초 (시행 간 간격)
 TOKEN_TIME_WAIT = 1
-CATCH_RESET_PREP_DURATION = 1  # 초 (잡기 이벤트 후 토큰 위치 초기화 유예 시간)
+CATCH_RESET_PREP_DURATION = 0.7  # 초 (잡기 이벤트 후 토큰 위치 초기화 유예 시간)
 GAME_TIME_LIMIT = 1800         # 초 (전체 게임 제한 시간, 30분)
 
 # ==================== ROUND SETTINGS ====================
@@ -195,7 +195,7 @@ KEY_EXIT = 'escape'           # 게임 종료
 
 
 # ==================== EXPERIMENT SETTINGS ====================
-USE_PRACTICE = 0              # 0: 연습 없음, 1: 연습 있음
+USE_PRACTICE = 1              # 0: 연습 없음, 1: 연습 있음
 PRACTICE_TRIALS = 3           # 일반 연습 시행 수
 PRACTICE_SEQ_TRIALS = 2       # 순서 기억 연습 시행 수 (0이면 생략)
 PRACTICE_SEQ_STEPS = 2        # 순서 기억 연습 1회당 타겟 수

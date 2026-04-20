@@ -502,19 +502,6 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
 
 def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, token_renderer,
                  aoi_manager=None, save_paths=None, subject_id='', sounds=None):
-    """
-    PC 턴 실행 (NPC AI 사용)
-    
-    흐름:
-    1. NPC AI가 카드 선택
-    2. 카드 뒤집기 애니메이션
-    3. 결과 판정 표시
-    4. 성공 시: 토큰 이동 애니메이션 → 다음 타겟으로 계속
-       실패 시: 턴 종료 → 사용자 턴으로 전환
-    
-    Returns:
-        str: 'game_end' (승패 결정), 'continue' (턴 종료 → 사용자 턴)
-    """
     
     # PC 턴 루프 (성공 시 계속 진행)
     while game_state.current_turn == game_state.TURN_PC:

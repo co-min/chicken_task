@@ -5,7 +5,7 @@
 #   handle = init_labjack()
 #   send_trigger(handle, code=10)   # 10ms 블로킹 펄스
 #   close_labjack(handle)
-#
+
 # 트리거 코드 규약 (config.py AOI_TRIGGER_* 상수와 연동):
 #   0        : 리셋 / 무신호
 #   10 ~ 33  : 보드 카드 AOI 진입 (AOI_TRIGGER_BOARD_OFFSET + position_index)
@@ -40,23 +40,7 @@ _PULSE_TOLERANCE_S = 0.001  # 1 ms
 def init_labjack(device: str = "T4",
                  connection: str = "USB",
                  identifier: str = "ANY") -> int | None:
-    """
-    LabJack T4에 연결하고 핸들을 반환합니다.
-
-    Parameters
-    ----------
-    device : str
-        장치 유형. 기본값 "T4".
-    connection : str
-        연결 방식. "USB" | "ETHERNET" | "ANY". 기본값 "USB".
-    identifier : str
-        장치 식별자 (시리얼 번호 또는 "ANY"). 기본값 "ANY".
-
-    Returns
-    -------
-    int | None
-        성공하면 핸들 정수, 실패하면 None.
-    """
+    # LabJack T4 연결
     if not _LJM_AVAILABLE:
         print("[LabJack] ljm 라이브러리를 찾을 수 없습니다. 트리거가 비활성화됩니다.")
         return None
@@ -78,10 +62,7 @@ def init_labjack(device: str = "T4",
 
 
 def close_labjack(handle: int | None):
-    """
-    LabJack 연결을 안전하게 종료합니다.
-    종료 전 EIO_STATE 를 0으로 리셋합니다.
-    """
+    #LABJACK 연결 종료 및 EIO_STATE -> 0
     if handle is None or not _LJM_AVAILABLE:
         return
     try:
