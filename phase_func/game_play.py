@@ -34,32 +34,26 @@ except ImportError:
 try:
     from ..view_func.frame_marker import blink_frame_marker, trigger_frame_marker
     from ..sounds import load_sounds, play as sound_play
-    from ..utils.labjack_triggers import send_trigger, send_trigger_async, reset_trigger
+    from ..utils.labjack_triggers import (send_trigger, send_trigger_async, reset_trigger,
+                                           TRIG_TRIAL_START, TRIG_TRIAL_END,
+                                           TRIG_CARD_CLICK, TRIG_CARD_FLIP_USER, TRIG_CARD_FLIP_PC,
+                                           TRIG_FEEDBACK_SUCCESS, TRIG_FEEDBACK_FAILURE, TRIG_FEEDBACK_TIMEOUT,
+                                           TRIG_SEQ_ACTIVATE, TRIG_SEQ_ALL_SUCCESS, TRIG_SEQ_FAILURE)
     from ..utils.timer import checked_wait
     from ..save_func.trial_saver import save_trial
 except ImportError:
     from view_func.frame_marker import blink_frame_marker, trigger_frame_marker
     from sounds import load_sounds, play as sound_play
-    from utils.labjack_triggers import send_trigger, send_trigger_async, reset_trigger
+    from utils.labjack_triggers import (send_trigger, send_trigger_async, reset_trigger,
+                                        TRIG_TRIAL_START, TRIG_TRIAL_END,
+                                        TRIG_CARD_CLICK, TRIG_CARD_FLIP_USER, TRIG_CARD_FLIP_PC,
+                                        TRIG_FEEDBACK_SUCCESS, TRIG_FEEDBACK_FAILURE, TRIG_FEEDBACK_TIMEOUT,
+                                        TRIG_SEQ_ACTIVATE, TRIG_SEQ_ALL_SUCCESS, TRIG_SEQ_FAILURE)
     from utils.timer import checked_wait
     from save_func.trial_saver import save_trial
 
 
 START_CUE_DURATION = 0.8
-
-# LabJack 트리거 코드 (labjack_triggers.py 규약과 동일)
-_LJ_TRIAL_START      = 200
-_LJ_TRIAL_END        = 201
-_LJ_CARD_CLICK       = 100   # 사용자 덱 카드 클릭 (운동 반응 onset)
-_LJ_CARD_FLIP_USER   = 101   # 사용자 카드 뒤집기 visual onset
-_LJ_CARD_FLIP_PC     = 102   # PC 카드 뒤집기 visual onset
-_LJ_FEEDBACK_SUCCESS = 210   # 피드백: 성공 (FRN/P300 onset)
-_LJ_FEEDBACK_FAILURE = 211   # 피드백: 실패 (FRN/P300 onset)
-_LJ_FEEDBACK_TIMEOUT = 212   # 피드백: 타임아웃
-_LJ_SEQ_ACTIVATE     = 220   # 순차 메모리 활성화 onset
-_LJ_SEQ_STEP_SUCCESS = 221   # 순차 메모리 스텝 성공 피드백
-_LJ_SEQ_ALL_SUCCESS  = 222   # 순차 메모리 전체 성공 피드백
-_LJ_SEQ_FAILURE      = 223   # 순차 메모리 실패 피드백 (이동 없음)
 
 
 def _edf_msg(aoi_manager, message: str):
@@ -235,7 +229,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                 aoi_manager.seq_memory_step  = (game_state.seq_memory_step
                                                 if game_state.seq_memory_active else None)
             if game_state.seq_memory_active:
-                _ljack(aoi_manager, _LJ_SEQ_ACTIVATE)   # 활성화 onset (즉시 전송)
+                _ljack(aoi_manager, TRIG_SEQ_ACTIVATE)   # 활성화 onset (즉시 전송)
                 trigger_frame_marker()   # 이벤트: seq_memory 활성화
             _edf_msg(aoi_manager,
                      f"TRIAL_START {_trial_id} USER"
@@ -243,7 +237,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                      f" TURN {game_state.turn_count}"
                      + (f" SEQ_MEMORY step 0/{len(game_state.seq_memory_targets)}"
                         if game_state.seq_memory_active else ""))
-            _pending_lj_reset = _ljack_on_flip(win, aoi_manager, _LJ_TRIAL_START)
+            _pending_lj_reset = _ljack_on_flip(win, aoi_manager, TRIG_TRIAL_START)
             _trial_active = True
         
         # 사용자 턴 HUD 업데이트
@@ -268,13 +262,13 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                 duration=FEEDBACK_DURATION,
                 highlighted_pos=None,
                 labjack_handle=aoi_manager.labjack_handle if aoi_manager else None,
-                trigger_code=_LJ_FEEDBACK_TIMEOUT,
+                trigger_code=TRIG_FEEDBACK_TIMEOUT,
             )
             
             # 시행 종료 마킹 (seq_memory 도중 타임아웃이면 seq_timeout으로 구별)
             _timeout_result = "seq_timeout" if game_state.seq_memory_active else "timeout"
             _edf_msg(aoi_manager, f"TRIAL_END {_trial_id} MATCH 0 RESULT {_timeout_result}")
-            _ljack(aoi_manager, _LJ_TRIAL_END)
+            _ljack(aoi_manager, TRIG_TRIAL_END)
             # 턴 종료 (end_user_turn 내부에서 deactivate_seq_memory + selected_token 리셋됨)
             game_state.end_user_turn()
 
@@ -296,7 +290,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                 card_row, card_col = card_pos
 
                 # 덱 카드 클릭 즉시 트리거 (운동 반응 onset — flip 전에 전송)
-                _ljack(aoi_manager, _LJ_CARD_CLICK)
+                _ljack(aoi_manager, TRIG_CARD_CLICK)
 
                 # ── 카드 선택 처리 (seq_memory 활성 여부에 따라 분기) ──
                 was_seq_memory = game_state.seq_memory_active
@@ -321,7 +315,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                 win.flip()
                 _card_flip_perf_t = time.perf_counter()
                 if aoi_manager and aoi_manager.labjack_handle:
-                    send_trigger_async(aoi_manager.labjack_handle, _LJ_CARD_FLIP_USER)
+                    send_trigger_async(aoi_manager.labjack_handle, TRIG_CARD_FLIP_USER)
                     _deferred_lj_reset(aoi_manager.labjack_handle, _card_flip_perf_t)
                 checked_wait(CARD_FLIP_DURATION, label="user_card_flip")
 
@@ -340,7 +334,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                              f"TRIAL_START {_trial_id} USER"
                              f" ROUND {game_state.current_round}"
                              f" TURN {game_state.turn_count} SEQ_MEMORY step {step_now}/{step_total}")
-                    _pending_lj_reset = _ljack_on_flip(win, aoi_manager, _LJ_TRIAL_START)
+                    _pending_lj_reset = _ljack_on_flip(win, aoi_manager, TRIG_TRIAL_START)
                     # target_pos를 다음 스텝으로 갱신하고 루프 계속 (타이머 리셋 없음)
                     target_pos = game_state.get_seq_memory_current_target()
                     continue
@@ -359,7 +353,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                             duration=FEEDBACK_DURATION,
                             highlighted_pos=None,
                             labjack_handle=aoi_manager.labjack_handle if aoi_manager else None,
-                            trigger_code=_LJ_SEQ_ALL_SUCCESS,
+                            trigger_code=TRIG_SEQ_ALL_SUCCESS,
                         )
                         move_result = game_state.complete_seq_memory_move()
                     else:
@@ -371,7 +365,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                             duration=FEEDBACK_DURATION,
                             highlighted_pos=None,
                             labjack_handle=aoi_manager.labjack_handle if aoi_manager else None,
-                            trigger_code=_LJ_FEEDBACK_SUCCESS,
+                            trigger_code=TRIG_FEEDBACK_SUCCESS,
                         )
                         move_result = game_state.complete_user_success_move()
 
@@ -393,7 +387,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                         _show_reset_prep_cue(win, ui_elements, board_renderer, deck_renderer,
                                              token_renderer, game_state)
                         _edf_msg(aoi_manager, f"TRIAL_END {_trial_id} MATCH 1 RESULT user_caught_npc")
-                        _ljack(aoi_manager, _LJ_TRIAL_END)
+                        _ljack(aoi_manager, TRIG_TRIAL_END)
                         _trial_active = False
                         _run_round_break(win, ui_elements, board_renderer, deck_renderer,
                                          token_renderer, game_state)
@@ -411,7 +405,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                     # 시행 종료 마킹
                     edf_result = 'seq_all_success' if result == 'all_success' else 'success'
                     _edf_msg(aoi_manager, f"TRIAL_END {_trial_id} MATCH 1 RESULT {edf_result}")
-                    _ljack(aoi_manager, _LJ_TRIAL_END)
+                    _ljack(aoi_manager, TRIG_TRIAL_END)
                     _trial_active = False
 
                     # 타이머 리셋 후 다음 타겟 계속
@@ -436,11 +430,11 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                     #                 카드 선택 전에 저장한 was_seq_memory로 판별한다.
                     if was_seq_memory:
                         fail_msg    = "순차 실패 - 이동 없음"
-                        fail_code   = _LJ_SEQ_FAILURE
+                        fail_code   = TRIG_SEQ_FAILURE
                         fail_result = "seq_failure"
                     else:
                         fail_msg    = "실패"
-                        fail_code   = _LJ_FEEDBACK_FAILURE
+                        fail_code   = TRIG_FEEDBACK_FAILURE
                         fail_result = "failure"
                     run_feedback_phase(
                         win, ui_elements, board_renderer, deck_renderer, token_renderer,
@@ -453,7 +447,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                     )
                     game_state.deck.hide_card(card_row, card_col)
                     _edf_msg(aoi_manager, f"TRIAL_END {_trial_id} MATCH 0 RESULT {fail_result}")
-                    _ljack(aoi_manager, _LJ_TRIAL_END)
+                    _ljack(aoi_manager, TRIG_TRIAL_END)
                     print(f"[USER TURN] {'순차 ' if was_seq_memory else ''}실패, 턴 종료")
                     return 'continue'
 
@@ -550,7 +544,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
         if game_state.seq_memory_active:
             pc_target_pos = game_state.get_seq_memory_current_target()
             if not _was_pc_seq_active:
-                _ljack(aoi_manager, _LJ_SEQ_ACTIVATE)   # 신규 활성화 onset (즉시 전송)
+                _ljack(aoi_manager, TRIG_SEQ_ACTIVATE)   # 신규 활성화 onset (즉시 전송)
         # else: 위에서 계산된 pc_target_pos 유지
 
         _seq_tag = (
@@ -562,7 +556,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
                  f" ROUND {game_state.current_round}"
                  f" TURN {game_state.turn_count}"
                  + _seq_tag)
-        _ljack_on_flip(win, aoi_manager, _LJ_TRIAL_START)
+        _ljack_on_flip(win, aoi_manager, TRIG_TRIAL_START)
 
         _checked_as_pc_seq = game_state.seq_memory_active
         if _checked_as_pc_seq:
@@ -584,7 +578,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
         win.flip()
         _card_flip_perf_t = time.perf_counter()
         if aoi_manager and aoi_manager.labjack_handle:
-            send_trigger_async(aoi_manager.labjack_handle, _LJ_CARD_FLIP_PC)
+            send_trigger_async(aoi_manager.labjack_handle, TRIG_CARD_FLIP_PC)
             _deferred_lj_reset(aoi_manager.labjack_handle, _card_flip_perf_t)
         checked_wait(CARD_FLIP_DURATION, label="pc_card_flip")
 
@@ -597,7 +591,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
                 color=DARK_GREY,
                 duration=FEEDBACK_DURATION, highlighted_pos=pc_target_pos,
                 labjack_handle=aoi_manager.labjack_handle if aoi_manager else None,
-                trigger_code=_LJ_SEQ_FAILURE if _checked_as_pc_seq else 0,
+                trigger_code=TRIG_SEQ_FAILURE if _checked_as_pc_seq else 0,
             )
         elif result == 'step_success':
             pass  # 중간 스텝 성공은 피드백 없이 조용히 다음 스텝으로 진행
@@ -611,7 +605,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
                     color=GOLD,
                     duration=FEEDBACK_DURATION, highlighted_pos=pc_target_pos,
                     labjack_handle=aoi_manager.labjack_handle if aoi_manager else None,
-                    trigger_code=_LJ_SEQ_ALL_SUCCESS,
+                    trigger_code=TRIG_SEQ_ALL_SUCCESS,
                 )
             else:
                 run_feedback_phase(
@@ -635,7 +629,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
                      f" ROUND {game_state.current_round}"
                      f" TURN {game_state.turn_count}"
                      f" SEQ_MEMORY step {game_state.seq_memory_step}/{len(game_state.seq_memory_targets)}")
-            _ljack_on_flip(win, aoi_manager, _LJ_TRIAL_START)
+            _ljack_on_flip(win, aoi_manager, TRIG_TRIAL_START)
             pc_target_pos = game_state.get_seq_memory_current_target()
             checked_wait(PC_THINK_TIME, label="pc_seq_think_time")
             continue
@@ -665,7 +659,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
                                      token_renderer, game_state)
                 edf_result = 'seq_npc_caught_user' if result == 'all_success' else 'npc_caught_user'
                 _edf_msg(aoi_manager, f"TRIAL_END {_pc_trial_id} MATCH 1 RESULT {edf_result}")
-                _ljack(aoi_manager, _LJ_TRIAL_END)
+                _ljack(aoi_manager, TRIG_TRIAL_END)
                 _run_round_break(win, ui_elements, board_renderer, deck_renderer,
                                  token_renderer, game_state)
                 game_state.advance_round()
@@ -681,7 +675,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
             # 일반/seq 성공: PC 턴 계속
             edf_result = 'seq_all_success' if result == 'all_success' else 'success'
             _edf_msg(aoi_manager, f"TRIAL_END {_pc_trial_id} MATCH 1 RESULT {edf_result}")
-            _ljack(aoi_manager, _LJ_TRIAL_END)
+            _ljack(aoi_manager, TRIG_TRIAL_END)
             print(f"[문어] 성공({result}), 다음 타겟으로 계속")
             checked_wait(TRIAL_INTERVAL, label="pc_trial_interval")
             continue
@@ -691,7 +685,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
                 game_state.deck.hide_card(card_pos[0], card_pos[1])
             pc_fail_result = "seq_failure" if _checked_as_pc_seq else "failure"
             _edf_msg(aoi_manager, f"TRIAL_END {_pc_trial_id} MATCH 0 RESULT {pc_fail_result}")
-            _ljack(aoi_manager, _LJ_TRIAL_END)
+            _ljack(aoi_manager, TRIG_TRIAL_END)
             print(f"[문어] {'순차 ' if _checked_as_pc_seq else ''}실패, 턴 종료")
             return 'continue'
     

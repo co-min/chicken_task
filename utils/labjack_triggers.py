@@ -33,6 +33,32 @@ _LATCH_CIO_STATE = 0x01  # CIO0 = HIGH
 
 
 # ============================================================================
+# 트리거 코드 상수
+# ============================================================================
+
+TRIG_RESET            = 0
+
+TRIG_CARD_CLICK       = 100   # 사용자 덱 카드 클릭 (운동 반응 onset)
+TRIG_CARD_FLIP_USER   = 101   # 사용자 카드 뒤집기 visual onset
+TRIG_CARD_FLIP_PC     = 102   # PC 카드 뒤집기 visual onset
+
+TRIG_TOKEN_CHASE      = 110   # 닭 선택 – chase
+TRIG_TOKEN_FLIGHT     = 111   # 닭 선택 – flight
+
+TRIG_TRIAL_START      = 200
+TRIG_TRIAL_END        = 201
+
+TRIG_FEEDBACK_SUCCESS = 210   # 피드백: 성공 (FRN/P300 onset)
+TRIG_FEEDBACK_FAILURE = 211   # 피드백: 실패
+TRIG_FEEDBACK_TIMEOUT = 212   # 피드백: 타임아웃
+
+TRIG_SEQ_ACTIVATE     = 220   # 순차 메모리 활성화 onset
+TRIG_SEQ_STEP_SUCCESS = 221   # 순차 메모리 스텝 성공 피드백
+TRIG_SEQ_ALL_SUCCESS  = 222   # 순차 메모리 전체 성공 피드백
+TRIG_SEQ_FAILURE      = 223   # 순차 메모리 실패 피드백
+
+
+# ============================================================================
 # 연결 관리
 # ============================================================================
 
