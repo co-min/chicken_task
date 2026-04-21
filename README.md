@@ -186,7 +186,53 @@ EyeLink 연동 시 AOI 진입 이벤트 기록 (AOI 유형, 위치 인덱스, �
 # LabJack T4
 
 `config.py`에서 `USE_LABJACK = 1` 설정.  
-시행 시작/종료, 닭 선택, 카드 클릭, 카드 뒤집기, 피드백, 순차 메모리 이벤트에 대응하는 EIO TTL 코드가 전송됩니다.
+시행 시작/종료, 닭 선택, 카드 클릭, 카드 뒤집기, 피드백, 순차 메모리 이벤트에 대응하는 TTL 코드가 전송됩니다.
+
+## 핀 구성 (총 9라인)
+
+| 핀 | 역할 | 설명 |
+| --- | --- | --- |
+| EIO0–EIO7 (8핀) | 트리거 코드 데이터 | 8비트 병렬 출력, 0–255 코드값 표현 |
+| CIO0 (1핀) | Trigger latch (strobe) | Natus Quantum이 이 핀의 rising edge에서 EIO 데이터를 캡처 |
+
+## Trigger Latch 동작 원리
+
+EIO 8핀에 코드값을 세팅하는 것만으로는 Natus Quantum이 "언제 읽어야 하는지"를 알 수 없습니다.  
+CIO0(latch) 핀의 `0→1` **rising edge**가 "지금 읽어라"는 신호 역할을 합니다.
+
+```
+매 트리거 전송 순서:
+  ① EIO_STATE = code     (8비트 데이터 세팅)
+  ② CIO0 = 1             (latch HIGH → Natus Quantum이 rising edge에서 EIO 캡처)
+  ③ 5ms 대기
+  ④ CIO0 = 0             (latch LOW)
+  ⑤ EIO_STATE = 0        (데이터 클리어)
+
+타이밍 다이어그램:
+  EIO 데이터:  0 ──[  code  ]── 0
+  CIO0(latch): 0 ──[  HIGH  ]── 0
+                    ↑
+               rising edge에서
+               Natus Quantum이 code값 캡처 → EEG 파일에 타임스탬프 기록
+```
+
+## 초기화 (`init_labjack`)
+
+시작 시 다음 레지스터를 명시적으로 초기화합니다:
+
+| 레지스터 | 값 | 이유 |
+| --- | --- | --- |
+| `EIO_INHIBIT` | 0 | EIO 출력 활성화 (기본값이지만 명시적 설정) |
+| `EIO_DIRECTION` | 0xFF | EIO0–7 전부 출력 모드 |
+| `EIO_STATE` | 0 | 초기값 LOW |
+| `CIO_INHIBIT` | 0 | CIO 출력 활성화 |
+| `CIO_DIRECTION` | 0x0F | CIO0–3 출력 모드 |
+| `CIO_STATE` | 0 | latch 초기값 LOW |
+
+## 트리거 코드북
+
+실험 중 발생하는 각 이벤트와 대응 코드입니다.  
+EEG 분석 시 이 코드북을 참조하여 타임스탬프를 이벤트로 변환합니다.
 
 | 이벤트                       | 트리거 코드 | 전송 시점                        | 구현 위치                |
 | ---------------------------- | ----------- | -------------------------------- | ------------------------ |
@@ -208,13 +254,11 @@ EyeLink 연동 시 AOI 진입 이벤트 기록 (AOI 유형, 위치 인덱스, �
 
 ## TTL 전송 방식
 
-트리거는 LabJack T4 EIO 포트(EIO0–EIO7)에 5ms 펄스로 전송됩니다.
+**callOnFlip 방식** (200, 210–212, 220–223)  
+PsychoPy `win.callOnFlip(send_trigger_async, ...)` 으로 VSync 직후 EIO + CIO0(latch)를 HIGH로 설정하고, `_deferred_lj_reset()` 으로 5ms 후 CIO0 LOW → EIO 0 순으로 리셋합니다. 화면 갱신과 정확히 동기화해야 하는 이벤트에 사용합니다.
 
-**callOnFlip 방식** (200, 210–212, 220–223)
-PsychoPy `win.callOnFlip(send_trigger_async, ...)` 으로 VSync 직후 HIGH를 설정하고, `_deferred_lj_reset()` 으로 5ms 후 LOW 리셋합니다. TRIAL_START 등 화면 갱신과 정확히 동기화해야 하는 이벤트에 사용합니다.
+**post-VSync 즉시 전송 방식** (101, 102)  
+`win.flip()` 반환 직후 `send_trigger_async()` 를 호출합니다. `callOnFlip` 큐에 TRIAL_START(200)가 이미 등록되어 있을 수 있어 충돌을 피하기 위해 이 방식을 사용합니다.
 
-**post-VSync 즉시 전송 방식** (101, 102)
-카드 뒤집기 visual onset은 `win.flip()` 반환 직후 `send_trigger_async()` 를 호출합니다. `callOnFlip` 큐에 TRIAL_START(200)가 이미 등록되어 있을 수 있어 충돌을 피하기 위해 이 방식을 사용합니다. VSync 반환 후 수 마이크로초 이내에 발송되므로 EEG 분석에 충분한 정밀도를 가집니다.
-
-**즉시 블로킹 전송 방식** (100, 110, 111)
-`send_trigger()` 로 HIGH → 5ms busy-wait → LOW 를 한 번에 처리합니다. 닭 선택이나 카드 클릭처럼 flip 타이밍과 무관한 운동/의사결정 반응 onset에 사용합니다.
+**즉시 블로킹 전송 방식** (100, 110, 111)  
+`send_trigger()` 로 EIO HIGH + CIO0 HIGH → 5ms busy-wait → CIO0 LOW → EIO 0 을 한 번에 처리합니다. 닭 선택이나 카드 클릭처럼 flip 타이밍과 무관한 운동/의사결정 반응 onset에 사용합니다.
