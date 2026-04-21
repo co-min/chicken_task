@@ -14,6 +14,7 @@ try:
     )
     from ..view_func.frame_marker import blink_frame_marker, trigger_frame_marker
     from ..sounds import play as sound_play
+    from ..utils.labjack_triggers import send_trigger
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from config import (
@@ -24,9 +25,13 @@ except ImportError:
     )
     from view_func.frame_marker import blink_frame_marker, trigger_frame_marker
     from sounds import play as sound_play
+    from utils.labjack_triggers import send_trigger
+
+_LJ_TOKEN_CHASE  = 110
+_LJ_TOKEN_FLIGHT = 111
 
 
-def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck_renderer, token_renderer, sounds=None):
+def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck_renderer, token_renderer, sounds=None, labjack_handle=None):
     """
     Phase 0: 닭 선택 단계
     사용자가 Chase 또는 Flight 중 어떤 닭을 조종할지 선택
@@ -75,6 +80,7 @@ def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck
                 selected_token = 'chase'
                 sound_play(sounds, 'type')
                 game_state.select_token(selected_token)
+                send_trigger(labjack_handle, _LJ_TOKEN_CHASE)
                 trigger_frame_marker()   # 이벤트: 닭 선택 (Chase)
                 while mouse.getPressed()[0]:
                     core.wait(0.01)
@@ -92,6 +98,7 @@ def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck
                 selected_token = 'flight'
                 sound_play(sounds, 'type')
                 game_state.select_token(selected_token)
+                send_trigger(labjack_handle, _LJ_TOKEN_FLIGHT)
                 trigger_frame_marker()   # 이벤트: 닭 선택 (Flight)
                 while mouse.getPressed()[0]:
                     core.wait(0.01)

@@ -51,6 +51,8 @@ START_CUE_DURATION = 0.8
 _LJ_TRIAL_START      = 200
 _LJ_TRIAL_END        = 201
 _LJ_CARD_CLICK       = 100   # 사용자 덱 카드 클릭 (운동 반응 onset)
+_LJ_CARD_FLIP_USER   = 101   # 사용자 카드 뒤집기 visual onset
+_LJ_CARD_FLIP_PC     = 102   # PC 카드 뒤집기 visual onset
 _LJ_FEEDBACK_SUCCESS = 210   # 피드백: 성공 (FRN/P300 onset)
 _LJ_FEEDBACK_FAILURE = 211   # 피드백: 실패 (FRN/P300 onset)
 _LJ_FEEDBACK_TIMEOUT = 212   # 피드백: 타임아웃
@@ -198,7 +200,8 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
         print(f"[USER TURN] 닭 선택 단계 (턴 {game_state.turn_count})")
         selected = run_token_selection_phase(win, game_state, ui_elements,
                                             board_renderer, deck_renderer, token_renderer,
-                                            sounds=sounds)
+                                            sounds=sounds,
+                                            labjack_handle=aoi_manager.labjack_handle if aoi_manager else None)
         
         if selected == 'exit':
             return 'exit'
@@ -316,6 +319,10 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                 trigger_frame_marker()   # 이벤트: 사용자 카드 뒤집기
                 blink_frame_marker(win)
                 win.flip()
+                _card_flip_perf_t = time.perf_counter()
+                if aoi_manager and aoi_manager.labjack_handle:
+                    send_trigger_async(aoi_manager.labjack_handle, _LJ_CARD_FLIP_USER)
+                    _deferred_lj_reset(aoi_manager.labjack_handle, _card_flip_perf_t)
                 checked_wait(CARD_FLIP_DURATION, label="user_card_flip")
 
                 # ── seq_memory step_success: 피드백 없이 다음 스텝으로 계속 ──
@@ -575,6 +582,10 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
         trigger_frame_marker()   # 이벤트: PC 카드 뒤집기
         blink_frame_marker(win)
         win.flip()
+        _card_flip_perf_t = time.perf_counter()
+        if aoi_manager and aoi_manager.labjack_handle:
+            send_trigger_async(aoi_manager.labjack_handle, _LJ_CARD_FLIP_PC)
+            _deferred_lj_reset(aoi_manager.labjack_handle, _card_flip_perf_t)
         checked_wait(CARD_FLIP_DURATION, label="pc_card_flip")
 
         # 2단계: 기본 결과 피드백

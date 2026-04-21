@@ -186,14 +186,35 @@ EyeLink 연동 시 AOI 진입 이벤트 기록 (AOI 유형, 위치 인덱스, �
 # LabJack T4
 
 `config.py`에서 `USE_LABJACK = 1` 설정.  
-시행 시작/종료, 카드 클릭, 피드백, 순차 메모리 이벤트에 대응하는 EIO TTL 코드가 전송됩니다.
+시행 시작/종료, 닭 선택, 카드 클릭, 카드 뒤집기, 피드백, 순차 메모리 이벤트에 대응하는 EIO TTL 코드가 전송됩니다.
 
-| 이벤트             | 트리거 코드 |
-| ------------------ | ----------- |
-| 시행 시작          | 200         |
-| 시행 종료          | 201         |
-| 카드 클릭          | 100         |
-| 피드백 성공        | 210         |
-| 피드백 실패        | 211         |
-| 피드백 타임아웃    | 212         |
-| 순차 메모리 활성화 | 220         |
+| 이벤트                       | 트리거 코드 | 전송 시점                        | 구현 위치                |
+| ---------------------------- | ----------- | -------------------------------- | ------------------------ |
+| 사용자 카드 클릭 (운동 반응) | 100         | 마우스 클릭 감지 즉시 (flip 전)  | `game_play.py`           |
+| 사용자 카드 뒤집기 visual onset | 101      | `win.flip()` 반환 직후           | `game_play.py`           |
+| PC 카드 뒤집기 visual onset  | 102         | `win.flip()` 반환 직후           | `game_play.py`           |
+| 닭 선택 – chase              | 110         | 버튼 클릭 감지 즉시              | `token_selection.py`     |
+| 닭 선택 – flight             | 111         | 버튼 클릭 감지 즉시              | `token_selection.py`     |
+| 시행 시작                    | 200         | `win.flip()` VSync 시점 (callOnFlip) | `game_play.py`       |
+| 시행 종료                    | 201         | 결과 처리 직후 즉시              | `game_play.py`           |
+| 피드백 성공 (FRN/P300 onset) | 210         | `win.flip()` VSync 시점 (callOnFlip) | `feedback.py`        |
+| 피드백 실패 (FRN/P300 onset) | 211         | `win.flip()` VSync 시점 (callOnFlip) | `feedback.py`        |
+| 피드백 타임아웃              | 212         | `win.flip()` VSync 시점 (callOnFlip) | `feedback.py`        |
+| 순차 메모리 활성화           | 220         | 활성화 판정 즉시                 | `game_play.py`           |
+| 순차 메모리 스텝 성공        | 221         | (미사용, 예약)                   | —                        |
+| 순차 메모리 전체 성공        | 222         | `win.flip()` VSync 시점 (callOnFlip) | `feedback.py`        |
+| 순차 메모리 실패             | 223         | `win.flip()` VSync 시점 (callOnFlip) | `feedback.py`        |
+| 보드/덱 카드 AOI 진입        | 10–66       | EyeLink 시선 hit 감지 직후       | `aoi_manager.py`         |
+
+## TTL 전송 방식
+
+트리거는 LabJack T4 EIO 포트(EIO0–EIO7)에 5ms 펄스로 전송됩니다.
+
+**callOnFlip 방식** (200, 210–212, 220–223)
+PsychoPy `win.callOnFlip(send_trigger_async, ...)` 으로 VSync 직후 HIGH를 설정하고, `_deferred_lj_reset()` 으로 5ms 후 LOW 리셋합니다. TRIAL_START 등 화면 갱신과 정확히 동기화해야 하는 이벤트에 사용합니다.
+
+**post-VSync 즉시 전송 방식** (101, 102)
+카드 뒤집기 visual onset은 `win.flip()` 반환 직후 `send_trigger_async()` 를 호출합니다. `callOnFlip` 큐에 TRIAL_START(200)가 이미 등록되어 있을 수 있어 충돌을 피하기 위해 이 방식을 사용합니다. VSync 반환 후 수 마이크로초 이내에 발송되므로 EEG 분석에 충분한 정밀도를 가집니다.
+
+**즉시 블로킹 전송 방식** (100, 110, 111)
+`send_trigger()` 로 HIGH → 5ms busy-wait → LOW 를 한 번에 처리합니다. 닭 선택이나 카드 클릭처럼 flip 타이밍과 무관한 운동/의사결정 반응 onset에 사용합니다.
