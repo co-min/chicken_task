@@ -1,25 +1,13 @@
-# utils/labjack_triggers.py
-# LabJack T4 연결 및 TTL 트리거 유틸리티
+# LabJack T4 TTL 트리거 유틸리티
 #
-# 사용법 예시:
-#   handle = init_labjack()
-#   send_trigger(handle, code=10)   # 10ms 블로킹 펄스
-#   close_labjack(handle)
-
-# 트리거 코드 규약 (config.py AOI_TRIGGER_* 상수와 연동):
+# 트리거 코드 규약:
 #   0        : 리셋 / 무신호
-#   10 ~ 33  : 보드 카드 AOI 진입 (AOI_TRIGGER_BOARD_OFFSET + position_index)
-#   40 ~ 66  : 덱 카드  AOI 진입 (AOI_TRIGGER_DECK_OFFSET  + position_index)
-#   100      : 사용자 덱 카드 클릭 (game_play.py 에서 직접 호출)
-#   200      : 시행 시작 (TRIAL_START)
-#   201      : 시행 종료 (TRIAL_END)
-#   210      : 피드백 — 일반 성공 (FRN/P300 onset)
-#   211      : 피드백 — 일반 실패
-#   212      : 피드백 — 타임아웃
-#   220      : Sequential Memory 활성화 onset (즉시 전송, VSync 불필요)
-#   221      : Sequential Memory 스텝 성공 피드백
-#   222      : Sequential Memory 전체 성공 피드백
-#   223      : Sequential Memory 실패 피드백 
+#   10 ~ 33  : 보드 카드 AOI 진입
+#   40 ~ 66  : 덱 카드 AOI 진입
+#   100      : 사용자 카드 클릭
+#   200/201  : TRIAL_START / TRIAL_END
+#   210~212  : 피드백 (성공 / 실패 / 타임아웃)
+#   220~223  : Sequential Memory (활성화 / 스텝 성공 / 전체 성공 / 실패)
 
 try:
     import ljm
@@ -62,7 +50,6 @@ def init_labjack(device: str = "T4",
 
 
 def close_labjack(handle: int | None):
-    #LABJACK 연결 종료 및 EIO_STATE -> 0
     if handle is None or not _LJM_AVAILABLE:
         return
     try:
@@ -78,24 +65,7 @@ def close_labjack(handle: int | None):
 # ============================================================================
 
 def send_trigger(handle: int | None, code: int, pulse_s: float = 0.005):
-    """
-    LabJack T4 EIO 포트로 TTL 트리거 펄스를 전송합니다 (블로킹).
-
-    Parameters
-    ----------
-    handle : int | None
-        init_labjack() 에서 반환한 핸들. None 이면 아무것도 하지 않습니다.
-    code : int
-        0–255 범위의 8비트 트리거 코드. EIO0(LSB)~EIO7(MSB) 에 출력됩니다.
-    pulse_s : float
-        펄스 지속 시간(초). 기본 5ms.
-
-    Notes
-    -----
-    time.sleep() 은 Windows OS 스케줄러 영향으로 수 ms~수십 ms 오차가 발생합니다.
-    대신 perf_counter 기반 busy-wait 을 사용해 정밀도를 높이고,
-    실제 펄스 폭이 허용 오차(_PULSE_TOLERANCE_S)를 초과하면 경고를 출력합니다.
-    """
+    """EIO 포트로 TTL 트리거 펄스 전송 (블로킹, perf_counter busy-wait)."""
     if handle is None or not _LJM_AVAILABLE:
         return
     try:
@@ -119,10 +89,7 @@ def send_trigger(handle: int | None, code: int, pulse_s: float = 0.005):
 
 
 def send_trigger_async(handle: int | None, code: int):
-
-    # EIO_STATE 설정(비블로킹).
-    # 리셋은 AOIManager 또는 호출자가 직접 처리.
-
+    """EIO_STATE 설정 (비블로킹). 리셋은 호출자가 처리."""
     if handle is None or not _LJM_AVAILABLE:
         return
     try:

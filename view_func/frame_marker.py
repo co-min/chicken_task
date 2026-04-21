@@ -1,8 +1,8 @@
 """
 frame_marker.py
 ===============
-이 모듈은 화면에 흰색 사각형 마커를 그리는 기능을 제공합니다.
-주로 시각 자극의 특정 영역을 강조하거나 표시하는 용도로 사용됩니다.
+화면에 흰색 사각형 마커를 그리는 기능을 제공
+주로 시각 자극의 특정 영역을 강조하거나 표시하는 용도로 사용
 
 주요 기능:
 - 지정한 위치와 크기로 흰색 사각형 마커 그리기
@@ -39,13 +39,6 @@ _marker_pos  = None
 def trigger_frame_marker():
     """
     이벤트 발생 시점에 호출: 이후 FRAME_MARKER_DURATION 프레임 동안 마커를 표시한다.
-
-    호출 타이밍 (game_play, feedback, token_selection 등에서):
-      - 카드 뒤집기 직전 (사용자/PC 모두)
-      - 시작 큐(시작!) 표시 직전
-      - 피드백 화면 표시 직전
-      - 닭 선택 버튼 클릭 시
-      - 시작·종료·튜토리얼 화면 표시 직전
     """
     global _event_frame, _current_frame
     _event_frame = _current_frame
@@ -56,11 +49,6 @@ def blink_frame_marker(win):
     매 프레임 win.flip() 직전에 호출.
     trigger_frame_marker()가 불린 뒤 FRAME_MARKER_DURATION 프레임 이내일 때만
     흰색 마커를 버퍼에 그린다. 그 외 프레임은 아무것도 그리지 않는다.
-
-    Parameters:
-    -----------
-    win : psychopy.visual.Window
-        PsychoPy 윈도우 객체
     """
     global _current_frame
     _current_frame += 1
@@ -79,44 +67,7 @@ def blink_frame_marker(win):
 
 def draw_white_marker(win, pos, size):
     """
-    화면의 지정된 위치에 흰색 사각형 마커를 그립니다.
-    
-    이 함수는 시각 자극 실험에서 특정 영역을 표시하거나 강조할 때 사용됩니다.
-    예를 들어, 참가자가 주시해야 할 위치를 표시하거나, 
-    프레임 동기화를 위한 마커로 사용될 수 있습니다.
-    
-    Parameters:
-    -----------
-    win : psychopy.visual.Window
-        PsychoPy 윈도우 객체 (그림을 그릴 화면)
-        - psychopy에서 제공하는 Window 객체
-        - 실험 자극이 표시되는 화면을 나타냄
-        
-    pos : tuple (x, y)
-        마커를 그릴 위치의 좌표 (픽셀 단위)
-        - (x, y) 형태의 튜플
-        - 픽셀 좌표계 사용 (units='pix' 파라미터로 지정됨)
-        
-    size : tuple (width, height)
-        마커의 크기 (너비, 높이) (픽셀 단위)
-        - (width, height) 형태의 튜플
-        - 픽셀 단위로 크기 지정
-        
-    Returns:
-    --------
-    None
-        화면에 직접 그리며 반환값은 없음
-        
-    동작 방식:
-    ----------
-    1. visual.Rect로 사각형 마커 생성
-    2. 테두리와 내부를 모두 흰색으로 설정
-    3. marker.draw()로 화면에 마커 렌더링
-    
-    사용 예시:
-    ----------
-    Eye-tracking 실험에서 프레임 동기화를 위해 화면 모서리에
-    작은 흰색 마커를 그려서 비디오 프레임과 동기화하는 용도로 사용 가능
+    화면의 지정된 위치에 흰색 사각형 마커 그리기
     """
     global _marker_rect, _marker_win, _marker_pos
 

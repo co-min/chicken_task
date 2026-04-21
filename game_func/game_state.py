@@ -1,5 +1,3 @@
-# Game State Management 
-
 import time
 import random
 import sys
