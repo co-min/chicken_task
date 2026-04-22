@@ -1,18 +1,5 @@
 # LabJack T4 TTL 트리거 유틸리티
-#
-# 트리거 코드 규약:
-#   0        : 리셋 / 무신호
-#   10 ~ 33  : 보드 카드 AOI 진입
-#   40 ~ 66  : 덱 카드 AOI 진입
-#   100      : 사용자 카드 클릭 (운동 반응 onset)
-#   101      : 사용자 카드 뒤집기 visual onset
-#   102      : PC 카드 뒤집기 visual onset
-#   110      : 닭 선택 – chase
-#   111      : 닭 선택 – flight
-#   200/201  : TRIAL_START / TRIAL_END
-#   210~212  : 피드백 (성공 / 실패 / 타임아웃)
-#   220~223  : Sequential Memory (활성화 / 스텝 성공 / 전체 성공 / 실패)
-#
+
 # 핀 구성 (총 9라인):
 #   EIO0~EIO7 (8핀) : 트리거 코드값 (8비트 데이터)
 #   CIO0       (1핀) : trigger latch (strobe) — Natus Quantum이 rising edge에서 데이터 캡처

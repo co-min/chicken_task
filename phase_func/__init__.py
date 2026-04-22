@@ -23,6 +23,7 @@ def run_all_phases(
 	deck_renderer,
 	token_renderer,
 	aoi_manager=None,
+	labjack_handle=None,
 	save_paths=None,
 	subject_id='',
 ):
@@ -30,7 +31,8 @@ def run_all_phases(
 	전체 phase 실행 오케스트레이터.
 
 	Args:
-		aoi_manager: AOIManager 인스턴스 (선택). None 이면 AOI 추적 비활성화.
+		aoi_manager: AOIManager 인스턴스 (선택). None 이면 EyeLink AOI 추적 비활성화.
+		labjack_handle: LabJack T4 핸들 (선택). None 이면 트리거 비활성화.
 
 	Returns:
 		str: 최종 결과 ('victory', 'defeat', 'exit')
@@ -115,6 +117,7 @@ def run_all_phases(
 		deck_renderer,
 		token_renderer,
 		aoi_manager=aoi_manager,
+		labjack_handle=labjack_handle,
 		save_paths=save_paths,
 		subject_id=subject_id,
 	)

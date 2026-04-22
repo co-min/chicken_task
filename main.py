@@ -116,7 +116,6 @@ def main():
         board=game_state.board,
         deck=game_state.deck,
         el_tracker=el_tracker,
-        labjack_handle=labjack_handle,
     )
 
     session_file = init_session(
@@ -141,6 +140,7 @@ def main():
         win, game_state, ui_elements,
         board_renderer, deck_renderer, token_renderer,
         aoi_manager=aoi_manager,
+        labjack_handle=labjack_handle,
         save_paths=save_paths,
         subject_id=subject_id,
     )

@@ -23,12 +23,6 @@ except ImportError:
     _PYLINK_AVAILABLE = False
 
 try:
-    import ljm as _ljm
-    _LJM_AVAILABLE = True
-except ImportError:
-    _LJM_AVAILABLE = False
-
-try:
     from ..save_func.gaze_event_saver import save_gaze_event
     _GAZE_SAVER_AVAILABLE = True
 except ImportError:
@@ -46,7 +40,6 @@ try:
         DECK_LEFT_EDGE,
         DECK_CARD_WIDTH, DECK_CARD_HEIGHT, DECK_CARD_SPACING,
         AOI_DWELL_THRESHOLD,
-        AOI_TRIGGER_PULSE_S,
         AOI_TRIGGER_BOARD_OFFSET,
         AOI_TRIGGER_DECK_OFFSET,
     )
@@ -58,7 +51,6 @@ except ImportError:
         DECK_LEFT_EDGE,
         DECK_CARD_WIDTH, DECK_CARD_HEIGHT, DECK_CARD_SPACING,
         AOI_DWELL_THRESHOLD,
-        AOI_TRIGGER_PULSE_S,
         AOI_TRIGGER_BOARD_OFFSET,
         AOI_TRIGGER_DECK_OFFSET,
     )
@@ -125,15 +117,12 @@ class AOIManager:
         현재 게임 덱 (rows, cols 속성 사용)
     el_tracker : pylink.EyeLink | None
         EyeLink 트래커 객체. None 이면 시선 추적 비활성화.
-    labjack_handle : int | None
-        ljm.openS() 로 얻은 LabJack T4 핸들. None 이면 트리거 비활성화.
     """
 
-    def __init__(self, board, deck, el_tracker=None, labjack_handle=None):
-        self.board          = board
-        self.deck           = deck
-        self.el_tracker     = el_tracker
-        self.labjack_handle = labjack_handle
+    def __init__(self, board, deck, el_tracker=None):
+        self.board      = board
+        self.deck       = deck
+        self.el_tracker = el_tracker
 
         # 데이터 저장 (main.py에서 주입)
         self.gaze_file:        str | None = None   # gaze_events.csv 경로
@@ -152,12 +141,8 @@ class AOIManager:
         self._current_aoi: str | None = None
         self._entry_time:  dict       = {}   # {aoi_id: entry_timestamp}
 
-        # LabJack TTL 펄스 자동 리셋 타이머
-        self._trigger_reset_at: float | None = None
-
         print(f"[AOI] {len(self.aois)}개 AOI 초기화 완료 "
-              f"(EyeLink={'ON' if el_tracker else 'OFF'}, "
-              f"LabJack={'ON' if labjack_handle else 'OFF'})")
+              f"(EyeLink={'ON' if el_tracker else 'OFF'})")
 
     # ------------------------------------------------------------------ #
     #  AOI 테이블 구성
@@ -285,12 +270,6 @@ class AOIManager:
         (aoi_id, aoi_info) : tuple[str | None, dict | None]
             현재 시선이 위치한 AOI 정보. 어느 AOI에도 없으면 (None, None).
         """
-        # LabJack TTL 펄스 자동 리셋
-        if (self._trigger_reset_at is not None
-                and current_time >= self._trigger_reset_at):
-            self._reset_labjack()
-            self._trigger_reset_at = None
-
         # 시선 좌표 획득
         gaze_px = self._get_gaze_pixel()
         if gaze_px is None:
@@ -410,16 +389,14 @@ class AOIManager:
     # ------------------------------------------------------------------ #
 
     def _on_enter(self, aoi_id: str, t: float):
-        """AOI 진입 처리: 타임스탬프 기록, EyeLink 메시지, LabJack 트리거, CSV 저장."""
+        """AOI 진입 처리: 타임스탬프 기록, EyeLink 메시지, CSV 저장."""
         self._entry_time[aoi_id] = t
 
         if self.el_tracker:
             self.el_tracker.sendMessage(f"GAZE_ENTER {aoi_id} {t:.4f}")
 
-        aoi = self.aois[aoi_id]
-        self._send_labjack_trigger(aoi['trigger_code'], t)
-
         if _GAZE_SAVER_AVAILABLE and self.gaze_file:
+            aoi = self.aois[aoi_id]
             save_gaze_event(
                 self.gaze_file, self.subject_id,
                 self.current_trial_id, 'enter',
@@ -449,31 +426,3 @@ class AOIManager:
 
         self._entry_time.pop(aoi_id, None)
 
-    # ------------------------------------------------------------------ #
-    #  Internal: LabJack T4 TTL 트리거
-    # ------------------------------------------------------------------ #
-
-    def _send_labjack_trigger(self, code: int, current_time: float):
-        """
-        LabJack T4의 EIO 포트(EIO0–EIO7)로 디지털 TTL 트리거를 전송합니다.
-        AOI_TRIGGER_PULSE_S 후에 자동으로 EIO_STATE = 0 으로 리셋됩니다.
-
-        EIO_STATE 는 8비트 값으로, EIO0(LSB) ~ EIO7(MSB) 를 제어합니다.
-        trigger_code 값이 EIO 핀에 직접 출력됩니다.
-        """
-        if not self.labjack_handle or not _LJM_AVAILABLE:
-            return
-        try:
-            _ljm.eWriteName(self.labjack_handle, "EIO_STATE", int(code))
-            self._trigger_reset_at = current_time + AOI_TRIGGER_PULSE_S
-        except Exception as e:
-            print(f"[LabJack] EIO 트리거 전송 오류 (code={code}): {e}")
-
-    def _reset_labjack(self):
-        """EIO_STATE 를 0으로 리셋합니다 (TTL 펄스 종료)."""
-        if not self.labjack_handle or not _LJM_AVAILABLE:
-            return
-        try:
-            _ljm.eWriteName(self.labjack_handle, "EIO_STATE", 0)
-        except Exception as e:
-            print(f"[LabJack] EIO 리셋 오류: {e}")
