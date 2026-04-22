@@ -639,13 +639,6 @@ class GameState:
         self.deactivate_seq_memory()
 
     def advance_round(self):
-        """
-        다음 라운드 시작.
-        1) 이번 라운드 점수로 난이도 업 여부 결정
-        2) 새 난이도에 맞는 덱 먼저 생성 (참조 교체)
-        3) 라운드 카운터 증가, 보드·토큰 초기화
-        4) 타이머·턴 제한 갱신
-        """
         # 1) 난이도 업 체크
         if self.round_score >= DIFFICULTY_SCORE_THRESHOLD:
             prev = self.difficulty_index
@@ -659,14 +652,12 @@ class GameState:
         self._pc_round_start_score = self.pc_score
 
         # 2) 라운드 카운터 증가 후, 새 보너스 설정 보드와 난이도 덱을 함께 교체.
-        # 반드시 _reset_round_board_state() 호출 전에 교체해야
-        # reshuffle()이 새 객체에 적용되고, 외부 참조와의 불일치가 방지된다.
         self.current_round += 1
         self.board = self._build_board_for_round(self.current_round)
         self.deck = self._build_deck_for_difficulty()
 
-        # 3) 덱·토큰 초기화. board는 _build_board_for_round()에서 이미 완전 초기화됐으므로
-        #    reshuffle_board=False로 이중 셔플을 방지한다.
+        # 3) 덱·토큰 초기화. board는 _build_board_for_round()에서 이미 완전 초기화
+        #    reshuffle_board=False로 이중 셔플을 방지
         self._reset_round_board_state(reshuffle_board=False)
 
         # 4) 턴 제한 갱신 (game_timer는 계속 진행 중)
@@ -676,11 +667,6 @@ class GameState:
         print(f"[ROUND {self.current_round}] 시작! 난이도={self.difficulty_index}, "
               f"턴 제한={self.turn_time_limit}초")
 
-        # [AOI 주의] deck_cols가 변경되었을 수 있으므로 호출 측에서 반드시 처리해야 한다:
-        #   aoi_manager.update_deck(game_state.deck)
-        # 이를 누락하면 새로 추가된 카드 열에 대한 AOI가 존재하지 않아
-        # gaze_events.csv 누락, EyeLink INTEREST_AREA 미등록, LabJack 트리거 미발송이 발생한다.
-        # 호출 위치: 이 함수 반환 직후, 다음 시행 register_with_eyelink() 전.
 
     def start_game(self):
         """게임 시작"""
@@ -690,15 +676,6 @@ class GameState:
         print("게임 시작! 닭을 선택하세요 (Chase 또는 Flight)")
     
     def select_token(self, token_name):
-        """
-        토큰 선택 (Phase 0)
-        
-        Args:
-            token_name (str): 'chase' 또는 'flight'
-        
-        Returns:
-            bool: 성공 여부
-        """
         if self.phase != self.PHASE_TOKEN_SELECTION:
             return False
         
@@ -709,12 +686,6 @@ class GameState:
         return True
     
     def confirm_selection(self):
-        """
-        선택 확정 및 타이머 시작 (enter 키)
-        
-        Returns:
-            bool: 성공 여부
-        """
         if self.phase != self.PHASE_TOKEN_SELECTION:
             return False
         
@@ -731,24 +702,12 @@ class GameState:
         return True
     
     def get_target_position(self):
-        """
-        현재 선택된 토큰의 타겟 위치
-        
-        Returns:
-            tuple: (row, col) 또는 None
-        """
         if self.selected_token is None:
             return None
         
         return self.tokens.get_target_position(self.selected_token)
     
     def get_target_condition(self):
-        """
-        현재 선택된 토큰의 타겟 조건
-        
-        Returns:
-            dict: 조건 또는 None
-        """
         target_pos = self.get_target_position()
         if target_pos is None:
             return None
@@ -756,19 +715,6 @@ class GameState:
         return self.board.get_condition(target_pos[0], target_pos[1])
     
     def user_click_card(self, card_row, card_col, defer_success_move=False):
-        """
-        사용자가 메인 카드 클릭
-        
-        Args:
-            card_row (int): 카드 행
-            card_col (int): 카드 열
-        
-        Args:
-            defer_success_move (bool): True면 성공 시 즉시 토큰 이동하지 않고 호출자가 후처리
-
-        Returns:
-            str: 결과 ('success', 'failure', 'timeout', 'error')
-        """
         if self.phase != self.PHASE_GAME_PLAY:
             return 'error'
         
@@ -830,30 +776,11 @@ class GameState:
             return 'failure'
 
     def _is_flight_directly_behind_chase(self):
-        """
-        flight가 chase 바로 뒤에 위치하는지 확인.
-        트랙 순서상 flight의 다음 칸이 chase인 경우 True.
-
-        Returns:
-            bool
-        """
         flight_pos = self.tokens.get_token('flight').get_position()
         chase_pos = self.tokens.get_token('chase').get_position()
         return self.tokens.get_next_position(flight_pos) == chase_pos
 
     def complete_user_success_move(self):
-        """
-        사용자 성공 후 토큰 이동 및 승패 확인.
-
-        flight 이동 후 chase 바로 뒤에 위치하게 되면
-        자동으로 selected_token을 'chase'로 전환한다.
-
-        chase 앞에 octopus와 flight가 연속으로 있을 때 chase가 이동하면
-        맨 앞 flight의 타겟이 chase의 타겟이 되며, octopus를 추월한 것으로 승리.
-
-        Returns:
-            str: 'success', 'token_switched', 또는 'user_caught_npc'
-        """
         if self.selected_token is None:
             return 'error'
 

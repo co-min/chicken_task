@@ -63,7 +63,6 @@ def _edf_msg(aoi_manager, message: str):
 
 
 def _ljack(labjack_handle, code: int):
-    """LabJack T4 포트로 TTL 트리거를 즉시 전송한다 (TRIAL_END 등)."""
     if labjack_handle:
         send_trigger(labjack_handle, code)
 
@@ -79,7 +78,7 @@ def _ljack_on_flip(win, labjack_handle, code: int) -> bool:
     return False
 
 
-_TRIGGER_PULSE_S = 0.005  # LabJack TTL 펄스 폭 (send_trigger 기본값과 동일)
+_TRIGGER_PULSE_S = 0.005  # LabJack TTL 펄스 폭
 
 
 def _deferred_lj_reset(labjack_handle, flip_perf_t: float):
@@ -466,34 +465,41 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
         # send_trigger_async 는 비블로킹이므로 flip() 이 VSync 직후 즉시 반환된다.
         _post_flip_t = core.getTime()
 
-        # AOI 시선 추적 업데이트 (flip 직후 타임스탬프로 동기화)
-        if aoi_manager:
-            aoi_manager.update(_post_flip_t)
+        try:
+            # AOI 시선 추적 업데이트 (flip 직후 타임스탬프로 동기화)
+            if aoi_manager:
+                aoi_manager.update(_post_flip_t)
 
-        # VSync(~16.67 ms, 60 Hz) 후 남은 시간만큼 추가 대기해 목표 주기를 맞춘다.
-        # 이미 초과했다면(overrun) 즉시 다음 프레임으로 진입하고 경고를 출력한다.
-        _FRAME_TARGET_S = 1.0 / 60.0
-        _FRAME_TOLERANCE_S = 0.003   # 3 ms 허용 오차
-        _elapsed = _post_flip_t - _frame_t0
-        _remaining = _FRAME_TARGET_S - _elapsed
-        if _remaining > 0:
-            core.wait(_remaining)
-        _actual_frame = core.getTime() - _frame_t0
+            # VSync(~16.67 ms, 60 Hz) 후 남은 시간만큼 추가 대기해 목표 주기를 맞춘다.
+            # 이미 초과했다면(overrun) 즉시 다음 프레임으로 진입하고 경고를 출력한다.
+            _FRAME_TARGET_S = 1.0 / 60.0
+            _FRAME_TOLERANCE_S = 0.003   # 3 ms 허용 오차
+            _elapsed = _post_flip_t - _frame_t0
+            _remaining = _FRAME_TARGET_S - _elapsed
+            if _remaining > 0:
+                core.wait(_remaining)
+            _actual_frame = core.getTime() - _frame_t0
 
-        if abs(_actual_frame - _FRAME_TARGET_S) > _FRAME_TOLERANCE_S:
-            print(
-                f"[TIMING MISMATCH] user_turn frame: "
-                f"expected {_FRAME_TARGET_S * 1000:.1f} ms, "
-                f"actual {_actual_frame * 1000:.1f} ms "
-                f"(diff {(_actual_frame - _FRAME_TARGET_S) * 1000:+.1f} ms)"
-            )
+            if abs(_actual_frame - _FRAME_TARGET_S) > _FRAME_TOLERANCE_S:
+                print(
+                    f"[TIMING MISMATCH] user_turn frame: "
+                    f"expected {_FRAME_TARGET_S * 1000:.1f} ms, "
+                    f"actual {_actual_frame * 1000:.1f} ms "
+                    f"(diff {(_actual_frame - _FRAME_TARGET_S) * 1000:+.1f} ms)"
+                )
 
-        # Deferred trigger reset: callOnFlip(send_trigger_async)로 VSync 시점에 HIGH 설정 후
-        # 5ms 펄스가 완료되도록 여기서 LOW로 리셋한다. _actual_frame 측정 이후에 실행되므로
-        # 프레임 타이밍 계측에 영향을 주지 않는다.
-        if _pending_lj_reset and labjack_handle:
-            _deferred_lj_reset(labjack_handle, _flip_perf_t)
-            _pending_lj_reset = False
+            # Deferred trigger reset: callOnFlip(send_trigger_async)로 VSync 시점에 HIGH 설정 후
+            # 5ms 펄스가 완료되도록 여기서 LOW로 리셋한다. _actual_frame 측정 이후에 실행되므로
+            # 프레임 타이밍 계측에 영향을 주지 않는다.
+            if _pending_lj_reset and labjack_handle:
+                _deferred_lj_reset(labjack_handle, _flip_perf_t)
+                _pending_lj_reset = False
+        except Exception:
+            # 예외 발생 시 CIO0가 HIGH로 남지 않도록 즉시 리셋 (5ms 대기 생략)
+            if _pending_lj_reset and labjack_handle:
+                reset_trigger(labjack_handle)
+                _pending_lj_reset = False
+            raise
 
     return 'continue'
 
