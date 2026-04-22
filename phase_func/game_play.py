@@ -68,10 +68,6 @@ def _ljack(labjack_handle, code: int):
 
 
 def _ljack_on_flip(win, labjack_handle, code: int) -> bool:
-    """다음 win.flip() 직후 VSync 타이밍에 맞춰 TTL 트리거를 전송한다 (TRIAL_START 용).
-    callOnFlip + send_trigger_async 로 HIGH만 설정하고 즉시 반환해 flip 지연을 제거한다.
-    5ms 펄스 LOW 리셋은 호출자가 win.flip() 반환 후 _deferred_lj_reset() 으로 처리한다.
-    Returns True if trigger was registered (caller should call _deferred_lj_reset)."""
     if labjack_handle:
         win.callOnFlip(send_trigger_async, labjack_handle, code)
         return True
@@ -82,8 +78,6 @@ _TRIGGER_PULSE_S = 0.005  # LabJack TTL 펄스 폭
 
 
 def _deferred_lj_reset(labjack_handle, flip_perf_t: float):
-    """callOnFlip(send_trigger_async) 이후 5ms 펄스가 완료될 때까지 busy-wait 후 핀을 LOW로 리셋한다.
-    win.flip() 반환 직후 flip_perf_t = time.perf_counter() 를 캡처해서 인자로 전달한다."""
     _deadline = flip_perf_t + _TRIGGER_PULSE_S
     while time.perf_counter() < _deadline:
         pass
@@ -94,17 +88,14 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
                         token_renderer, aoi_manager=None, labjack_handle=None,
                         save_paths=None, subject_id=''):
     """
-    Phase 1+: 게임 플레이 단계
-    사용자와 PC가 교대로 턴을 진행하며 게임을 플레이
-
     Args:
         win: PsychoPy window 객체
-        game_state: GameState 인스턴스
-        ui_elements: UIElements 인스턴스
-        board_renderer: BoardRenderer 인스턴스
-        deck_renderer: DeckRenderer 인스턴스
-        token_renderer: TokenRenderer 인스턴스
-        aoi_manager: AOIManager 인스턴스 (선택, None 이면 EyeLink AOI 추적 비활성화)
+        game_state: GameState 
+        ui_elements: UIElements 
+        board_renderer: BoardRenderer 
+        deck_renderer: DeckRenderer 
+        token_renderer: TokenRenderer 
+        aoi_manager: AOIManager (선택, None 이면 EyeLink AOI 추적 비활성화)
         labjack_handle: LabJack T4 핸들 (선택, None 이면 트리거 비활성화)
 
     Returns:
@@ -122,13 +113,12 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
         # 라운드/게임 종료 확인
         if game_state.is_round_time_expired():
             if not game_state.is_game_time_expired():
+
                 # 아직 게임 시간 남음 → 다음 라운드 시작
                 _run_round_break(win, ui_elements, board_renderer, deck_renderer,
                                  token_renderer, game_state)
                 game_state.advance_round()
-                # advance_round()가 game_state.board/deck을 새 객체로 교체하므로
-                # board_renderer·deck_renderer·aoi_manager의 참조도 반드시 갱신해야 한다.
-                # 누락 시 board_renderer가 구 board를 참조 → 화면 조건과 판정 조건 불일치 → 정답 카드도 실패 처리.
+
                 board_renderer.update_board(game_state.board)
                 deck_renderer.update_deck(game_state.deck)
                 if aoi_manager:
@@ -331,7 +321,6 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                              f" ROUND {game_state.current_round}"
                              f" TURN {game_state.turn_count} SEQ_MEMORY step {step_now}/{step_total}")
                     _pending_lj_reset = _ljack_on_flip(win, labjack_handle, TRIG_TRIAL_START)
-                    # target_pos를 다음 스텝으로 갱신하고 루프 계속 (타이머 리셋 없음)
                     target_pos = game_state.get_seq_memory_current_target()
                     continue
 
@@ -488,8 +477,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                     f"(diff {(_actual_frame - _FRAME_TARGET_S) * 1000:+.1f} ms)"
                 )
 
-            # Deferred trigger reset: callOnFlip(send_trigger_async)로 VSync 시점에 HIGH 설정 후
-            # 5ms 펄스가 완료되도록 여기서 LOW로 리셋한다. _actual_frame 측정 이후에 실행되므로
+            # _actual_frame 측정 이후에 실행되므로
             # 프레임 타이밍 계측에 영향을 주지 않는다.
             if _pending_lj_reset and labjack_handle:
                 _deferred_lj_reset(labjack_handle, _flip_perf_t)
@@ -709,15 +697,6 @@ def _run_round_break(win, ui_elements, board_renderer, deck_renderer, token_rend
 
 
 def _get_clicked_card(mouse_pos, deck_rows, deck_cols):
-    """
-    마우스 클릭 위치에서 카드 인덱스 계산
-
-    Args:
-        mouse_pos: (x, y) 마우스 좌표
-
-    Returns:
-        tuple: (row, col) 또는 None
-    """
     screen_x = mouse_pos[0] + WIDTH / 2
     screen_y = HEIGHT / 2 - mouse_pos[1]
 
@@ -736,14 +715,7 @@ def _get_clicked_card(mouse_pos, deck_rows, deck_cols):
 
 def _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer,
                       game_state=None, highlighted_pos=None):
-    """
-    게임 화면 그리기
-
-    Args:
-        game_state: GameState 인스턴스 (HUD 업데이트용). None이면 캐시 상태로 그림.
-        highlighted_pos: 하이라이트할 보드 위치 (row, col) 또는 None
-                         seq_memory 활성 시 현재 step 타겟 위치
-    """
+    
     seq_cells  = game_state.seq_memory_targets if (game_state and game_state.seq_memory_active) else None
     done_cells = game_state.seq_memory_targets[:game_state.seq_memory_step] if seq_cells else None
     board_renderer.draw(highlighted_pos, seq_cells=seq_cells, done_cells=done_cells)

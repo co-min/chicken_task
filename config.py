@@ -151,7 +151,7 @@ KEY_EXIT = 'escape'
 
 
 # ==================== EXPERIMENT SETTINGS ====================
-USE_PRACTICE = 1
+USE_PRACTICE = 0
 PRACTICE_TRIALS = 3
 PRACTICE_SEQ_TRIALS = 2
 PRACTICE_SEQ_STEPS = 2
@@ -299,23 +299,20 @@ if AUTO_DETECT_WINDOW_SIZE:
     _apply_screen_scale()
 
 
-# ==================== NPC AI TUNING PARAMETERS ====================
-NPC_REFERENCE_MIN_PROB   = 0.20
-NPC_REFERENCE_MAX_PROB   = 0.70
-NPC_REFERENCE_BASE_PROB  = 0.40
-NPC_HINT_FOLLOW_PROB     = 0.60
-NPC_CONTEXT_BLEND_RATIO  = 0.55
-NPC_TURN_MAX_RATE_SWING  = 0.12
-NPC_PLAYER_PARITY_BIAS   = 0.17
-NPC_MIN_EDGE_OVER_USER   = 0.02
-NPC_MAX_EDGE_OVER_USER   = 0.06
+# ==================== NPC AI PARAMETERS ====================
+# 카드 선택 로직 (npc_ai.py)
+NPC_REFERENCE_MIN_PROB   = 0.20   # 메모리 후보 참고 최솟값
+NPC_REFERENCE_MAX_PROB   = 0.70   # 메모리 후보 참고 최댓값
+NPC_REFERENCE_BASE_PROB  = 0.40   # 메모리 후보 참고 기본값
+NPC_HINT_FOLLOW_PROB     = 0.60   # 사용자 힌트 추종 확률
 
-# ==================== ADAPTIVE AI PARAMETERS ====================
-NPC_RATE_MAX              = 0.70
-ADAPTIVE_ALPHA_UP         = 0.40
-ADAPTIVE_ALPHA_DOWN       = 0.15
-MAX_RATE_STEP_UP          = 0.12
-MAX_RATE_STEP_DOWN        = 0.04
+# 적응형 난이도 조정 (game_state.py)
+NPC_RATE_MAX              = 0.70   # NPC 정답률 상한
+NPC_EDGE_OVER_USER        = 0.04   # 사용자 성공확률 대비 NPC 우위 마진
+ADAPTIVE_ALPHA_UP         = 0.40   # 난이도 상승 EMA 속도
+ADAPTIVE_ALPHA_DOWN       = 0.15   # 난이도 하강 EMA 속도
+MAX_RATE_STEP_UP          = 0.12   # 턴당 최대 상승폭
+MAX_RATE_STEP_DOWN        = 0.04   # 턴당 최대 하강폭
 SURGE_BONUS_SCALE         = 0.20
 USER_WINDOW_SIZE          = 10
 MIN_USER_TRIALS_FOR_ADAPT = 3

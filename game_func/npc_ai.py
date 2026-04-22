@@ -11,16 +11,14 @@ try:
     from ..utils.helpers import clamp
     from ..config import (PC_SUCCESS_RATE,
                           NPC_REFERENCE_MIN_PROB, NPC_REFERENCE_MAX_PROB, NPC_REFERENCE_BASE_PROB,
-                          NPC_HINT_FOLLOW_PROB, NPC_CONTEXT_BLEND_RATIO, NPC_TURN_MAX_RATE_SWING,
-                          NPC_PLAYER_PARITY_BIAS, NPC_MIN_EDGE_OVER_USER, NPC_MAX_EDGE_OVER_USER)
+                          NPC_HINT_FOLLOW_PROB)
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from utils.card_matcher import check_match
     from utils.helpers import clamp
     from config import (PC_SUCCESS_RATE,
                         NPC_REFERENCE_MIN_PROB, NPC_REFERENCE_MAX_PROB, NPC_REFERENCE_BASE_PROB,
-                        NPC_HINT_FOLLOW_PROB, NPC_CONTEXT_BLEND_RATIO, NPC_TURN_MAX_RATE_SWING,
-                        NPC_PLAYER_PARITY_BIAS, NPC_MIN_EDGE_OVER_USER, NPC_MAX_EDGE_OVER_USER)
+                        NPC_HINT_FOLLOW_PROB)
 
 
 class NPCAI:
@@ -34,133 +32,19 @@ class NPCAI:
     def __init__(self, success_rate=PC_SUCCESS_RATE):
         """
         NPC AI 초기화
-        
+
         Args:
             success_rate (float): 정답 확률 (0.0 ~ 1.0, 기본값 1/deck)
         """
+        self.success_rate        = clamp(success_rate, 0.0, 1.0)
+        self.reference_min_prob  = NPC_REFERENCE_MIN_PROB
+        self.reference_max_prob  = NPC_REFERENCE_MAX_PROB
+        self.reference_base_prob = NPC_REFERENCE_BASE_PROB
+        self.hint_follow_prob    = NPC_HINT_FOLLOW_PROB
+
+    def set_success_rate(self, success_rate):
+        """NPC 정답 확률 동적 업데이트 (game_state가 턴마다 호출)."""
         self.success_rate = clamp(success_rate, 0.0, 1.0)
-        self.last_effective_success_rate = self.success_rate
-        # 메모리는 참고만 하도록 비율 제어 (config.py에서 튜닝)
-        self.reference_min_prob      = NPC_REFERENCE_MIN_PROB
-        self.reference_max_prob      = NPC_REFERENCE_MAX_PROB
-        self.reference_base_prob     = NPC_REFERENCE_BASE_PROB
-        self.recent_hint_follow_prob = NPC_HINT_FOLLOW_PROB
-        self.context_blend_ratio     = NPC_CONTEXT_BLEND_RATIO
-        self.turn_max_rate_swing     = NPC_TURN_MAX_RATE_SWING
-        self.player_parity_bias      = NPC_PLAYER_PARITY_BIAS
-        self.min_edge_over_user      = NPC_MIN_EDGE_OVER_USER
-        self.max_edge_over_user      = NPC_MAX_EDGE_OVER_USER
-
-    def set_success_rate(self, success_rate, sync_effective=False):
-        """
-        NPC 정답 확률 동적 업데이트
-
-        Args:
-            success_rate (float): 새 정답 확률 (0.0 ~ 1.0)
-            sync_effective (bool): True면 last_effective_success_rate도 동기화
-        """
-        self.success_rate = clamp(success_rate, 0.0, 1.0)
-        if sync_effective:
-            self.last_effective_success_rate = self.success_rate
-
-    def _resolve_dynamic_tuning(self, memory_context):
-        """
-        최근 사용자 로그 기반으로 턴별 튜닝 파라미터 계산.
-        Returns:
-            tuple: (blend_ratio, max_rate_swing)
-        """
-        blend_ratio = self.context_blend_ratio
-        max_rate_swing = self.turn_max_rate_swing
-
-        if not memory_context:
-            return (blend_ratio, max_rate_swing)
-
-        trials_count = int(memory_context.get('user_recent_trials_count', 0) or 0)
-        variability = memory_context.get('user_performance_variability')
-        trend_score = memory_context.get('user_trend_score')
-        target_rate = memory_context.get('npc_target_success_rate')
-
-        if trials_count < 3:
-            blend_ratio -= 0.20
-            max_rate_swing -= 0.03
-        elif trials_count < 6:
-            blend_ratio -= 0.10
-            max_rate_swing -= 0.02
-
-        if variability is not None:
-            variability = clamp(variability, 0.0, 1.0)
-            # 로그 변동성이 낮을수록 사용자 수준을 더 빠르게 추종
-            blend_ratio += 0.08 * (0.5 - variability)
-            max_rate_swing += 0.05 * (0.5 - variability)
-
-        if trend_score is not None:
-            trend_score = clamp(trend_score, -1.0, 1.0)
-            # 최근 급상승/급하락이면 반응 속도를 조금 높임
-            blend_ratio += 0.03 * trend_score
-            max_rate_swing += 0.03 * abs(trend_score)
-
-        if target_rate is not None:
-            target_rate = clamp(target_rate, 0.0, 1.0)
-            distance = abs(target_rate - self.last_effective_success_rate)
-            max_rate_swing += 0.25 * distance
-
-        blend_ratio = clamp(blend_ratio, 0.40, 0.78)
-        max_rate_swing = clamp(max_rate_swing, 0.04, 0.16)
-        return (blend_ratio, max_rate_swing)
-
-    def _resolve_effective_success_rate(self, memory_context):
-        """
-        이번 턴의 유효 정답률 계산.
-        - game_state에서 전달한 사용자 수행 추정치가 있으면 우선 반영
-        - 턴 간 급격한 점프를 제한해 체감 난이도 안정화
-        """
-        effective_rate = self.success_rate
-        blend_ratio, max_rate_swing = self._resolve_dynamic_tuning(memory_context)
-        min_rate = 0.0
-        max_rate = 1.0
-
-        if memory_context:
-            min_rate = clamp(memory_context.get('npc_rate_min', 0.0), 0.0, 1.0)
-            max_rate = clamp(memory_context.get('npc_rate_max', 1.0), min_rate, 1.0)
-
-            target_rate = memory_context.get('npc_target_success_rate')
-            if target_rate is not None:
-                target_rate = clamp(target_rate, min_rate, max_rate)
-                effective_rate = (
-                    (1.0 - blend_ratio) * effective_rate
-                    + (blend_ratio * target_rate)
-                )
-
-            # 최근 사용자 정확도/실력값을 소폭 반영해 체감 동기화 강화
-            user_skill = memory_context.get('user_skill_score')
-            if user_skill is not None:
-                user_skill = clamp(user_skill, 0.0, 1.0)
-                effective_rate += 0.04 * (user_skill - 0.5)
-
-            recent_user_accuracy = memory_context.get('recent_user_accuracy')
-            if recent_user_accuracy is not None:
-                recent_user_accuracy = clamp(recent_user_accuracy, 0.0, 1.0)
-                effective_rate += 0.02 * (recent_user_accuracy - 0.5)
-
-            # 사용자와 비슷하거나 약간 우위 성능을 유지하기 위한 완만한 보정
-            effective_rate += self.player_parity_bias
-            if target_rate is not None:
-                trials_count = int(memory_context.get('user_recent_trials_count', 0) or 0)
-                edge_scale = clamp((trials_count - 3) / 8.0, 0.0, 1.0)
-                edge = self.min_edge_over_user + ((self.max_edge_over_user - self.min_edge_over_user) * edge_scale)
-                parity_floor = clamp(target_rate + edge, min_rate, max_rate)
-                effective_rate = max(effective_rate, parity_floor)
-
-        # 턴마다 변동폭을 제한해 급격한 난이도 출렁임 방지
-        delta = effective_rate - self.last_effective_success_rate
-        if delta > max_rate_swing:
-            effective_rate = self.last_effective_success_rate + max_rate_swing
-        elif delta < -max_rate_swing:
-            effective_rate = self.last_effective_success_rate - max_rate_swing
-
-        effective_rate = clamp(effective_rate, min_rate, max_rate)
-        self.last_effective_success_rate = effective_rate
-        return effective_rate
 
     def select_card(self, deck, condition, memory_context=None):
         """
@@ -174,10 +58,7 @@ class NPCAI:
         Returns:
             tuple: (card_pos, is_match) - 선택한 카드 위치와 실제 매칭 여부
         """
-        effective_rate = self._resolve_effective_success_rate(memory_context)
-
-        # 이번 턴 유효 정답률에 따라 정답/오답 모드 결정
-        should_succeed = random.random() < effective_rate
+        should_succeed = random.random() < self.success_rate
 
         avoid_positions = set()
         if memory_context and not should_succeed:
@@ -185,19 +66,18 @@ class NPCAI:
             if recent_failed_pos is not None:
                 avoid_positions.add(tuple(recent_failed_pos))
 
-        # 조건에 맞는 카드 또는 맞지 않는 카드 찾기
         matching_cards = self._find_cards_by_match(deck, condition, match=should_succeed)
         filtered_matching_cards = self._filter_positions(matching_cards, avoid_positions)
         if filtered_matching_cards:
             matching_cards = filtered_matching_cards
 
-        # 직전 사용자 카드가 현재 타겟 정답이면, 성공 모드에서 우선 참고
+        # 직전 사용자 카드가 현재 타겟 정답이면 성공 모드에서 우선 참고
         if memory_context and should_succeed:
             hint_pos = memory_context.get('recent_user_hint_pos')
-            if hint_pos and hint_pos in matching_cards and random.random() < self.recent_hint_follow_prob:
+            if hint_pos and hint_pos in matching_cards and random.random() < self.hint_follow_prob:
                 return (hint_pos, True)
 
-        # 메모리 기반 후보는 "참고"만 하고, 항상 따르지 않도록 혼합 선택
+        # 메모리 기반 후보와 랜덤 후보를 혼합 선택
         if memory_context and matching_cards:
             memory_candidates = self._find_memory_candidates(
                 memory_context,
@@ -211,17 +91,7 @@ class NPCAI:
                 ]
             if memory_candidates:
                 reference_prob = self._estimate_reference_probability(memory_candidates)
-                user_skill = memory_context.get('user_skill_score') if memory_context else None
-                if user_skill is not None:
-                    user_skill = clamp(user_skill, 0.0, 1.0)
-                    reference_prob += 0.12 * (user_skill - 0.5)
-                    reference_prob = clamp(
-                        reference_prob,
-                        self.reference_min_prob,
-                        self.reference_max_prob,
-                    )
                 if not should_succeed:
-                    # 실패 모드에서는 메모리 맹종을 줄이고 탐색 비중을 높임
                     reference_prob = min(reference_prob, 0.4)
                 card_pos = self._choose_mixed_candidate(
                     memory_candidates,
@@ -231,16 +101,15 @@ class NPCAI:
                 selected_card = deck.get_card(card_pos[0], card_pos[1])
                 actual_match = check_match(condition, selected_card)
                 return (card_pos, actual_match)
-        
+
         if matching_cards:
             card_pos = random.choice(matching_cards)
             actual_match = should_succeed
         else:
-            # fallback: 랜덤 선택
             card_pos = self._select_random_card(deck)
             fallback_card = deck.get_card(card_pos[0], card_pos[1])
             actual_match = check_match(condition, fallback_card)
-        
+
         return (card_pos, actual_match)
 
     def _filter_positions(self, positions, avoid_positions):
