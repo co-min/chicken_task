@@ -43,7 +43,7 @@ class NPCAI:
         self.hint_follow_prob    = NPC_HINT_FOLLOW_PROB
 
     def set_success_rate(self, success_rate):
-        """NPC 정답 확률 동적 업데이트 (game_state가 턴마다 호출)."""
+        # game_state에서 호출
         self.success_rate = clamp(success_rate, 0.0, 1.0)
 
     def select_card(self, deck, condition, memory_context=None):
@@ -60,7 +60,7 @@ class NPCAI:
         """
         should_succeed = random.random() < self.success_rate
 
-        avoid_positions = set()
+        avoid_positions = set() # 직전 실패 위치 회피
         if memory_context and not should_succeed:
             recent_failed_pos = memory_context.get('recent_npc_failed_pos')
             if recent_failed_pos is not None:
@@ -153,12 +153,6 @@ class NPCAI:
         return random.choice(non_memory_candidates)
 
     def _find_memory_candidates(self, memory_context, condition, match=True):
-        """
-        메모리에서 조건에 맞는/맞지 않는 카드 후보 추출.
-
-        Returns:
-            list: [{'pos': (row, col), 'weight': float}, ...]
-        """
         entries = memory_context.get('entries', [])
         current_turn = memory_context.get('current_turn', 0)
         recency_window = max(1, int(memory_context.get('recency_window', 6)))
@@ -180,7 +174,7 @@ class NPCAI:
             seen_count = max(1, int(entry.get('seen_count', 1)))
             seen_bonus = min(1.0, seen_count / 3.0)
 
-            weight = (0.6 * confidence) + (0.3 * recency) + (0.1 * seen_bonus)
+            weight = (0.55 * confidence) + (0.35 * recency) + (0.1 * seen_bonus)
             if weight > 0.0:
                 candidates.append({
                     'pos': entry['pos'],
@@ -205,17 +199,6 @@ class NPCAI:
         return candidates[-1]['pos']
     
     def _find_cards_by_match(self, deck, condition, match=True):
-        """
-        조건에 맞는/맞지 않는 카드 찾기 (통합 메서드)
-        
-        Args:
-            deck: MainDeck 객체
-            condition: 타겟 조건
-            match (bool): True면 조건 맞는 카드, False면 맞지 않는 카드
-        
-        Returns:
-            list: [(row, col), ...] 카드 위치 리스트
-        """
         cards = []
         
         for row in range(deck.rows):
@@ -230,15 +213,6 @@ class NPCAI:
         return cards
     
     def _select_random_card(self, deck):
-        """
-        랜덤 카드 선택 (fallback)
-        
-        Args:
-            deck: MainDeck 객체
-        
-        Returns:
-            tuple: (row, col) 랜덤 카드 위치
-        """
         row = random.randint(0, deck.rows - 1)
         col = random.randint(0, deck.cols - 1)
         return (row, col)
