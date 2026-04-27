@@ -104,7 +104,6 @@ def get_venv_python():
         return os.path.join(VENV_DIR, "bin", "python")
 
 def install_requirements():
-    """Install required packages"""
     print(f"\n필수 패키지 설치 중: {REQUIREMENTS_FILE}")
     venv_python = get_venv_python()
     
@@ -143,11 +142,6 @@ def verify_installation():
         return False
 
 def main():
-    print("=" * 60)
-    print("Chicken Task - 환경 설정 스크립트")
-    print("=" * 60)
-    print(f"요구사항: Python 3.11 (필수)")
-    
     # Step 1: Find Python 3.11
     print("\n[1/4] Python 3.11 찾는 중...")
     python_exe = find_python()

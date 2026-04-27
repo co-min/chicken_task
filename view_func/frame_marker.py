@@ -8,11 +8,7 @@ frame_marker.py
 - 지정한 위치와 크기로 흰색 사각형 마커 그리기
 - 테두리와 내부가 모두 흰색으로 채워진 사각형 생성
 - 이벤트 기반 blink: 특정 이벤트 직후 FRAME_MARKER_DURATION 프레임 동안만 표시
-  (10분 세션에서 상시 깜빡임으로 인한 집중도 저하 방지)
 """
-
-# PsychoPy 라이브러리: 심리학 실험을 위한 파이썬 패키지
-# visual 모듈은 화면에 시각적 자극(stimulus)을 그리는 기능을 제공
 from psychopy import visual
 
 try:
