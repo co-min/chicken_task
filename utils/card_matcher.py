@@ -11,6 +11,12 @@ def check_match(condition, card):
         return card.get('shape') == condition_value
     elif condition_type == 'number':
         return card.get('number') == condition_value
+    elif condition_type == 'conjunctive':
+        return (
+            card.get('color')  == condition.get('color')  and
+            card.get('shape')  == condition.get('shape')  and
+            card.get('number') == condition.get('number')
+        )
 
     return False
 

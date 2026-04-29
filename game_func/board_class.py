@@ -262,6 +262,34 @@ class ConditionBoard:
         self.conditions = self._create_conditions()
         self.board = self._shuffle_and_layout()
 
+    def apply_conjunctive_conditions(self, deck_cards, count=3):
+        """
+        메인 덱 카드 중 count장을 랜덤 샘플하여 트랙의 count개 슬롯을
+        conjunctive 조건으로 교체한다. reshuffle() 후 game_state에서 호출.
+
+        Args:
+            deck_cards (list): MainDeck의 모든 카드 flat list
+            count (int): 교체할 슬롯 수 (기본 3)
+        """
+        n = len(self.board)
+        if not deck_cards or count <= 0 or n == 0:
+            return
+
+        actual_count = min(count, len(deck_cards), n)
+        sampled_cards = random.sample(deck_cards, actual_count)
+        slot_indices = random.sample(range(n), actual_count)
+
+        for idx, card in zip(slot_indices, sampled_cards):
+            self.board[idx] = {
+                'type': 'conjunctive',
+                'color': card['color'],
+                'shape': card['shape'],
+                'number': card['number'],
+            }
+
+        print(f"[CONJUNCTIVE] {actual_count}개 조건 적용: "
+              f"{[self.board[i] for i in slot_indices]}")
+
     def get_condition(self, row, col):
         """
         특정 위치(row, col)의 조건 가져오기

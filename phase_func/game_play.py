@@ -53,7 +53,7 @@ except ImportError:
     from save_func.trial_saver import save_trial
 
 
-START_CUE_DURATION = 0.8
+START_CUE_DURATION = 0.5
 
 
 def _edf_msg(aoi_manager, message: str):

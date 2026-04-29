@@ -153,6 +153,9 @@ class GameState:
         self.trial_history = []  # 시행 결과 리스트
         self.trial_id = 0        # EDF/LabJack 동기화용 단조 증가 시행 번호
 
+        # Conjunctive 조건 카운터 (난이도 미증가 라운드 수)
+        self.round_count_ = 0
+
         # Sequential Memory 상태
         self.seq_memory_active  = False  # 현재 순차 메모리 활성 여부
         self.seq_memory_targets = []     # [(row, col), ...] 순서대로
@@ -545,7 +548,8 @@ class GameState:
         """
         if reshuffle_board:
             self.board.reshuffle()
-        self.deck.reshuffle()
+        self.deck.face_up = self.deck._initialize_face_states()
+        self.deck.flip_timers = {}
         self.tokens.reset_token_position('chase')
         self.tokens.reset_token_position('flight')
         self.tokens.reset_token_position('octopus')
@@ -553,23 +557,46 @@ class GameState:
         self.npc_seen_cards.clear()
         self.deactivate_seq_memory()
 
+        # round_count_ >= 3이면 board에 conjunctive 조건 적용
+        if self.round_count_ >= 3:
+            deck_cards = self._get_all_deck_cards()
+            self.board.apply_conjunctive_conditions(deck_cards)
+
+    def _get_all_deck_cards(self):
+        """메인 덱의 모든 카드를 flat list로 반환."""
+        cards = []
+        for row in self.deck.deck:
+            cards.extend(row)
+        return cards
+
     def advance_round(self):
-        # 1) 난이도 업 체크
+        # 1) 난이도 업 체크 및 round_count_ 갱신
+        prev = self.difficulty_index
         if self.round_score >= DIFFICULTY_SCORE_THRESHOLD:
-            prev = self.difficulty_index
             self.difficulty_index = min(self.difficulty_index + 1, len(DIFFICULTY_SEQUENCE) - 1)
             if self.difficulty_index > prev:
+                self.round_count_ = 0  # 난이도 실제 증가 → 카운터 리셋
                 print(f"[DIFFICULTY] 업! {prev} → {self.difficulty_index} "
                       f"(라운드 점수={self.round_score})")
+            else:
+                # 이미 최고 난이도 → round_count_ 증가
+                self.round_count_ += 1
+                print(f"[CONJUNCTIVE] 최고 난이도. round_count_={self.round_count_}")
+        else:
+            self.round_count_ += 1
+            print(f"[CONJUNCTIVE] round_count_={self.round_count_} "
+                  f"(발동까지 {max(0, 3 - self.round_count_)}라운드)")
 
         # 라운드 점수 스냅샷 갱신 (다음 라운드 측정 기준)
         self._round_start_score = self.user_score
         self._pc_round_start_score = self.pc_score
 
-        # 2) 라운드 카운터 증가 후, 새 보너스 설정 보드와 난이도 덱을 함께 교체.
+        # 2) 라운드 카운터 증가 후, 새 보너스 설정 보드 교체.
+        #    덱은 난이도가 실제로 올라간 경우에만 재생성한다.
         self.current_round += 1
         self.board = self._build_board_for_round(self.current_round)
-        self.deck = self._build_deck_for_difficulty()
+        if self.difficulty_index > prev:
+            self.deck = self._build_deck_for_difficulty()
 
         # 3) 덱·토큰 초기화. board는 _build_board_for_round()에서 이미 완전 초기화
         #    reshuffle_board=False로 이중 셔플을 방지
@@ -708,10 +735,20 @@ class GameState:
         )
 
         target_pos = self.get_target_position()
+        condition = self.board.get_condition(target_pos[0], target_pos[1])
+        is_conjunctive = condition and condition.get('type') == 'conjunctive'
+
         self.tokens.move_token(moved_token, target_pos)
         self.user_move_count += 1
 
         print(f"성공! {moved_token}가 {target_pos}로 이동")
+
+        # Conjunctive 조건 성공 시 추가 1칸 이동 (총 +2칸)
+        if is_conjunctive:
+            extra_pos = self.tokens.get_target_position(moved_token)
+            self.tokens.move_token(moved_token, extra_pos)
+            self.user_move_count += 1
+            print(f"[CONJUNCTIVE] 보너스 이동! {moved_token}가 {extra_pos}로 추가 이동")
 
         # 잡기 이벤트 확인 (게임 종료 없이 점수/위치 처리)
         catch_result = self.check_catch_event()
@@ -1082,9 +1119,19 @@ class GameState:
             str: 'success' 또는 'npc_caught_user'
         """
         target_pos = self.tokens.get_target_position('octopus')
+        condition = self.board.get_condition(target_pos[0], target_pos[1])
+        is_conjunctive = condition and condition.get('type') == 'conjunctive'
+
         self.tokens.move_token('octopus', target_pos)
         self.pc_move_count += 1
         print(f"PC 성공! Octopus가 {target_pos}로 이동")
+
+        # Conjunctive 조건 성공 시 추가 1칸 이동 (총 +2칸)
+        if is_conjunctive:
+            extra_pos = self.tokens.get_target_position('octopus')
+            self.tokens.move_token('octopus', extra_pos)
+            self.pc_move_count += 1
+            print(f"[CONJUNCTIVE] PC 보너스 이동! octopus가 {extra_pos}로 추가 이동")
 
         # 잡기 이벤트 확인 (게임 종료 없이 점수/위치 처리)
         catch_result = self.check_catch_event()
@@ -1244,6 +1291,8 @@ class GameState:
             'selected_mode': self.selected_mode,
             'current_round': self.current_round,
             'total_rounds': self.total_rounds,
+            'round_count_': self.round_count_,
+            'conjunctive_active': self.round_count_ >= 3,
             'round_time_remaining': round(self.get_round_time_remaining(), 1),
             'user_score': self.user_score,
             'pc_score': self.pc_score,
