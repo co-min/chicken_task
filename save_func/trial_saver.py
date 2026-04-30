@@ -41,8 +41,12 @@ _HEADERS = [
     'is_seq_memory',       # 1 = seq_memory 모드 trial, 0 = 일반 trial
     'seq_memory_step',     # 현재 스텝 인덱스 (0-based), 일반 trial은 빈칸
     'seq_memory_total',    # 전체 순차 타겟 수, 일반 trial은 빈칸
+    # ── 덱 가시 상태 ─────────────────────────────────────────
+    'deck_face_up',        # 클릭 직전 face_up 스냅샷 (row-major, 0/1 쉼표 구분)
+                           # 예) 3×4 덱: "0,0,1,0,1,0,0,0,0,0,0,0"
     # ── 타임스탬프 ───────────────────────────────────────────
-    'timestamp',           # UNIX epoch (time.time())
+    'trial_start_time',    # EDF TRIAL_START 직후 core.getTime() — EDF-CSV 정렬 동기점
+    'timestamp',           # UNIX epoch (time.time()) — 카드 클릭 시각
 ]
 
 
@@ -119,6 +123,8 @@ def save_trial(file_path: str, trial_entry: dict, game_state, subject_id: str):
         'is_seq_memory':         1 if seq_step is not None else 0,
         'seq_memory_step':       seq_step if seq_step is not None else '',
         'seq_memory_total':      seq_total if seq_total is not None else '',
+        'deck_face_up':          trial_entry.get('deck_face_up', ''),
+        'trial_start_time':      round(trial_entry.get('trial_start_time', 0.0), 6),
         'timestamp':             round(trial_entry.get('timestamp', 0.0), 6),
     }
 

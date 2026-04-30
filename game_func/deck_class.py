@@ -288,6 +288,16 @@ class MainDeck:
         self.face_up = self._initialize_face_states()
         self.flip_timers = {}
 
+    def face_up_snapshot(self) -> str:
+        """카드 클릭 직전 face_up 상태를 row-major 0/1 문자열로 반환.
+        예) 3×4 덱에서 (0,2), (1,0)만 앞면이면 → '0,0,1,0,1,0,0,0,0,0,0,0'
+        """
+        parts = []
+        for row in self.face_up:
+            for val in row:
+                parts.append('1' if val else '0')
+        return ','.join(parts)
+
     def update_timers(self, current_time):
         """
         플립 타이머 업데이트 - 5초 지난 카드 자동 숨김

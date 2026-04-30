@@ -223,6 +223,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                      f" TURN {game_state.turn_count}"
                      + (f" SEQ_MEMORY step 0/{len(game_state.seq_memory_targets)}"
                         if game_state.seq_memory_active else ""))
+            game_state.current_trial_start_psychopy = core.getTime()
             _pending_lj_reset = _ljack_on_flip(win, labjack_handle, TRIG_TRIAL_START)
             _trial_active = True
         
@@ -320,6 +321,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                              f"TRIAL_START {_trial_id} USER"
                              f" ROUND {game_state.current_round}"
                              f" TURN {game_state.turn_count} SEQ_MEMORY step {step_now}/{step_total}")
+                    game_state.current_trial_start_psychopy = core.getTime()
                     _pending_lj_reset = _ljack_on_flip(win, labjack_handle, TRIG_TRIAL_START)
                     target_pos = game_state.get_seq_memory_current_target()
                     continue
@@ -547,6 +549,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
                  f" ROUND {game_state.current_round}"
                  f" TURN {game_state.turn_count}"
                  + _seq_tag)
+        game_state.current_trial_start_psychopy = core.getTime()
         _ljack_on_flip(win, labjack_handle, TRIG_TRIAL_START)
 
         _checked_as_pc_seq = game_state.seq_memory_active
@@ -620,6 +623,7 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
                      f" ROUND {game_state.current_round}"
                      f" TURN {game_state.turn_count}"
                      f" SEQ_MEMORY step {game_state.seq_memory_step}/{len(game_state.seq_memory_targets)}")
+            game_state.current_trial_start_psychopy = core.getTime()
             _ljack_on_flip(win, labjack_handle, TRIG_TRIAL_START)
             pc_target_pos = game_state.get_seq_memory_current_target()
             checked_wait(PC_THINK_TIME, label="pc_seq_think_time")

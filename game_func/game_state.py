@@ -156,6 +156,10 @@ class GameState:
         # Conjunctive 조건 카운터 (난이도 미증가 라운드 수)
         self.round_count_ = 0
 
+        # EDF-CSV 동기화용 trial 시작 psychopy 타임스탬프
+        # game_play.py에서 TRIAL_START EDF 메시지 직후 core.getTime()으로 갱신
+        self.current_trial_start_psychopy = 0.0
+
         # Sequential Memory 상태
         self.seq_memory_active  = False  # 현재 순차 메모리 활성 여부
         self.seq_memory_targets = []     # [(row, col), ...] 순서대로
@@ -671,15 +675,18 @@ class GameState:
         
         # 현재까지 경과 시간 기록 (카드 뒤집기 전)
         elapsed_time = self.timer.get_elapsed()
-        
+
+        # 클릭 직전 덱 가시 상태 스냅샷 (어느 카드가 앞면이었는지)
+        deck_snapshot = self.deck.face_up_snapshot()
+
         # 카드 뒤집기
         self.deck.flip_card(card_row, card_col)
-        
+
         # 매칭 확인
         card = self.deck.get_card(card_row, card_col)
         condition = self.get_target_condition()
         is_match = check_match(condition, card)
-        
+
         # 시행 기록 저장
         trial = {
             'trial_id': self.trial_id,       # EDF/LabJack 동기화 키
@@ -693,6 +700,8 @@ class GameState:
             'is_match': is_match,
             'elapsed_time': elapsed_time,    # 이번 시도에 걸린 시간
             'timestamp': time.time(),        # 절대 시각 (UNIX epoch)
+            'deck_face_up': deck_snapshot,   # 클릭 직전 덱 가시 상태
+            'trial_start_time': self.current_trial_start_psychopy,  # EDF TRIAL_START 동기점
         }
         self.trial_history.append(trial)
         self._record_user_observation((card_row, card_col), card, is_match)
@@ -886,6 +895,7 @@ class GameState:
         condition = self.board.get_condition(*current_target)
         elapsed   = self.timer.get_elapsed()
 
+        deck_snapshot = self.deck.face_up_snapshot()
         self.deck.flip_card(card_row, card_col)
         card     = self.deck.get_card(card_row, card_col)
         is_match = check_match(condition, card)
@@ -904,6 +914,8 @@ class GameState:
             'timestamp':         time.time(),
             'seq_memory_step':   self.seq_memory_step,
             'seq_memory_total':  len(self.seq_memory_targets),
+            'deck_face_up':      deck_snapshot,
+            'trial_start_time':  self.current_trial_start_psychopy,
         }
         self.trial_history.append(trial)
         self._record_user_observation((card_row, card_col), card, is_match)
@@ -976,6 +988,7 @@ class GameState:
             self.deck, condition, memory_context=memory_context,
         )
 
+        deck_snapshot = self.deck.face_up_snapshot()
         self.deck.flip_card(selected_pos[0], selected_pos[1])
         card = self.deck.get_card(selected_pos[0], selected_pos[1])
 
@@ -993,6 +1006,8 @@ class GameState:
             'timestamp':         time.time(),
             'seq_memory_step':   self.seq_memory_step,
             'seq_memory_total':  len(self.seq_memory_targets),
+            'deck_face_up':      deck_snapshot,
+            'trial_start_time':  self.current_trial_start_psychopy,
         }
         self.trial_history.append(trial)
         self._record_npc_observation(selected_pos, card)
@@ -1072,9 +1087,10 @@ class GameState:
         )
         
         # 카드 뒤집기
+        deck_snapshot = self.deck.face_up_snapshot()
         self.deck.flip_card(selected_pos[0], selected_pos[1])
         card = self.deck.get_card(selected_pos[0], selected_pos[1])
-        
+
         # 기록
         trial = {
             'trial_id': self.trial_id,       # EDF/LabJack 동기화 키
@@ -1088,6 +1104,8 @@ class GameState:
             'is_match': is_match,
             'elapsed_time': 0,
             'timestamp': time.time(),        # 절대 시각 (UNIX epoch)
+            'deck_face_up': deck_snapshot,   # 클릭 직전 덱 가시 상태
+            'trial_start_time': self.current_trial_start_psychopy,  # EDF TRIAL_START 동기점
         }
         self.trial_history.append(trial)
         self._record_npc_observation(selected_pos, card)
