@@ -64,7 +64,7 @@ chicken_task_first/
 │   ├── deck_renderer.py      # 덱 카드 렌더링
 │   ├── token_renderer.py     # 토큰 렌더링
 │   ├── ui_elements.py        # HUD, 점수판, 닉네임 등 UI
-│   └── frame_marker.py       # 프레임 마커 (EEG 동기화용)
+│   └── frame_marker.py       # 포토다이오드 마커 (이벤트 후 N 프레임 동안 흰 사각형 표시)
 │
 ├── eye_func/                 # EyeLink 아이트래커 연동
 │   ├── aoi_manager.py        # AOI 정의 및 시선 이벤트 관리
@@ -159,6 +159,49 @@ pip install eye_func/psychopy_eyetracker_sr_research-0.0.5-py3-none-any.whl
 
 ---
 
+# 렌더링 루프 구조
+
+모든 게임 상태에서 `win.flip()`이 매 프레임(60 Hz, 16.67 ms) 호출되는 **per-frame 루프**로 구현되어 있습니다.
+
+```
+while True:                          # 게임 메인 루프
+    [입력 처리]                       # 키보드 / 마우스 polling
+    [게임 상태 업데이트]
+    [자극 draw]
+    blink_frame_marker(win)          # 포토다이오드 마커 카운터 +1 및 draw
+    [TTL pre-flip 전송]              # sEEG 트리거: flip 직전에 전송
+    win.flip()                       # VSync 동기화
+    aoi_manager.update()             # AOI 시선 이벤트 업데이트 (flip 직후)
+    [deferred TTL reset]             # flip 후 5 ms 대기 → CIO0 LOW, EIO 0
+```
+
+애니메이션·대기 구간도 동일한 패턴으로 처리합니다.
+
+```python
+deadline = core.getTime() + duration
+while core.getTime() < deadline:
+    draw_everything()
+    blink_frame_marker(win)
+    win.flip()                       # VSync가 16.67 ms 주기를 보장
+```
+
+이를 통해 다음 구간에서도 프레임이 끊기지 않습니다.
+
+| 구간 | 지속 시간 |
+| --- | --- |
+| 카드 뒤집기 애니메이션 (사용자 / NPC) | `CARD_FLIP_DURATION` (0.5 s) |
+| 피드백 표시 (성공 / 실패 / 타임아웃) | `FEEDBACK_DURATION` (0.3 s) |
+| 시행 간 인터벌 | `TRIAL_INTERVAL` (0.5 s) |
+| PC 생각 시간 | `PC_THINK_TIME` (1.0 s) |
+| 시작 큐 ("시작!") | `START_CUE_DURATION` (0.5 s) |
+| 잡기 이벤트 후 초기화 유예 | `CATCH_RESET_PREP_DURATION` |
+| 라운드 휴식 카운트다운 | `ROUND_BREAK_DURATION` × 1 s |
+
+> **VSync 타이밍**: `win.flip()`은 PsychoPy 기본 설정(`waitBlanking=True`)에서 VSync까지 블로킹합니다.
+> 이미 16.67 ms 주기가 보장되므로 flip 이후 추가 `core.wait()`는 사용하지 않습니다.
+
+---
+
 ## 데이터 출력
 
 1. `session.json`
@@ -232,33 +275,51 @@ CIO0(latch) 핀의 `0→1` **rising edge**가 "지금 읽어라"는 신호 역�
 ## 트리거 코드북
 
 실험 중 발생하는 각 이벤트와 대응 코드입니다.  
-EEG 분석 시 이 코드북을 참조하여 타임스탬프를 이벤트로 변환합니다.
+EEG/sEEG 분석 시 이 코드북을 참조하여 타임스탬프를 이벤트로 변환합니다.
 
-| 이벤트                       | 트리거 코드 | 전송 시점                        | 구현 위치                |
-| ---------------------------- | ----------- | -------------------------------- | ------------------------ |
-| 사용자 카드 클릭 (운동 반응) | 100         | 마우스 클릭 감지 즉시 (flip 전)  | `game_play.py`           |
-| 사용자 카드 뒤집기 visual onset | 101      | `win.flip()` 반환 직후           | `game_play.py`           |
-| PC 카드 뒤집기 visual onset  | 102         | `win.flip()` 반환 직후           | `game_play.py`           |
-| 닭 선택 – chase              | 110         | 버튼 클릭 감지 즉시              | `token_selection.py`     |
-| 닭 선택 – flight             | 111         | 버튼 클릭 감지 즉시              | `token_selection.py`     |
-| 시행 시작                    | 200         | `win.flip()` VSync 시점 (callOnFlip) | `game_play.py`       |
-| 시행 종료                    | 201         | 결과 처리 직후 즉시              | `game_play.py`           |
-| 피드백 성공 (FRN/P300 onset) | 210         | `win.flip()` VSync 시점 (callOnFlip) | `feedback.py`        |
-| 피드백 실패 (FRN/P300 onset) | 211         | `win.flip()` VSync 시점 (callOnFlip) | `feedback.py`        |
-| 피드백 타임아웃              | 212         | `win.flip()` VSync 시점 (callOnFlip) | `feedback.py`        |
-| 순차 메모리 활성화           | 220         | 활성화 판정 즉시                 | `game_play.py`           |
-| 순차 메모리 스텝 성공        | 221         | (미사용, 예약)                   | —                        |
-| 순차 메모리 전체 성공        | 222         | `win.flip()` VSync 시점 (callOnFlip) | `feedback.py`        |
-| 순차 메모리 실패             | 223         | `win.flip()` VSync 시점 (callOnFlip) | `feedback.py`        |
-| 보드/덱 카드 AOI 진입        | 10–66       | EyeLink 시선 hit 감지 직후       | `aoi_manager.py`         |
+| 이벤트 | 트리거 코드 | 전송 시점 | 구현 위치 |
+| --- | --- | --- | --- |
+| 사용자 카드 클릭 (운동 반응) | 100 | 마우스 클릭 감지 즉시 (flip 무관) | `game_play.py` |
+| 사용자 카드 뒤집기 visual onset | 101 | `win.flip()` **직전** (pre-flip) | `game_play.py` |
+| PC 카드 뒤집기 visual onset | 102 | `win.flip()` **직전** (pre-flip) | `game_play.py` |
+| 닭 선택 – chase | 110 | 버튼 클릭 감지 즉시 (flip 무관) | `token_selection.py` |
+| 닭 선택 – flight | 111 | 버튼 클릭 감지 즉시 (flip 무관) | `token_selection.py` |
+| 시행 시작 (사용자) | 200 | `win.flip()` **직전** (pre-flip) | `game_play.py` |
+| 시행 시작 (PC – think screen) | 200 | `win.flip()` **직전** (pre-flip) | `game_play.py` |
+| 시행 종료 | 201 | 결과 처리 직후 즉시 (flip 무관) | `game_play.py` |
+| 피드백 성공 (FRN/P300 onset) | 210 | `win.flip()` **직전** (pre-flip) | `feedback.py` |
+| 피드백 실패 (FRN/P300 onset) | 211 | `win.flip()` **직전** (pre-flip) | `feedback.py` |
+| 피드백 타임아웃 | 212 | `win.flip()` **직전** (pre-flip) | `feedback.py` |
+| 순차 메모리 활성화 | 220 | 활성화 판정 즉시 (flip 무관) | `game_play.py` |
+| 순차 메모리 스텝 성공 | 221 | (미사용, 예약) | — |
+| 순차 메모리 전체 성공 | 222 | `win.flip()` **직전** (pre-flip) | `feedback.py` |
+| 순차 메모리 실패 | 223 | `win.flip()` **직전** (pre-flip) | `feedback.py` |
+| 보드/덱 카드 AOI 진입 | 10–66 | EyeLink 시선 hit 감지 직후 | `aoi_manager.py` |
 
 ## TTL 전송 방식
 
-**callOnFlip 방식** (200, 210–212, 220–223)  
-PsychoPy `win.callOnFlip(send_trigger_async, ...)` 으로 VSync 직후 EIO + CIO0(latch)를 HIGH로 설정하고, `_deferred_lj_reset()` 으로 5ms 후 CIO0 LOW → EIO 0 순으로 리셋합니다. 화면 갱신과 정확히 동기화해야 하는 이벤트에 사용합니다.
+**pre-flip 방식** (101, 102, 200, 210–212, 222–223)
 
-**post-VSync 즉시 전송 방식** (101, 102)  
-`win.flip()` 반환 직후 `send_trigger_async()` 를 호출합니다. `callOnFlip` 큐에 TRIAL_START(200)가 이미 등록되어 있을 수 있어 충돌을 피하기 위해 이 방식을 사용합니다.
+`send_trigger_async(labjack, code)`를 `win.flip()` **직전**에 호출합니다.
 
-**즉시 블로킹 전송 방식** (100, 110, 111)  
-`send_trigger()` 로 EIO HIGH + CIO0 HIGH → 5ms busy-wait → CIO0 LOW → EIO 0 을 한 번에 처리합니다. 닭 선택이나 카드 클릭처럼 flip 타이밍과 무관한 운동/의사결정 반응 onset에 사용합니다.
+```
+draw_everything()
+blink_frame_marker(win)
+send_trigger_async(handle, code)   ← EIO=code, CIO0=HIGH (USB ~1–4 ms)
+win.flip()                         ← [VSync] → 화면 표시, 포토다이오드 ON
+_flip_perf_t = perf_counter()
+_deferred_lj_reset(handle, _flip_perf_t)  ← 5 ms 후 CIO0=LOW, EIO=0
+```
+
+TTL이 포토다이오드보다 먼저 sEEG에 도착하므로 TTL–포토다이오드 오프셋이 프레임마다 일정합니다.
+포토다이오드 타임스탬프를 기준으로 모든 시행의 onset을 일괄 보정할 수 있습니다.
+
+> **기존 `callOnFlip` 방식과의 차이**: 이전 구현은 `win.callOnFlip(send_trigger_async, ...)` 으로
+> VSync 내부에서 TTL을 전송하거나, `win.flip()` 반환 후 비동기로 전송했습니다.
+> 이 경우 OS 스케줄러에 따라 TTL 도착 시각이 시행마다 달라져 sEEG 이벤트 정렬 오차가 발생했습니다.
+> pre-flip 방식은 이 가변 지연을 제거합니다.
+
+**즉시 블로킹 전송 방식** (100, 110, 111, 201, 220)
+
+`send_trigger(labjack, code)`를 호출합니다. EIO HIGH + CIO0 HIGH → 5 ms busy-wait → CIO0 LOW → EIO 0을 한 번에 처리합니다.  
+닭 선택, 카드 클릭, 시행 종료처럼 flip 타이밍과 무관한 이벤트에 사용합니다.

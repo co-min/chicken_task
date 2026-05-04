@@ -124,16 +124,18 @@ def main():
         use_eyelink=bool(el_tracker),
         use_labjack=bool(labjack_handle),
     )
-    trial_file = init_trial_file(save_dir, subject_id)
-    gaze_file  = init_gaze_file(save_dir, subject_id)
+    trial_file       = init_trial_file(save_dir, subject_id)
+    gaze_file        = init_gaze_file(save_dir, subject_id)
+    frame_drops_file = os.path.join(save_dir, 'frame_drops.csv')
 
     aoi_manager.gaze_file  = gaze_file
     aoi_manager.subject_id = subject_id
 
     save_paths = {
-        'session': session_file,
-        'trial':   trial_file,
-        'gaze':    gaze_file,
+        'session':     session_file,
+        'trial':       trial_file,
+        'gaze':        gaze_file,
+        'frame_drops': frame_drops_file,
     }
 
     result = run_all_phases(

@@ -373,7 +373,7 @@ def _run_normal_card_selection(win, game_state, ui_elements,
 
                 # 클릭 해제 대기
                 while mouse.getPressed()[0]:
-                    pass
+                    core.wait(0.01)
 
         _draw_game_screen(win, ui_elements, board_renderer, deck_renderer,
                           token_renderer, game_state, target_pos)
@@ -502,7 +502,7 @@ def _run_seq_card_selection(win, game_state, ui_elements,
                     return 'partial'
 
                 while mouse.getPressed()[0]:
-                    pass
+                    core.wait(0.01)
 
         # 매 프레임 렌더
         _draw_game_screen(win, ui_elements, board_renderer, deck_renderer,

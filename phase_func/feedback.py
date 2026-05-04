@@ -31,6 +31,7 @@ def run_feedback_phase(
 	highlighted_pos=None,
 	labjack_handle=None,
 	trigger_code=0,
+	frame_drop_logger=None,
 ):
 	"""공통 피드백 화면을 렌더링하고 지정 시간만큼 대기한다.
 
@@ -38,7 +39,12 @@ def run_feedback_phase(
 		labjack_handle: LabJack T4 핸들. None이면 트리거 비활성화.
 		trigger_code: 피드백 onset에 전송할 TTL 코드.
 		              210=성공, 211=실패, 212=타임아웃, 0=전송 안 함.
+		frame_drop_logger: FrameDropLogger 인스턴스 (선택). 프레임 드랍 기록용.
 	"""
+	# 호출 전 게임 로직 처리 시간이 길 수 있으므로 기준점 초기화
+	if frame_drop_logger:
+		frame_drop_logger.reset()
+
 	ui_elements.message_text.text = message
 	ui_elements.message_text.color = color
 
@@ -50,13 +56,14 @@ def run_feedback_phase(
 	ui_elements.instruction_text.draw()
 	trigger_frame_marker()   # 이벤트: 피드백 화면 표시 (성공/실패/타임아웃)
 	blink_frame_marker(win)
-	# 피드백 화면이 실제로 모니터에 표시되는 순간(VSync)에 맞춰 트리거 전송.
-	# send_trigger_async 는 VSync 시점에 HIGH만 설정하고 즉시 반환해 flip 지연을 제거한다.
-	# LOW 리셋은 flip() 반환 후 deferred reset 으로 처리한다.
+	# sEEG 동기화: TTL을 flip 직전에 전송해 포토다이오드 ON보다 먼저 sEEG에 도착하도록 한다.
+	# TTL–포토다이오드 오프셋이 일정해지므로 사후 보정이 가능하다.
 	_send_trigger = labjack_handle is not None and bool(trigger_code)
 	if _send_trigger:
-		win.callOnFlip(send_trigger_async, labjack_handle, trigger_code)
+		send_trigger_async(labjack_handle, trigger_code)
 	win.flip()
+	if frame_drop_logger:
+		frame_drop_logger.after_flip(core.getTime(), context='feedback')
 
 	# Deferred reset: flip 반환 후 5ms 펄스가 완료되도록 busy-wait 후 LOW 리셋.
 	# checked_wait(duration) 보다 먼저 실행되므로 피드백 표시 시간에는 영향이 없다.
@@ -67,4 +74,19 @@ def run_feedback_phase(
 			pass
 		reset_trigger(labjack_handle)
 
-	checked_wait(duration, label=f"feedback('{message}')")
+	_feedback_deadline = core.getTime() + duration
+	while core.getTime() < _feedback_deadline:
+		board_renderer.draw(highlighted_pos)
+		deck_renderer.draw()
+		token_renderer.draw()
+		ui_elements.draw_persistent_hud()
+		ui_elements.message_text.draw()
+		ui_elements.instruction_text.draw()
+		blink_frame_marker(win)
+		win.flip()
+		if frame_drop_logger:
+			frame_drop_logger.after_flip(core.getTime(), context='feedback')
+
+	# 피드백 종료 후 호출부의 게임 로직 처리 시간이 길 수 있으므로 기준점 초기화
+	if frame_drop_logger:
+		frame_drop_logger.reset()
