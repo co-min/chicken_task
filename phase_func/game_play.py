@@ -39,7 +39,6 @@ try:
                                            TRIG_CARD_CLICK, TRIG_CARD_FLIP_USER, TRIG_CARD_FLIP_PC,
                                            TRIG_FEEDBACK_SUCCESS, TRIG_FEEDBACK_FAILURE, TRIG_FEEDBACK_TIMEOUT,
                                            TRIG_SEQ_ACTIVATE, TRIG_SEQ_ALL_SUCCESS, TRIG_SEQ_FAILURE)
-    from ..utils.timer import checked_wait
     from ..save_func.trial_saver import save_trial
     from ..utils.frame_drop_log import FrameDropLogger
 except ImportError:
@@ -50,7 +49,6 @@ except ImportError:
                                         TRIG_CARD_CLICK, TRIG_CARD_FLIP_USER, TRIG_CARD_FLIP_PC,
                                         TRIG_FEEDBACK_SUCCESS, TRIG_FEEDBACK_FAILURE, TRIG_FEEDBACK_TIMEOUT,
                                         TRIG_SEQ_ACTIVATE, TRIG_SEQ_ALL_SUCCESS, TRIG_SEQ_FAILURE)
-    from utils.timer import checked_wait
     from save_func.trial_saver import save_trial
     from utils.frame_drop_log import FrameDropLogger
 
@@ -63,20 +61,6 @@ def _edf_msg(aoi_manager, message: str):
     if aoi_manager and aoi_manager.el_tracker:
         aoi_manager.el_tracker.sendMessage(message)
 
-
-def _ljack(labjack_handle, code: int):
-    if labjack_handle:
-        send_trigger(labjack_handle, code)
-
-
-_TRIGGER_PULSE_S = 0.005  # LabJack TTL 펄스 폭
-
-
-def _deferred_lj_reset(labjack_handle, flip_perf_t: float):
-    _deadline = flip_perf_t + _TRIGGER_PULSE_S
-    while time.perf_counter() < _deadline:
-        pass
-    reset_trigger(labjack_handle)
 
 
 def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_renderer,
@@ -152,8 +136,8 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
                 # PC 턴 종료 → 사용자 턴으로 전환됨
                 print(f"[TURN SWITCH] 문어 → 사용자 (턴 {game_state.turn_count})")
 
-        # 메인 루프 폴링 대기
-        checked_wait(0.005, label="main_loop_poll")
+        # # 메인 루프 폴링 대기
+        # checked_wait(0.005, label="main_loop_poll")
 
 
 def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
@@ -212,7 +196,6 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                 aoi_manager.seq_memory_step  = (game_state.seq_memory_step
                                                 if game_state.seq_memory_active else None)
             if game_state.seq_memory_active:
-                _ljack(labjack_handle, TRIG_SEQ_ACTIVATE)   # 활성화 onset (즉시 전송)
                 trigger_frame_marker()   # 이벤트: seq_memory 활성화
             _edf_msg(aoi_manager,
                      f"TRIAL_START {_trial_id} USER"
@@ -253,7 +236,7 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
             # 시행 종료 마킹 (seq_memory 도중 타임아웃이면 seq_timeout으로 구별)
             _timeout_result = "seq_timeout" if game_state.seq_memory_active else "timeout"
             _edf_msg(aoi_manager, f"TRIAL_END {_trial_id} MATCH 0 RESULT {_timeout_result}")
-            _ljack(labjack_handle, TRIG_TRIAL_END)
+
             # 턴 종료 (end_user_turn 내부에서 deactivate_seq_memory + selected_token 리셋됨)
             game_state.end_user_turn()
 
@@ -405,7 +388,6 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                     # 시행 종료 마킹
                     edf_result = 'seq_all_success' if result == 'all_success' else 'success'
                     _edf_msg(aoi_manager, f"TRIAL_END {_trial_id} MATCH 1 RESULT {edf_result}")
-                    _ljack(labjack_handle, TRIG_TRIAL_END)
                     _trial_active = False
 
                     # 타이머 리셋 후 다음 타겟 계속
@@ -463,9 +445,9 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                     print(f"[USER TURN] {'순차 ' if was_seq_memory else ''}실패, 턴 종료")
                     return 'continue'
 
-                # 클릭 후 버튼이 떼어지기를 기다림
-                while mouse.getPressed()[0]:
-                    core.wait(0.01)
+                # # 클릭 후 버튼이 떼어지기를 기다림
+                # while mouse.getPressed()[0]:
+                #     core.wait(0.01)
 
         # 화면 그리기 (타겟 하이라이트 포함)
         _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, game_state, target_pos)
