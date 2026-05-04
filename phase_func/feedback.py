@@ -2,21 +2,17 @@
 
 from psychopy import core
 
-import time
-
 try:
 	from ..view_func.frame_marker import blink_frame_marker, trigger_frame_marker
-	from ..utils.labjack_triggers import send_trigger, send_trigger_async, reset_trigger
+	from ..utils.labjack_triggers import set_trigger, reset_trigger
 	from ..utils.timer import checked_wait
 except ImportError:
 	import sys
 	from pathlib import Path
 	sys.path.insert(0, str(Path(__file__).parent.parent))
 	from view_func.frame_marker import blink_frame_marker, trigger_frame_marker
-	from utils.labjack_triggers import send_trigger, send_trigger_async, reset_trigger
+	from utils.labjack_triggers import set_trigger, reset_trigger
 	from utils.timer import checked_wait
-
-_TRIGGER_PULSE_S = 0.005  # TTL 펄스 폭 (send_trigger 기본값과 동일)
 
 
 def run_feedback_phase(
@@ -56,23 +52,14 @@ def run_feedback_phase(
 	ui_elements.instruction_text.draw()
 	trigger_frame_marker()   # 이벤트: 피드백 화면 표시 (성공/실패/타임아웃)
 	blink_frame_marker(win)
-	# sEEG 동기화: TTL을 flip 직전에 전송해 포토다이오드 ON보다 먼저 sEEG에 도착하도록 한다.
-	# TTL–포토다이오드 오프셋이 일정해지므로 사후 보정이 가능하다.
 	_send_trigger = labjack_handle is not None and bool(trigger_code)
 	if _send_trigger:
-		send_trigger_async(labjack_handle, trigger_code)
+		win.callOnFlip(set_trigger, labjack_handle, trigger_code)
 	win.flip()
 	if frame_drop_logger:
 		frame_drop_logger.after_flip(core.getTime(), context='feedback')
-
-	# Deferred reset: flip 반환 후 5ms 펄스가 완료되도록 busy-wait 후 LOW 리셋.
-	# checked_wait(duration) 보다 먼저 실행되므로 피드백 표시 시간에는 영향이 없다.
 	if _send_trigger:
-		_flip_perf_t = time.perf_counter()
-		_deadline = _flip_perf_t + _TRIGGER_PULSE_S
-		while time.perf_counter() < _deadline:
-			pass
-		reset_trigger(labjack_handle)
+		win.callOnFlip(reset_trigger, labjack_handle)
 
 	_feedback_deadline = core.getTime() + duration
 	while core.getTime() < _feedback_deadline:

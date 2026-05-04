@@ -1,5 +1,4 @@
 import sys
-import time
 from pathlib import Path
 from psychopy import core, event
 
@@ -34,7 +33,7 @@ except ImportError:
 try:
     from ..view_func.frame_marker import blink_frame_marker, trigger_frame_marker
     from ..sounds import load_sounds, play as sound_play
-    from ..utils.labjack_triggers import (send_trigger, send_trigger_async, reset_trigger,
+    from ..utils.labjack_triggers import (send_trigger, set_trigger, reset_trigger,
                                            TRIG_TRIAL_START, TRIG_TRIAL_END,
                                            TRIG_CARD_CLICK, TRIG_CARD_FLIP_USER, TRIG_CARD_FLIP_PC,
                                            TRIG_FEEDBACK_SUCCESS, TRIG_FEEDBACK_FAILURE, TRIG_FEEDBACK_TIMEOUT,
@@ -44,7 +43,7 @@ try:
 except ImportError:
     from view_func.frame_marker import blink_frame_marker, trigger_frame_marker
     from sounds import load_sounds, play as sound_play
-    from utils.labjack_triggers import (send_trigger, send_trigger_async, reset_trigger,
+    from utils.labjack_triggers import (send_trigger, set_trigger, reset_trigger,
                                         TRIG_TRIAL_START, TRIG_TRIAL_END,
                                         TRIG_CARD_CLICK, TRIG_CARD_FLIP_USER, TRIG_CARD_FLIP_PC,
                                         TRIG_FEEDBACK_SUCCESS, TRIG_FEEDBACK_FAILURE, TRIG_FEEDBACK_TIMEOUT,
@@ -54,6 +53,32 @@ except ImportError:
 
 
 START_CUE_DURATION = 0.5
+
+
+def _ljack(handle, code):
+    """flip 타이밍과 무관한 즉시 TTL 전송 (blocking pulse).
+    클릭 onset · TRIAL_END 등 VSync 동기화가 불필요한 이벤트에 사용.
+    내부적으로 set_trigger → 5 ms busy-wait → reset_trigger 순서로 동작.
+    """
+    send_trigger(handle, code)
+
+
+def _flip_trigger(win, handle, code):
+    """다음 win.flip() 시 TTL HIGH 예약 (callOnFlip).
+    VSync에 정확히 동기화해야 하는 visual onset 트리거(카드 뒤집기, 피드백 등)에 사용.
+    반드시 win.flip() 호출 전에 등록해야 하며, 이후 _flip_reset()으로 리셋을 예약해야 한다.
+    """
+    if handle:
+        win.callOnFlip(set_trigger, handle, code)
+
+
+def _flip_reset(win, handle):
+    """다음 win.flip() 시 TTL LOW 리셋 예약 (callOnFlip).
+    _flip_trigger()가 발화한 flip 이후, 다음 flip에서 호출되도록 등록한다.
+    즉, win.flip() 반환 직후에 이 함수를 호출하면 한 프레임 뒤에 리셋된다.
+    """
+    if handle:
+        win.callOnFlip(reset_trigger, handle)
 
 
 def _edf_msg(aoi_manager, message: str):
@@ -280,14 +305,11 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                 _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, game_state, target_pos)
                 trigger_frame_marker()   # 이벤트: 사용자 카드 뒤집기
                 blink_frame_marker(win)
-                if labjack_handle:
-                    send_trigger_async(labjack_handle, TRIG_CARD_FLIP_USER)
+                _flip_trigger(win, labjack_handle, TRIG_CARD_FLIP_USER)
                 win.flip()
-                _card_flip_perf_t = time.perf_counter()
                 if fdl:
                     fdl.after_flip(core.getTime(), trial_id=_trial_id, context='user_card_flip')
-                if labjack_handle:
-                    _deferred_lj_reset(labjack_handle, _card_flip_perf_t)
+                _flip_reset(win, labjack_handle)
                 _flip_deadline = core.getTime() + CARD_FLIP_DURATION
                 while core.getTime() < _flip_deadline:
                     _draw_game_screen(win, ui_elements, board_renderer, deck_renderer,
@@ -452,16 +474,12 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
         # 화면 그리기 (타겟 하이라이트 포함)
         _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, game_state, target_pos)
         blink_frame_marker(win)
-        # TRIG_TRIAL_START: 시행 첫 프레임의 flip 직전에 전송 → sEEG TTL이 포토다이오드 ON보다 먼저 도착
-        _sent_trigger = False
-        if _pre_flip_lj_code and labjack_handle:
-            send_trigger_async(labjack_handle, _pre_flip_lj_code)
+        # TRIG_TRIAL_START: 시행 첫 프레임 flip 시 전송 → callOnFlip으로 VSync에 정확히 동기화
+        _queued_trigger = bool(_pre_flip_lj_code and labjack_handle)
+        if _queued_trigger:
+            _flip_trigger(win, labjack_handle, _pre_flip_lj_code)
             _pre_flip_lj_code = 0
-            _sent_trigger = True
         win.flip()
-
-        # flip 직후 perf_counter 캡처: deferred trigger reset 타이밍 기준점
-        _flip_perf_t = time.perf_counter()
 
         if fdl:
             fdl.after_flip(core.getTime(), trial_id=_trial_id, context='user_render')
@@ -470,8 +488,9 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
         if aoi_manager:
             aoi_manager.update(core.getTime())
 
-        if _sent_trigger:
-            _deferred_lj_reset(labjack_handle, _flip_perf_t)
+        # 트리거가 전송된 경우 다음 flip에서 리셋
+        if _queued_trigger:
+            _flip_reset(win, labjack_handle)
 
     return 'continue'
 
@@ -498,14 +517,11 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
         _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, game_state, pc_target_pos)
         trigger_frame_marker()   # 이벤트: PC 턴 시작
         blink_frame_marker(win)
-        if labjack_handle:
-            send_trigger_async(labjack_handle, TRIG_TRIAL_START)
+        _flip_trigger(win, labjack_handle, TRIG_TRIAL_START)
         win.flip()
-        _think_start_perf_t = time.perf_counter()
         if fdl:
             fdl.after_flip(core.getTime(), context='pc_think_start')
-        if labjack_handle:
-            _deferred_lj_reset(labjack_handle, _think_start_perf_t)
+        _flip_reset(win, labjack_handle)
         if aoi_manager:
             aoi_manager.update(core.getTime())
 
@@ -569,14 +585,11 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
         _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, game_state, pc_target_pos)
         trigger_frame_marker()   # 이벤트: PC 카드 뒤집기
         blink_frame_marker(win)
-        if labjack_handle:
-            send_trigger_async(labjack_handle, TRIG_CARD_FLIP_PC)
+        _flip_trigger(win, labjack_handle, TRIG_CARD_FLIP_PC)
         win.flip()
-        _card_flip_perf_t = time.perf_counter()
         if fdl:
             fdl.after_flip(core.getTime(), trial_id=_pc_trial_id, context='pc_card_flip')
-        if labjack_handle:
-            _deferred_lj_reset(labjack_handle, _card_flip_perf_t)
+        _flip_reset(win, labjack_handle)
         _pc_flip_deadline = core.getTime() + CARD_FLIP_DURATION
         while core.getTime() < _pc_flip_deadline:
             _draw_game_screen(win, ui_elements, board_renderer, deck_renderer,
@@ -644,14 +657,11 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
             _draw_game_screen(win, ui_elements, board_renderer, deck_renderer,
                               token_renderer, game_state, pc_target_pos)
             blink_frame_marker(win)
-            if labjack_handle:
-                send_trigger_async(labjack_handle, TRIG_TRIAL_START)
+            _flip_trigger(win, labjack_handle, TRIG_TRIAL_START)
             win.flip()
-            _seq_ts_perf_t = time.perf_counter()
             if fdl:
                 fdl.after_flip(core.getTime(), trial_id=_pc_trial_id, context='pc_seq_think_start')
-            if labjack_handle:
-                _deferred_lj_reset(labjack_handle, _seq_ts_perf_t)
+            _flip_reset(win, labjack_handle)
             if aoi_manager:
                 aoi_manager.update(core.getTime())
             _seq_think_deadline = core.getTime() + PC_THINK_TIME

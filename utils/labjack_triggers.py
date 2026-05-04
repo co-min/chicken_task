@@ -1,5 +1,7 @@
 # LabJack T4 TTL 트리거 유틸리티
 
+import time
+
 try:
     import ljm
     _LJM_AVAILABLE = True
@@ -102,6 +104,19 @@ def reset_trigger(handle: int | None):
     if handle is None:
         return
     try:
-        ljm.eWriteNames(handle, 2, ["EIO_STATE", "CIO_STATE"] [0.0, 0.0])
+        ljm.eWriteNames(handle, 2, ["EIO_STATE", "CIO_STATE"], [0.0, 0.0])
     except Exception as e:
         print(f"[LabJack] 리셋 오류: {e}")
+
+
+def send_trigger(handle: int | None, code: int, pulse_s: float = 0.005):
+    """TTL 펄스 전송 (blocking): flip 타이밍과 무관한 즉시 트리거에 사용.
+    HIGH → pulse_s 초 busy-wait → LOW 리셋을 한 번에 처리한다.
+    """
+    if handle is None:
+        return
+    set_trigger(handle, code)
+    _deadline = time.perf_counter() + pulse_s
+    while time.perf_counter() < _deadline:
+        pass
+    reset_trigger(handle)
