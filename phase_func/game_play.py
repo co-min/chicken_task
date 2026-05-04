@@ -304,7 +304,14 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                 if labjack_handle:
                     send_trigger_async(labjack_handle, TRIG_CARD_FLIP_USER)
                     _deferred_lj_reset(labjack_handle, _card_flip_perf_t)
-                checked_wait(CARD_FLIP_DURATION, label="user_card_flip")
+                _flip_deadline = core.getTime() + CARD_FLIP_DURATION
+                while core.getTime() < _flip_deadline:
+                    _draw_game_screen(win, ui_elements, board_renderer, deck_renderer,
+                                      token_renderer, game_state, target_pos)
+                    blink_frame_marker(win)
+                    win.flip()
+                    if aoi_manager:
+                        aoi_manager.update(core.getTime())
 
                 # ── seq_memory step_success: 피드백 없이 다음 스텝으로 계속 ──
                 if result == 'step_success':
@@ -396,7 +403,15 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                     _trial_active = False
 
                     # 타이머 리셋 후 다음 타겟 계속
-                    checked_wait(TRIAL_INTERVAL, label="user_trial_interval")
+                    _interval_deadline = core.getTime() + TRIAL_INTERVAL
+                    while core.getTime() < _interval_deadline:
+                        _draw_game_screen(win, ui_elements, board_renderer, deck_renderer,
+                                          token_renderer, game_state,
+                                          game_state.get_target_position())
+                        blink_frame_marker(win)
+                        win.flip()
+                        if aoi_manager:
+                            aoi_manager.update(core.getTime())
                     _show_start_cue(
                         win, ui_elements, board_renderer, deck_renderer, token_renderer,
                         game_state=game_state,
@@ -443,8 +458,6 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                     pass
         
         # 화면 그리기 (타겟 하이라이트 포함)
-        # 프레임 시작 시각을 기록해 실제 루프 주기를 측정한다.
-        _frame_t0 = core.getTime()
         _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer, game_state, target_pos)
         blink_frame_marker(win)
         win.flip()
@@ -452,40 +465,15 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
         # flip 직후 perf_counter 캡처: deferred trigger reset 타이밍 기준점
         _flip_perf_t = time.perf_counter()
 
-        # flip 직후 타임스탬프를 찍어 VSync 소요 시간만 _elapsed에 반영한다.
-        # send_trigger_async 는 비블로킹이므로 flip() 이 VSync 직후 즉시 반환된다.
-        _post_flip_t = core.getTime()
+        # AOI 시선 추적 업데이트 (VSync 직후 타임스탬프로 동기화)
+        if aoi_manager:
+            aoi_manager.update(core.getTime())
 
         try:
-            # AOI 시선 추적 업데이트 (flip 직후 타임스탬프로 동기화)
-            if aoi_manager:
-                aoi_manager.update(_post_flip_t)
-
-            # VSync(~16.67 ms, 60 Hz) 후 남은 시간만큼 추가 대기해 목표 주기를 맞춘다.
-            # 이미 초과했다면(overrun) 즉시 다음 프레임으로 진입하고 경고를 출력한다.
-            _FRAME_TARGET_S = 1.0 / 60.0
-            _FRAME_TOLERANCE_S = 0.003   # 3 ms 허용 오차
-            _elapsed = _post_flip_t - _frame_t0
-            _remaining = _FRAME_TARGET_S - _elapsed
-            if _remaining > 0:
-                core.wait(_remaining)
-            _actual_frame = core.getTime() - _frame_t0
-
-            if abs(_actual_frame - _FRAME_TARGET_S) > _FRAME_TOLERANCE_S:
-                print(
-                    f"[TIMING MISMATCH] user_turn frame: "
-                    f"expected {_FRAME_TARGET_S * 1000:.1f} ms, "
-                    f"actual {_actual_frame * 1000:.1f} ms "
-                    f"(diff {(_actual_frame - _FRAME_TARGET_S) * 1000:+.1f} ms)"
-                )
-
-            # _actual_frame 측정 이후에 실행되므로
-            # 프레임 타이밍 계측에 영향을 주지 않는다.
             if _pending_lj_reset and labjack_handle:
                 _deferred_lj_reset(labjack_handle, _flip_perf_t)
                 _pending_lj_reset = False
         except Exception:
-            # 예외 발생 시 CIO0가 HIGH로 남지 않도록 즉시 리셋 (5ms 대기 생략)
             if _pending_lj_reset and labjack_handle:
                 reset_trigger(labjack_handle)
                 _pending_lj_reset = False
@@ -518,7 +506,14 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
         win.flip()
 
         # PC 생각 시간
-        checked_wait(PC_THINK_TIME, label="pc_think_time")
+        _think_deadline = core.getTime() + PC_THINK_TIME
+        while core.getTime() < _think_deadline:
+            _draw_game_screen(win, ui_elements, board_renderer, deck_renderer,
+                              token_renderer, game_state, pc_target_pos)
+            blink_frame_marker(win)
+            win.flip()
+            if aoi_manager:
+                aoi_manager.update(core.getTime())
 
         # PC 카드 선택 및 실행 (seq_memory 활성 여부에 따라 분기)
         _pc_trial_id = game_state.get_next_trial_id()
@@ -626,7 +621,14 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
             game_state.current_trial_start_psychopy = core.getTime()
             _ljack_on_flip(win, labjack_handle, TRIG_TRIAL_START)
             pc_target_pos = game_state.get_seq_memory_current_target()
-            checked_wait(PC_THINK_TIME, label="pc_seq_think_time")
+            _seq_think_deadline = core.getTime() + PC_THINK_TIME
+            while core.getTime() < _seq_think_deadline:
+                _draw_game_screen(win, ui_elements, board_renderer, deck_renderer,
+                                  token_renderer, game_state, pc_target_pos)
+                blink_frame_marker(win)
+                win.flip()
+                if aoi_manager:
+                    aoi_manager.update(core.getTime())
             continue
 
         if result in ('success', 'all_success'):
