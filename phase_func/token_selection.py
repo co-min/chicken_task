@@ -80,7 +80,7 @@ def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck
                 send_trigger(labjack_handle, TRIG_TOKEN_CHASE)
                 trigger_frame_marker()   # 이벤트: 닭 선택 (Chase)
                 while mouse.getPressed()[0]:
-                    core.wait(0.01)
+                    pass
                 ui_elements.instruction_text.text = ""
                 ui_elements.message_text.text = ""
                 ui_elements.instruction_text.pos = original_instruction_pos
@@ -98,7 +98,7 @@ def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck
                 send_trigger(labjack_handle, TRIG_TOKEN_FLIGHT)
                 trigger_frame_marker()   # 이벤트: 닭 선택 (Flight)
                 while mouse.getPressed()[0]:
-                    core.wait(0.01)
+                    pass
                 ui_elements.instruction_text.text = ""
                 ui_elements.message_text.text = ""
                 ui_elements.instruction_text.pos = original_instruction_pos
@@ -112,7 +112,6 @@ def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck
         )
         blink_frame_marker(win)
         win.flip()
-        core.wait(0.016)  # ~60 FPS
 
 
 def _is_mouse_over_button(mouse_pos, button_pos, button_width, button_height):

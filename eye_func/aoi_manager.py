@@ -1,21 +1,3 @@
-# eye_func/aoi_manager.py
-# AOI (Area of Interest) Manager for the Chicken Task eye-tracking experiment
-#
-# 역할
-# ----
-#   1. 카드 배치 상수로부터 보드(24개) + 덱(최대 27개) AOI 사각형을 계산
-#   2. EyeLink DataViewer 용 INTEREST_AREA 메시지를 시행 시작마다 전송
-#   3. 매 프레임 EyeLink 최신 시선 샘플을 받아 어느 카드를 보고 있는지 판단
-#   4. AOI 진입/이탈 시 EyeLink 메시지 + LabJack T4 디지털 트리거 전송
-#
-# 좌표계
-# ------
-#   PsychoPy  : 화면 중앙 원점, y-위 방향 (렌더러가 사용)
-#   Screen px : 좌상단 원점, y-아래 방향 (EyeLink & 이 모듈이 사용)
-#
-#   변환:  pixel_x = psychopy_x + WIDTH/2
-#          pixel_y = HEIGHT/2  - psychopy_y
-
 try:
     import pylink
     _PYLINK_AVAILABLE = True
@@ -85,19 +67,6 @@ def _point_in_rect(px: int, py: int, rect: tuple) -> bool:
 
 
 def psychopy_to_pixel(psychopy_x: float, psychopy_y: float) -> tuple:
-    """
-    PsychoPy 중심 좌표계 → 화면 픽셀 좌표계 변환.
-
-    Parameters
-    ----------
-    psychopy_x, psychopy_y : float
-        PsychoPy 좌표 (화면 중앙 = 0,0)
-
-    Returns
-    -------
-    (pixel_x, pixel_y) : tuple[int, int]
-        화면 좌상단 기준 픽셀 좌표
-    """
     return int(psychopy_x + WIDTH / 2), int(HEIGHT / 2 - psychopy_y)
 
 
@@ -106,19 +75,6 @@ def psychopy_to_pixel(psychopy_x: float, psychopy_y: float) -> tuple:
 # ============================================================================
 
 class AOIManager:
-    """
-    Chicken Task AOI 관리자.
-
-    Parameters
-    ----------
-    board : ConditionBoard
-        현재 게임 보드 (track_positions 순회용)
-    deck : MainDeck
-        현재 게임 덱 (rows, cols 속성 사용)
-    el_tracker : pylink.EyeLink | None
-        EyeLink 트래커 객체. None 이면 시선 추적 비활성화.
-    """
-
     def __init__(self, board, deck, el_tracker=None):
         self.board      = board
         self.deck       = deck
@@ -149,7 +105,6 @@ class AOIManager:
     # ------------------------------------------------------------------ #
 
     def _build_aois(self):
-        """보드 & 덱의 모든 카드 위치로 AOI 테이블을 구성합니다."""
         # 보드 카드 (운동장 트랙 24개)
         for idx, (row, col) in enumerate(self.board.track_positions):
             aoi_id = f"board_{row}_{col}"
@@ -173,29 +128,6 @@ class AOIManager:
                 }
 
     def update_deck(self, new_deck):
-        """
-        난이도 변경으로 deck 크기(deck_cols)가 바뀔 때 호출.
-        덱 AOI 테이블을 새 deck 기준으로 재빌드한다.
-
-        [왜 필요한가]
-        AOIManager는 초기화 시 _build_aois()를 한 번만 호출하여
-        self.deck.rows / self.deck.cols 기준으로 AOI 항목을 생성한다.
-        난이도 업 시 advance_round()가 새 MainDeck 객체(deck_cols 변경)를
-        생성하지만, AOIManager.aois 테이블은 그대로이므로:
-          - 새로 생긴 열(col)의 카드에 해당하는 AOI가 존재하지 않음
-          - 해당 카드에 시선이 닿아도 hit_test에서 None 반환
-          - gaze_events.csv 누락, EyeLink INTEREST_AREA 미등록,
-            LabJack 트리거 미발송
-
-        [언제 호출해야 하는가]
-        advance_round() 직후, 다음 시행의 register_with_eyelink() 전에 호출.
-        deck_cols가 바뀌지 않은 라운드에서도 호출해도 무방하다.
-
-        Parameters
-        ----------
-        new_deck : MainDeck
-            advance_round() 이후의 game_state.deck.
-        """
         prev_cols = self.deck.cols
         self.deck = new_deck
 
@@ -231,14 +163,6 @@ class AOIManager:
     # ------------------------------------------------------------------ #
 
     def register_with_eyelink(self):
-        """
-        EyeLink DataViewer 용 INTEREST_AREA 메시지를 EDF에 기록합니다.
-        각 시행(trial) 시작 직후, startRecording() 이후에 한 번 호출하세요.
-
-        EyeLink DataViewer IAREA 포맷:
-            !V IAREA RECTANGLE {index} {x1} {y1} {x2} {y2} {label}
-            (x1,y1 = 좌상단, x2,y2 = 우하단, 픽셀)
-        """
         if not self.el_tracker:
             return
 
@@ -255,21 +179,6 @@ class AOIManager:
     # ------------------------------------------------------------------ #
 
     def update(self, current_time: float):
-        """
-        매 프레임 호출.
-        EyeLink에서 최신 시선 샘플을 읽어 AOI를 판단하고,
-        진입·이탈 이벤트(EyeLink 메시지 + LabJack 트리거)를 처리합니다.
-
-        Parameters
-        ----------
-        current_time : float
-            현재 시각 (psychopy.core.getTime() 반환값)
-
-        Returns
-        -------
-        (aoi_id, aoi_info) : tuple[str | None, dict | None]
-            현재 시선이 위치한 AOI 정보. 어느 AOI에도 없으면 (None, None).
-        """
         # 시선 좌표 획득
         gaze_px = self._get_gaze_pixel()
         if gaze_px is None:

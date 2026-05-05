@@ -69,9 +69,4 @@ class FrameDropLogger:
         self._last_perf_t = now
 
     def reset(self) -> None:
-        """알려진 렌더링 중단 구간 직후에 호출해 false positive를 방지한다.
-
-        예: deferred TTL reset (5 ms busy-wait), core.wait(), 피드백 대기 등
-        이전 flip 시각을 지워 다음 after_flip()이 간격을 계산하지 않도록 한다.
-        """
         self._last_perf_t = None
