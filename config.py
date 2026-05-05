@@ -76,18 +76,22 @@ DIFFICULTY_SCORE_THRESHOLD = 500
 # 하나라도 실패 시, 제자리. 성공하면 그만큼 이동함. 
 
 
-# 6단계 선형 난이도 시퀀스 (deck_rows=3 고정, deck_cols·layout_mode만 변경)
+# 8단계 선형 난이도 시퀀스 (deck_rows=3 고정, deck_cols·layout_mode만 변경)
 DIFFICULTY_SEQUENCE = [
-    {'deck_cols': 4, 'layout_mode': 'factorization'},  # 0단계: 12장 factorization
-    {'deck_cols': 4, 'layout_mode': 'random'},          # 1단계: 12장 random
-    {'deck_cols': 5, 'layout_mode': 'factorization'},  # 2단계: 15장 factorization
-    {'deck_cols': 5, 'layout_mode': 'random'},          # 3단계: 15장 random
-    {'deck_cols': 6, 'layout_mode': 'factorization'},  # 4단계: 18장 factorization
-    {'deck_cols': 6, 'layout_mode': 'random'},          # 5단계: 18장 random
+    {'deck_cols': 3, 'layout_mode': 'factorization'},  # 0단계: 9장 factorization
+    {'deck_cols': 3, 'layout_mode': 'random'},          # 1단계: 9장 random
+    {'deck_cols': 4, 'layout_mode': 'factorization'},  # 2단계: 12장 factorization
+    {'deck_cols': 4, 'layout_mode': 'random'},          # 3단계: 12장 random
+    {'deck_cols': 5, 'layout_mode': 'factorization'},  # 4단계: 15장 factorization
+    {'deck_cols': 5, 'layout_mode': 'random'},          # 5단계: 15장 random
+    {'deck_cols': 6, 'layout_mode': 'factorization'},  # 6단계: 18장 factorization
+    {'deck_cols': 6, 'layout_mode': 'random'},          # 7단계: 18장 random
 ]
 
 # ==================== BONUS SETTINGS ====================
 BONUS_SEQUENCE = [
+    {'bonus_mode': 'none'},
+    {'bonus_mode': 'none'},
     {'bonus_mode': 'none'},
     {'bonus_mode': 'fixed', 'bonus_slots': [6, 12, 18]},
     {'bonus_mode': 'fixed', 'bonus_slots': [6, 12, 18]},
