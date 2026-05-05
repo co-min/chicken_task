@@ -121,14 +121,13 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
             if not game_state.is_game_time_expired():
 
                 # 아직 게임 시간 남음 → 다음 라운드 시작
-                _run_round_break(win, ui_elements, board_renderer, deck_renderer,
-                                 token_renderer, game_state, fdl=fdl)
                 game_state.advance_round()
-
                 board_renderer.update_board(game_state.board)
                 deck_renderer.update_deck(game_state.deck)
                 if aoi_manager:
                     aoi_manager.update_deck(game_state.deck)
+                _run_round_break(win, ui_elements, board_renderer, deck_renderer,
+                                 token_renderer, game_state, fdl=fdl)
             else:
                 print("[GAME END] 게임 시간(30분) 완료!")
                 return 'timeout'
@@ -394,8 +393,6 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                         _edf_msg(aoi_manager, f"TRIAL_END {_trial_id} MATCH 1 RESULT user_caught_npc")
                         _ljack(labjack_handle, TRIG_TRIAL_END)
                         _trial_active = False
-                        _run_round_break(win, ui_elements, board_renderer, deck_renderer,
-                                         token_renderer, game_state, fdl=fdl)
                         game_state.advance_round()
                         board_renderer.update_board(game_state.board)
                         deck_renderer.update_deck(game_state.deck)
@@ -405,6 +402,8 @@ def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,
                         game_state.timer.reset()
                         game_state.phase = game_state.PHASE_TOKEN_SELECTION
                         print(f"[ROUND ADVANCE] 잡기(사용자) → 라운드 {game_state.current_round} 시작")
+                        _run_round_break(win, ui_elements, board_renderer, deck_renderer,
+                                         token_renderer, game_state, fdl=fdl)
                         return 'continue'
 
                     # 시행 종료 마킹
@@ -703,8 +702,6 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
                 edf_result = 'seq_npc_caught_user' if result == 'all_success' else 'npc_caught_user'
                 _edf_msg(aoi_manager, f"TRIAL_END {_pc_trial_id} MATCH 1 RESULT {edf_result}")
                 _ljack(labjack_handle, TRIG_TRIAL_END)
-                _run_round_break(win, ui_elements, board_renderer, deck_renderer,
-                                 token_renderer, game_state, fdl=fdl)
                 game_state.advance_round()
                 board_renderer.update_board(game_state.board)
                 deck_renderer.update_deck(game_state.deck)
@@ -712,6 +709,8 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
                     aoi_manager.update_deck(game_state.deck)
                 print(f"[ROUND ADVANCE] 잡기(문어) → 라운드 {game_state.current_round} 시작")
                 game_state.end_pc_turn()
+                _run_round_break(win, ui_elements, board_renderer, deck_renderer,
+                                 token_renderer, game_state, fdl=fdl)
                 print(f"[문어] flight 잡음! PC 턴 종료 → 사용자 턴")
                 return 'continue'
 
@@ -751,13 +750,15 @@ def _run_round_break(win, ui_elements, board_renderer, deck_renderer, token_rend
     """
     if fdl:
         fdl.reset()
-    next_round = game_state.current_round + 1
+    # advance_round()가 이미 호출된 후이므로 current_round는 새 라운드 번호
+    completed_round = game_state.current_round - 1
+    next_round = game_state.current_round
     for remaining in range(ROUND_BREAK_DURATION, 0, -1):
         _second_deadline = core.getTime() + 1.0
         while core.getTime() < _second_deadline:
             _draw_game_screen(win, ui_elements, board_renderer, deck_renderer, token_renderer,
                               game_state, highlighted_pos=None)
-            ui_elements.draw_round_break(game_state.current_round, next_round, remaining)
+            ui_elements.draw_round_break(completed_round, next_round, remaining)
             blink_frame_marker(win)
             win.flip()
             if fdl:
