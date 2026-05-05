@@ -56,27 +56,15 @@ START_CUE_DURATION = 0.5
 
 
 def _ljack(handle, code):
-    """flip 타이밍과 무관한 즉시 TTL 전송 (blocking pulse).
-    클릭 onset · TRIAL_END 등 VSync 동기화가 불필요한 이벤트에 사용.
-    내부적으로 set_trigger → 5 ms busy-wait → reset_trigger 순서로 동작.
-    """
     send_trigger(handle, code)
 
 
 def _flip_trigger(win, handle, code):
-    """다음 win.flip() 시 TTL HIGH 예약 (callOnFlip).
-    VSync에 정확히 동기화해야 하는 visual onset 트리거(카드 뒤집기, 피드백 등)에 사용.
-    반드시 win.flip() 호출 전에 등록해야 하며, 이후 _flip_reset()으로 리셋을 예약해야 한다.
-    """
     if handle:
         win.callOnFlip(set_trigger, handle, code)
 
 
 def _flip_reset(win, handle):
-    """다음 win.flip() 시 TTL LOW 리셋 예약 (callOnFlip).
-    _flip_trigger()가 발화한 flip 이후, 다음 flip에서 호출되도록 등록한다.
-    즉, win.flip() 반환 직후에 이 함수를 호출하면 한 프레임 뒤에 리셋된다.
-    """
     if handle:
         win.callOnFlip(reset_trigger, handle)
 
@@ -159,9 +147,6 @@ def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_rende
             if result == 'continue':
                 # PC 턴 종료 → 사용자 턴으로 전환됨
                 print(f"[TURN SWITCH] 문어 → 사용자 (턴 {game_state.turn_count})")
-
-        # # 메인 루프 폴링 대기
-        # checked_wait(0.005, label="main_loop_poll")
 
 
 def _run_user_turn(win, game_state, ui_elements, board_renderer, deck_renderer,

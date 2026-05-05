@@ -15,6 +15,7 @@ from config import (
 # 이미지 경로
 STIMULI_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'stimuli')
 CONDITION_CARDS_DIR = os.path.join(STIMULI_DIR, 'condition_cards')
+MAIN_CARDS_DIR = os.path.join(STIMULI_DIR, 'main_cards')
 CARD_BACK_PATH = os.path.join(STIMULI_DIR, 'ui', 'card_back.png')
 
 
@@ -160,14 +161,21 @@ class BoardRenderer:
 
         if cond_type == 'color':
             filename = f"color_{cond_value}.png"
+            return os.path.join(CONDITION_CARDS_DIR, filename)
         elif cond_type == 'shape':
             filename = f"shape_{cond_value}.png"
+            return os.path.join(CONDITION_CARDS_DIR, filename)
         elif cond_type == 'number':
             filename = f"number_{cond_value}.png"
+            return os.path.join(CONDITION_CARDS_DIR, filename)
+        elif cond_type == 'conjunctive':
+            color = condition.get('color')
+            shape = condition.get('shape')
+            number = condition.get('number')
+            filename = f"{color}_{shape}_{number}.png"
+            return os.path.join(MAIN_CARDS_DIR, filename)
         else:
             return CARD_BACK_PATH
-        
-        return os.path.join(CONDITION_CARDS_DIR, filename)
     
     def update_board(self, new_board):
         """

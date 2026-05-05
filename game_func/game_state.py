@@ -479,8 +479,9 @@ class GameState:
         npc_condition = self.board.get_condition(npc_target_pos[0], npc_target_pos[1])
         return check_match(npc_condition, selected_card)
 
-    def _add_user_match_score(self, elapsed_time, is_steal):
-        """사용자 성공 점수 계산 및 누적. 획득 점수를 반환."""
+    def _add_user_match_score(self, elapsed_time, is_steal, bonus_target_pos=None):
+        """사용자 성공 점수 계산 및 누적. 획득 점수를 반환.
+        bonus_target_pos: 보너스 판정에 사용할 위치 (sequential 시 현재 step 위치)."""
         self.user_combo += 1
         score = SCORE_MATCH
         score += self._calculate_speed_bonus(elapsed_time)
@@ -489,17 +490,19 @@ class GameState:
         if is_steal:
             score += SCORE_STEAL
 
-        # 보너스 칸 판정: 타겟 위치 조건 카드에 bonus='double_score'이면 배율 적용.
+        # 보너스 칸 판정: sequential 시 bonus_target_pos, 일반 시 토큰 다음 위치 사용.
         # selected_token이 None인 경우(예: 토큰 선택 전 호출)는 안전하게 건너뜀.
-        is_bonus = False
-        if self.selected_token:
+        if bonus_target_pos:
+            target_pos = bonus_target_pos
+        elif self.selected_token:
             target_pos = self.tokens.get_target_position(self.selected_token)
-            if target_pos:
-                condition = self.board.get_condition(target_pos[0], target_pos[1])
-                if condition and condition.get('bonus') == 'double_score':
-                    score *= BONUS_SCORE_MULTIPLIER
-                    is_bonus = True
-                    print(f"[BONUS] 보너스 칸 적중! ×{BONUS_SCORE_MULTIPLIER} → {score}점")
+        else:
+            target_pos = None
+        if target_pos:
+            condition = self.board.get_condition(target_pos[0], target_pos[1])
+            if condition and condition.get('bonus') == 'double_score':
+                score *= BONUS_SCORE_MULTIPLIER
+                print(f"[BONUS] 보너스 칸 적중! ×{BONUS_SCORE_MULTIPLIER} → {score}점")
 
         self.user_score += score
         return score
@@ -509,12 +512,30 @@ class GameState:
         self.user_combo = 0
         self.user_score += SCORE_PENALTY
 
-    def _add_pc_match_score(self):
-        """PC 성공 점수 계산 및 누적. 획득 점수를 반환."""
+    def _add_pc_match_score(self, target_pos=None, selected_card=None):
+        """PC 성공 점수 계산 및 누적. 획득 점수를 반환.
+        target_pos: 보너스 판정 위치 (보너스 칸 배율 적용).
+        selected_card: steal 판정용 선택 카드 (사용자 타겟과 매칭 시 steal 보너스)."""
         self.pc_combo += 1
         score = SCORE_MATCH
         if self.pc_combo > 1:
             score += SCORE_COMBO_BONUS
+
+        # steal: NPC 카드가 사용자 타겟 조건과도 매칭되면 steal 보너스
+        if selected_card and self.selected_token:
+            user_target_pos = self.tokens.get_target_position(self.selected_token)
+            if user_target_pos:
+                user_condition = self.board.get_condition(user_target_pos[0], user_target_pos[1])
+                if check_match(user_condition, selected_card):
+                    score += SCORE_STEAL
+
+        # 보너스 칸 판정: 타겟 위치 조건 카드에 bonus='double_score'이면 배율 적용
+        if target_pos:
+            condition = self.board.get_condition(target_pos[0], target_pos[1])
+            if condition and condition.get('bonus') == 'double_score':
+                score *= BONUS_SCORE_MULTIPLIER
+                print(f"[BONUS] PC 보너스 칸 적중! ×{BONUS_SCORE_MULTIPLIER} → {score}점")
+
         self.pc_score += score
         return score
 
@@ -926,7 +947,7 @@ class GameState:
             self.end_user_turn()
             return 'failure'
 
-        self._add_user_match_score(elapsed, is_steal=False)
+        self._add_user_match_score(elapsed, is_steal=False, bonus_target_pos=current_target)
         self.seq_memory_step += 1
 
         if self.seq_memory_step >= len(self.seq_memory_targets):
@@ -1018,7 +1039,7 @@ class GameState:
             self.end_pc_turn()
             return ('failure', selected_pos)
 
-        self._add_pc_match_score()
+        self._add_pc_match_score(current_target, card)
         self.seq_memory_step += 1
 
         if self.seq_memory_step >= len(self.seq_memory_targets):
@@ -1111,7 +1132,7 @@ class GameState:
         self._record_npc_observation(selected_pos, card)
         
         if is_match:
-            score_gained = self._add_pc_match_score()
+            score_gained = self._add_pc_match_score(target_pos, card)
             print(f"PC 성공! +{score_gained}점 (콤보:{self.pc_combo}) → 누적:{self.pc_score}")
 
             if defer_success_move:

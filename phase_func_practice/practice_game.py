@@ -355,8 +355,11 @@ def _run_normal_card_selection(win, game_state, ui_elements,
                                    message="정답!  잘 하셨어요 :)",
                                    color=PURPLE, target_pos=None)
                     # 토큰 이동 (성공 처리)
-                    game_state.complete_user_success_move()
+                    move_result = game_state.complete_user_success_move()
                     game_state.deck.hide_card(card_row, card_col)
+                    if move_result == 'user_caught_npc':
+                        board_renderer.refresh()
+                        deck_renderer.refresh()
                     return 'correct'
 
                 elif result == 'failure':
@@ -482,7 +485,10 @@ def _run_seq_card_selection(win, game_state, ui_elements,
                                    seq_cells=seq_cells,
                                    done_cells=done_cells,
                                    duration_mult=4)
-                    game_state.complete_seq_memory_move()
+                    move_result = game_state.complete_seq_memory_move()
+                    if move_result == 'user_caught_npc':
+                        board_renderer.refresh()
+                        deck_renderer.refresh()
                     return 'all_correct'
 
                 elif result == 'failure':
