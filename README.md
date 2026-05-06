@@ -27,7 +27,7 @@ NPC(문어)가 동시에 덱 카드를 선택하며, 토큰(추격/도주)을 �
 
 - 보너스 슬롯: 라운드별 고정/랜덤 보너스 칸 배치, 해당 칸 도착 시 점수 2배
 
-- 난이도 자동 스케일: 덱 열 수 및 배치 방식(factorization/random) 6단계 선형 진행
+- 난이도 자동 스케일: 덱 열 수 및 배치 방식(factorization/random) 8단계 선형 진행
 
 - EyeLink 연동: AOI(Area of Interest) 기반 시선 이벤트 기록 및 LabJack TTL 트리거 전송
 
@@ -133,7 +133,8 @@ pip install eye_func/psychopy_eyetracker_sr_research-0.0.5-py3-none-any.whl
 
 # 설정 (`config.py`)
 
-| 항목 변수 | 기본값 |
+| 항목 | 변수 | 기본값 |
+| --- | --- | --- |
 | 화면 해상도 자동 감지 | `AUTO_DETECT_WINDOW_SIZE` | `True` |
 | 전체화면 | `FULLSCREEN` | `True` |
 | 창 모드 강제 | `FORCE_WINDOWED_MODE` | `False` |
@@ -169,10 +170,10 @@ while True:                          # 게임 메인 루프
     [게임 상태 업데이트]
     [자극 draw]
     blink_frame_marker(win)          # 포토다이오드 마커 카운터 +1 및 draw
-    [TTL pre-flip 전송]              # sEEG 트리거: flip 직전에 전송
-    win.flip()                       # VSync 동기화
+    [win.callOnFlip(set_trigger) 등록]  # VSync onset TTL이 필요한 프레임에만
+    win.flip()                       # VSync 동기화, callOnFlip 콜백 실행
     aoi_manager.update()             # AOI 시선 이벤트 업데이트 (flip 직후)
-    [deferred TTL reset]             # flip 후 5 ms 대기 → CIO0 LOW, EIO 0
+    [win.callOnFlip(reset_trigger) 등록]  # TTL reset을 다음 flip에 예약
 ```
 
 애니메이션·대기 구간도 동일한 패턴으로 처리합니다.
@@ -194,8 +195,8 @@ while core.getTime() < deadline:
 | 시행 간 인터벌 | `TRIAL_INTERVAL` (0.5 s) |
 | PC 생각 시간 | `PC_THINK_TIME` (1.0 s) |
 | 시작 큐 ("시작!") | `START_CUE_DURATION` (0.5 s) |
-| 잡기 이벤트 후 초기화 유예 | `CATCH_RESET_PREP_DURATION` |
-| 라운드 휴식 카운트다운 | `ROUND_BREAK_DURATION` × 1 s |
+| 잡기 이벤트 후 초기화 유예 | `CATCH_RESET_PREP_DURATION` (0.5 s) |
+| 라운드 휴식 카운트다운 | `ROUND_BREAK_DURATION` × 1 s (10 s) |
 
 > **VSync 타이밍**: `win.flip()`은 PsychoPy 기본 설정(`waitBlanking=True`)에서 VSync까지 블로킹합니다.
 > 이미 16.67 ms 주기가 보장되므로 flip 이후 추가 `core.wait()`는 사용하지 않습니다.
@@ -247,7 +248,7 @@ CIO0(latch) 핀의 `0→1` **rising edge**가 "지금 읽어라"는 신호 역�
 매 트리거 전송 순서:
   ① EIO_STATE = code     (8비트 데이터 세팅)
   ② CIO0 = 1             (latch HIGH → Natus Quantum이 rising edge에서 EIO 캡처)
-  ③ 5ms 대기
+  ③ (펄스 유지)
   ④ CIO0 = 0             (latch LOW)
   ⑤ EIO_STATE = 0        (데이터 클리어)
 
@@ -265,10 +266,8 @@ CIO0(latch) 핀의 `0→1` **rising edge**가 "지금 읽어라"는 신호 역�
 
 | 레지스터 | 값 | 이유 |
 | --- | --- | --- |
-| `EIO_INHIBIT` | 0 | EIO 출력 활성화 (기본값이지만 명시적 설정) |
 | `EIO_DIRECTION` | 0xFF | EIO0–7 전부 출력 모드 |
 | `EIO_STATE` | 0 | 초기값 LOW |
-| `CIO_INHIBIT` | 0 | CIO 출력 활성화 |
 | `CIO_DIRECTION` | 0x0F | CIO0–3 출력 모드 |
 | `CIO_STATE` | 0 | latch 초기값 LOW |
 
@@ -280,46 +279,49 @@ EEG/sEEG 분석 시 이 코드북을 참조하여 타임스탬프를 이벤트�
 | 이벤트 | 트리거 코드 | 전송 시점 | 구현 위치 |
 | --- | --- | --- | --- |
 | 사용자 카드 클릭 (운동 반응) | 100 | 마우스 클릭 감지 즉시 (flip 무관) | `game_play.py` |
-| 사용자 카드 뒤집기 visual onset | 101 | `win.flip()` **직전** (pre-flip) | `game_play.py` |
-| PC 카드 뒤집기 visual onset | 102 | `win.flip()` **직전** (pre-flip) | `game_play.py` |
+| 사용자 카드 뒤집기 visual onset | 101 | `win.callOnFlip` → VSync 시점 실행 | `game_play.py` |
+| PC 카드 뒤집기 visual onset | 102 | `win.callOnFlip` → VSync 시점 실행 | `game_play.py` |
 | 닭 선택 – chase | 110 | 버튼 클릭 감지 즉시 (flip 무관) | `token_selection.py` |
 | 닭 선택 – flight | 111 | 버튼 클릭 감지 즉시 (flip 무관) | `token_selection.py` |
-| 시행 시작 (사용자) | 200 | `win.flip()` **직전** (pre-flip) | `game_play.py` |
-| 시행 시작 (PC – think screen) | 200 | `win.flip()` **직전** (pre-flip) | `game_play.py` |
+| 시행 시작 (사용자) | 200 | `win.callOnFlip` → VSync 시점 실행 | `game_play.py` |
+| 시행 시작 (PC – think screen) | 200 | `win.callOnFlip` → VSync 시점 실행 | `game_play.py` |
 | 시행 종료 | 201 | 결과 처리 직후 즉시 (flip 무관) | `game_play.py` |
-| 피드백 성공 (FRN/P300 onset) | 210 | `win.flip()` **직전** (pre-flip) | `feedback.py` |
-| 피드백 실패 (FRN/P300 onset) | 211 | `win.flip()` **직전** (pre-flip) | `feedback.py` |
-| 피드백 타임아웃 | 212 | `win.flip()` **직전** (pre-flip) | `feedback.py` |
+| 피드백 성공 (FRN/P300 onset) | 210 | `win.callOnFlip` → VSync 시점 실행 | `feedback.py` |
+| 피드백 실패 (FRN/P300 onset) | 211 | `win.callOnFlip` → VSync 시점 실행 | `feedback.py` |
+| 피드백 타임아웃 | 212 | `win.callOnFlip` → VSync 시점 실행 | `feedback.py` |
 | 순차 메모리 활성화 | 220 | 활성화 판정 즉시 (flip 무관) | `game_play.py` |
 | 순차 메모리 스텝 성공 | 221 | (미사용, 예약) | — |
-| 순차 메모리 전체 성공 | 222 | `win.flip()` **직전** (pre-flip) | `feedback.py` |
-| 순차 메모리 실패 | 223 | `win.flip()` **직전** (pre-flip) | `feedback.py` |
+| 순차 메모리 전체 성공 | 222 | `win.callOnFlip` → VSync 시점 실행 | `feedback.py` |
+| 순차 메모리 실패 | 223 | `win.callOnFlip` → VSync 시점 실행 | `feedback.py` |
 | 보드/덱 카드 AOI 진입 | 10–66 | EyeLink 시선 hit 감지 직후 | `aoi_manager.py` |
 
 ## TTL 전송 방식
 
-**pre-flip 방식** (101, 102, 200, 210–212, 222–223)
+### callOnFlip 방식 (101, 102, 200, 210–212, 222–223)
 
-`send_trigger_async(labjack, code)`를 `win.flip()` **직전**에 호출합니다.
+`win.callOnFlip(set_trigger, handle, code)`를 `win.flip()` 직전에 등록합니다.
+등록된 콜백은 `win.flip()` 내부의 VSync 시점에 실행됩니다.
+TTL reset은 `win.flip()` 직후에 `win.callOnFlip(reset_trigger, handle)`으로 등록하여 다음 프레임의 VSync에서 실행됩니다.
 
 ```
 draw_everything()
 blink_frame_marker(win)
-send_trigger_async(handle, code)   ← EIO=code, CIO0=HIGH (USB ~1–4 ms)
-win.flip()                         ← [VSync] → 화면 표시, 포토다이오드 ON
-_flip_perf_t = perf_counter()
-_deferred_lj_reset(handle, _flip_perf_t)  ← 5 ms 후 CIO0=LOW, EIO=0
+win.callOnFlip(set_trigger, handle, code)   ← 이번 VSync에 실행 예약
+win.flip()           ← [VSync] → set_trigger 실행: EIO=code, CIO0=HIGH
+                                → 화면에 자극 표시, 포토다이오드 ON
+                                → USB 전송 ~1–4 ms → sEEG에 TTL 도달
+win.callOnFlip(reset_trigger, handle)       ← 다음 VSync에 실행 예약
+
+(다음 프레임)
+win.flip()           ← [VSync] → reset_trigger 실행: CIO0=LOW, EIO=0
 ```
 
-TTL이 포토다이오드보다 먼저 sEEG에 도착하므로 TTL–포토다이오드 오프셋이 프레임마다 일정합니다.
-포토다이오드 타임스탬프를 기준으로 모든 시행의 onset을 일괄 보정할 수 있습니다.
+TTL 펄스 폭 ≈ 1 프레임 (~16.7 ms @ 60 Hz)
 
-> **기존 `callOnFlip` 방식과의 차이**: 이전 구현은 `win.callOnFlip(send_trigger_async, ...)` 으로
-> VSync 내부에서 TTL을 전송하거나, `win.flip()` 반환 후 비동기로 전송했습니다.
-> 이 경우 OS 스케줄러에 따라 TTL 도착 시각이 시행마다 달라져 sEEG 이벤트 정렬 오차가 발생했습니다.
-> pre-flip 방식은 이 가변 지연을 제거합니다.
+TTL과 포토다이오드 사이의 오프셋은 USB 전송 지연(~1–4 ms)에 의해 발생하며, 지터는 비교적 작고 일정합니다. 포토다이오드 타임스탬프를 기준으로 모든 시행의 onset을 일괄 보정할 수 있습니다.
 
-**즉시 블로킹 전송 방식** (100, 110, 111, 201, 220)
+### 즉시 블로킹 전송 방식 (100, 110, 111, 201, 220)
 
-`send_trigger(labjack, code)`를 호출합니다. EIO HIGH + CIO0 HIGH → 5 ms busy-wait → CIO0 LOW → EIO 0을 한 번에 처리합니다.  
+`send_trigger(handle, code)`를 호출합니다.  
+EIO HIGH + CIO0 HIGH → 5 ms busy-wait → CIO0 LOW → EIO 0을 한 번에 처리합니다. 펄스 폭 = 5 ms.  
 닭 선택, 카드 클릭, 시행 종료처럼 flip 타이밍과 무관한 이벤트에 사용합니다.

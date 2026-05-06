@@ -150,8 +150,9 @@ class GameState:
         self.turn_count = 0
         self.user_move_count = 0
         self.pc_move_count = 0
-        self.trial_history = []  # 시행 결과 리스트
-        self.trial_id = 0        # EDF/LabJack 동기화용 단조 증가 시행 번호
+        self.trial_history = []       # 시행 결과 리스트
+        self.trial_id = 0             # EDF/LabJack 동기화용 단조 증가 시행 번호
+        self.round_event_history = [] # 라운드 경계 이벤트 기록
 
         # Conjunctive 조건 카운터 (난이도 미증가 라운드 수)
         self.round_count_ = 0
@@ -390,6 +391,26 @@ class GameState:
             if trial.get('token') in ('chase', 'flight'):
                 return trial
         return None
+
+    def _snapshot_token_positions(self):
+        """시행 직전 토큰 위치 스냅샷. (user_token_pos, pc_token_pos) 반환."""
+        all_pos = self.tokens.get_all_positions()
+        user_pos = all_pos.get(self.selected_token) if self.selected_token else None
+        pc_pos = all_pos.get('octopus')
+        return user_pos, pc_pos
+
+    def _append_round_event(self, event_type: str, note: str = ''):
+        """라운드 경계 이벤트를 round_event_history에 기록."""
+        self.round_event_history.append({
+            'event_type': event_type,
+            'round_num': self.current_round,
+            'timestamp': time.time(),
+            'user_score': self.user_score,
+            'pc_score': self.pc_score,
+            'token_positions': dict(self.tokens.get_all_positions()),
+            'difficulty_index': self.difficulty_index,
+            'note': note,
+        })
 
     def _estimate_user_success_probability(self, next_condition):
         """
@@ -633,6 +654,7 @@ class GameState:
         self.timer.time_limit = self.turn_time_limit
         print(f"[ROUND {self.current_round}] 시작! 난이도={self.difficulty_index}, "
               f"턴 제한={self.turn_time_limit}초")
+        self._append_round_event('round_advance')
 
 
     def start_game(self):
@@ -641,6 +663,7 @@ class GameState:
         self.current_turn = self.TURN_USER
         self.turn_count = 1
         print("게임 시작! 닭을 선택하세요 (Chase 또는 Flight)")
+        self._append_round_event('game_start')
     
     def select_token(self, token_name):
         if self.phase != self.PHASE_TOKEN_SELECTION:
@@ -696,9 +719,7 @@ class GameState:
         
         # 현재까지 경과 시간 기록 (카드 뒤집기 전)
         elapsed_time = self.timer.get_elapsed()
-
-        # 클릭 직전 덱 가시 상태 스냅샷 (어느 카드가 앞면이었는지)
-        deck_snapshot = self.deck.face_up_snapshot()
+        user_pos, pc_pos = self._snapshot_token_positions()
 
         # 카드 뒤집기
         self.deck.flip_card(card_row, card_col)
@@ -707,22 +728,28 @@ class GameState:
         card = self.deck.get_card(card_row, card_col)
         condition = self.get_target_condition()
         is_match = check_match(condition, card)
+        result_type = 'success' if is_match else 'failure'
 
         # 시행 기록 저장
         trial = {
-            'trial_id': self.trial_id,       # EDF/LabJack 동기화 키
-            'round': self.current_round,
-            'turn': self.turn_count,
-            'token': self.selected_token,
-            'target_pos': self.get_target_position(),
-            'condition': condition,
-            'selected_card_pos': (card_row, card_col),
-            'selected_card': card,
-            'is_match': is_match,
-            'elapsed_time': elapsed_time,    # 이번 시도에 걸린 시간
-            'timestamp': time.time(),        # 절대 시각 (UNIX epoch)
-            'deck_face_up': deck_snapshot,   # 클릭 직전 덱 가시 상태
-            'trial_start_time': self.current_trial_start_psychopy,  # EDF TRIAL_START 동기점
+            'trial_id':           self.trial_id,
+            'round':              self.current_round,
+            'turn':               self.turn_count,
+            'token':              self.selected_token,
+            'target_pos':         self.get_target_position(),
+            'condition':          condition,
+            'selected_card_pos':  (card_row, card_col),
+            'selected_card':      card,
+            'is_match':           is_match,
+            'result_type':        result_type,
+            'elapsed_time':       elapsed_time,
+            'timestamp':          time.time(),
+            'trial_start_time':   self.current_trial_start_psychopy,
+            'user_token_pos':     user_pos,
+            'pc_token_pos':       pc_pos,
+            'seq_memory_targets': None,
+            'user_combo':         self.user_combo,
+            'npc_success_rate':   self.npc_ai.success_rate,
         }
         self.trial_history.append(trial)
         self._record_user_observation((card_row, card_col), card, is_match)
@@ -916,27 +943,39 @@ class GameState:
         condition = self.board.get_condition(*current_target)
         elapsed   = self.timer.get_elapsed()
 
-        deck_snapshot = self.deck.face_up_snapshot()
+        user_pos, pc_pos = self._snapshot_token_positions()
         self.deck.flip_card(card_row, card_col)
         card     = self.deck.get_card(card_row, card_col)
         is_match = check_match(condition, card)
 
+        if not is_match:
+            result_type = 'seq_failure'
+        elif self.seq_memory_step + 1 >= len(self.seq_memory_targets):
+            result_type = 'seq_all_success'
+        else:
+            result_type = 'seq_step_success'
+
         trial = {
-            'trial_id':          self.trial_id,
-            'round':             self.current_round,
-            'turn':              self.turn_count,
-            'token':             self.selected_token,
-            'target_pos':        current_target,
-            'condition':         condition,
-            'selected_card_pos': (card_row, card_col),
-            'selected_card':     card,
-            'is_match':          is_match,
-            'elapsed_time':      elapsed,
-            'timestamp':         time.time(),
-            'seq_memory_step':   self.seq_memory_step,
-            'seq_memory_total':  len(self.seq_memory_targets),
-            'deck_face_up':      deck_snapshot,
-            'trial_start_time':  self.current_trial_start_psychopy,
+            'trial_id':           self.trial_id,
+            'round':              self.current_round,
+            'turn':               self.turn_count,
+            'token':              self.selected_token,
+            'target_pos':         current_target,
+            'condition':          condition,
+            'selected_card_pos':  (card_row, card_col),
+            'selected_card':      card,
+            'is_match':           is_match,
+            'result_type':        result_type,
+            'elapsed_time':       elapsed,
+            'timestamp':          time.time(),
+            'trial_start_time':   self.current_trial_start_psychopy,
+            'seq_memory_step':    self.seq_memory_step,
+            'seq_memory_total':   len(self.seq_memory_targets),
+            'seq_memory_targets': list(self.seq_memory_targets),
+            'user_token_pos':     user_pos,
+            'pc_token_pos':       pc_pos,
+            'user_combo':         self.user_combo,
+            'npc_success_rate':   self.npc_ai.success_rate,
         }
         self.trial_history.append(trial)
         self._record_user_observation((card_row, card_col), card, is_match)
@@ -1009,26 +1048,38 @@ class GameState:
             self.deck, condition, memory_context=memory_context,
         )
 
-        deck_snapshot = self.deck.face_up_snapshot()
+        user_pos, pc_pos = self._snapshot_token_positions()
         self.deck.flip_card(selected_pos[0], selected_pos[1])
         card = self.deck.get_card(selected_pos[0], selected_pos[1])
 
+        if not is_match:
+            result_type = 'seq_failure'
+        elif self.seq_memory_step + 1 >= len(self.seq_memory_targets):
+            result_type = 'seq_all_success'
+        else:
+            result_type = 'seq_step_success'
+
         trial = {
-            'trial_id':          self.trial_id,
-            'round':             self.current_round,
-            'turn':              self.turn_count,
-            'token':             'octopus',
-            'target_pos':        current_target,
-            'condition':         condition,
-            'selected_card_pos': selected_pos,
-            'selected_card':     card,
-            'is_match':          is_match,
-            'elapsed_time':      0,
-            'timestamp':         time.time(),
-            'seq_memory_step':   self.seq_memory_step,
-            'seq_memory_total':  len(self.seq_memory_targets),
-            'deck_face_up':      deck_snapshot,
-            'trial_start_time':  self.current_trial_start_psychopy,
+            'trial_id':           self.trial_id,
+            'round':              self.current_round,
+            'turn':               self.turn_count,
+            'token':              'octopus',
+            'target_pos':         current_target,
+            'condition':          condition,
+            'selected_card_pos':  selected_pos,
+            'selected_card':      card,
+            'is_match':           is_match,
+            'result_type':        result_type,
+            'elapsed_time':       0,
+            'timestamp':          time.time(),
+            'trial_start_time':   self.current_trial_start_psychopy,
+            'seq_memory_step':    self.seq_memory_step,
+            'seq_memory_total':   len(self.seq_memory_targets),
+            'seq_memory_targets': list(self.seq_memory_targets),
+            'user_token_pos':     user_pos,
+            'pc_token_pos':       pc_pos,
+            'user_combo':         self.user_combo,
+            'npc_success_rate':   self.npc_ai.success_rate,
         }
         self.trial_history.append(trial)
         self._record_npc_observation(selected_pos, card)
@@ -1108,25 +1159,31 @@ class GameState:
         )
         
         # 카드 뒤집기
-        deck_snapshot = self.deck.face_up_snapshot()
+        user_pos, pc_pos = self._snapshot_token_positions()
         self.deck.flip_card(selected_pos[0], selected_pos[1])
         card = self.deck.get_card(selected_pos[0], selected_pos[1])
+        result_type = 'success' if is_match else 'failure'
 
         # 기록
         trial = {
-            'trial_id': self.trial_id,       # EDF/LabJack 동기화 키
-            'round': self.current_round,
-            'turn': self.turn_count,
-            'token': 'octopus',
-            'target_pos': target_pos,
-            'condition': condition,
-            'selected_card_pos': selected_pos,
-            'selected_card': card,
-            'is_match': is_match,
-            'elapsed_time': 0,
-            'timestamp': time.time(),        # 절대 시각 (UNIX epoch)
-            'deck_face_up': deck_snapshot,   # 클릭 직전 덱 가시 상태
-            'trial_start_time': self.current_trial_start_psychopy,  # EDF TRIAL_START 동기점
+            'trial_id':           self.trial_id,
+            'round':              self.current_round,
+            'turn':               self.turn_count,
+            'token':              'octopus',
+            'target_pos':         target_pos,
+            'condition':          condition,
+            'selected_card_pos':  selected_pos,
+            'selected_card':      card,
+            'is_match':           is_match,
+            'result_type':        result_type,
+            'elapsed_time':       0,
+            'timestamp':          time.time(),
+            'trial_start_time':   self.current_trial_start_psychopy,
+            'user_token_pos':     user_pos,
+            'pc_token_pos':       pc_pos,
+            'seq_memory_targets': None,
+            'user_combo':         self.user_combo,
+            'npc_success_rate':   self.npc_ai.success_rate,
         }
         self.trial_history.append(trial)
         self._record_npc_observation(selected_pos, card)
@@ -1205,6 +1262,7 @@ class GameState:
         """사용자(chase)가 문어(octopus)를 잡았을 때 처리."""
         self.user_catch_count += 1
         self.user_score += SCORE_CATCH_BONUS
+        self._append_round_event('user_catch', note=f'user_catch_count={self.user_catch_count}')
         self._reset_round_board_state()
         print(f"[잡기] 사용자가 문어를 잡음! +{SCORE_CATCH_BONUS}점 | "
               f"누적:{self.user_score} | 잡기횟수:{self.user_catch_count}")
@@ -1216,6 +1274,7 @@ class GameState:
         self.user_score += SCORE_CAUGHT_PENALTY
         self.pc_score += SCORE_PC_CATCH_BONUS
         self.user_combo = 0   # 잡혔으므로 콤보 초기화
+        self._append_round_event('npc_catch', note=f'pc_catch_count={self.pc_catch_count}')
         self._reset_round_board_state()
         print(f"[잡기] 문어가 flight를 잡음! {SCORE_CAUGHT_PENALTY}점 | "
               f"유저:{self.user_score} | PC:{self.pc_score} | "
@@ -1267,6 +1326,7 @@ class GameState:
         self.user_move_count = 0
         self.pc_move_count = 0
         self.trial_history = []
+        self.round_event_history = []
         self.user_accuracy_ewma = self.base_random_rate
         self.user_seen_cards = {}
         self.npc_seen_cards = {}

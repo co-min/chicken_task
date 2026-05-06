@@ -14,7 +14,7 @@ try:
     )
     from ..view_func.frame_marker import blink_frame_marker, trigger_frame_marker
     from ..sounds import play as sound_play
-    from ..utils.labjack_triggers import send_trigger, TRIG_TOKEN_CHASE, TRIG_TOKEN_FLIGHT
+    from ..utils.labjack_triggers import set_trigger, reset_trigger, TRIG_TOKEN_CHASE, TRIG_TOKEN_FLIGHT
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from config import (
@@ -25,7 +25,7 @@ except ImportError:
     )
     from view_func.frame_marker import blink_frame_marker, trigger_frame_marker
     from sounds import play as sound_play
-    from utils.labjack_triggers import send_trigger, TRIG_TOKEN_CHASE, TRIG_TOKEN_FLIGHT
+    from utils.labjack_triggers import set_trigger, reset_trigger, TRIG_TOKEN_CHASE, TRIG_TOKEN_FLIGHT
 
 
 def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck_renderer, token_renderer, sounds=None, labjack_handle=None):
@@ -77,10 +77,15 @@ def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck
                 selected_token = 'chase'
                 sound_play(sounds, 'type')
                 game_state.select_token(selected_token)
-                send_trigger(labjack_handle, TRIG_TOKEN_CHASE)
+                if labjack_handle:
+                    set_trigger(labjack_handle, TRIG_TOKEN_CHASE)
+                    win.callOnFlip(reset_trigger, labjack_handle)
                 trigger_frame_marker()   # 이벤트: 닭 선택 (Chase)
                 while mouse.getPressed()[0]:
-                    pass
+                    _draw_selection_screen(win, ui_elements, board_renderer, deck_renderer,
+                                           token_renderer, selected_token, hovering, game_state)
+                    blink_frame_marker(win)
+                    win.flip()
                 ui_elements.instruction_text.text = ""
                 ui_elements.message_text.text = ""
                 ui_elements.instruction_text.pos = original_instruction_pos
@@ -95,10 +100,15 @@ def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck
                 selected_token = 'flight'
                 sound_play(sounds, 'type')
                 game_state.select_token(selected_token)
-                send_trigger(labjack_handle, TRIG_TOKEN_FLIGHT)
+                if labjack_handle:
+                    set_trigger(labjack_handle, TRIG_TOKEN_FLIGHT)
+                    win.callOnFlip(reset_trigger, labjack_handle)
                 trigger_frame_marker()   # 이벤트: 닭 선택 (Flight)
                 while mouse.getPressed()[0]:
-                    pass
+                    _draw_selection_screen(win, ui_elements, board_renderer, deck_renderer,
+                                           token_renderer, selected_token, hovering, game_state)
+                    blink_frame_marker(win)
+                    win.flip()
                 ui_elements.instruction_text.text = ""
                 ui_elements.message_text.text = ""
                 ui_elements.instruction_text.pos = original_instruction_pos
