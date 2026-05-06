@@ -84,17 +84,17 @@ def close_labjack(handle: int | None):
 # ============================================================================
 
 def set_trigger(handle: int | None, code: int):
-    # EIO와 CIO 동시에 HIGH 설정
-    # 호출 즉시 반환 Non-blocking
-    # CIO의 Rising Edge 감지 -> 데이터 캡처
+    """
+    EEG 동기화를 위한 하드웨어 트리거 설정
 
-    if handle is None:
-        return
-    try:
-        # 데이터 값과 Latch 신호를 하나의 패킷으로 전송하여 시간차 없앰
-        ljm.eWriteNames(handle, 2, ["EIO_STATE", "CIO_STATE"], [float(code), float(_LATCH_CIO_STATE)])
-    except Exception as e:
-        print(f"[LabJack] 트리거 설정 오류 : {e}")
+    동작 방식:
+    - LJM API의 eWriteNames는 동기(Blocking) 방식으로 동작함.
+    - USB 왕복(Round-trip) 완료 후 함수가 반환되므로(~1–4ms),
+      반환 시점과 실제 하드웨어 신호 발생 시점이 밀접하게 동기화됨.
+    - Non-blocking 방식보다 지터(Jitter)가 적어 정밀한 데이터 라벨링에 유리함.
+    """
+    # EIO_STATE에 코드 값, CIO_STATE를 HIGH(1.0)로 설정하여 Rising Edge 발생
+    ljm.eWriteNames(handle, 2, ["EIO_STATE", "CIO_STATE"], [float(code), float(_LATCH_CIO_STATE)])
 
 
 def reset_trigger(handle: int | None):

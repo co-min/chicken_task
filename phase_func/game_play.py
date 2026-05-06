@@ -522,10 +522,12 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
                 _pc_trial_id     = game_state.get_next_trial_id()
                 _was_pc_seq      = game_state.seq_memory_active
 
+                _seq_just_activated = False
                 if not _is_seq_continue:
                     game_state.try_activate_pc_seq_memory()
                     if game_state.seq_memory_active and not _was_pc_seq:
-                        _ljack(win, labjack_handle, TRIG_SEQ_ACTIVATE)
+                        _seq_just_activated = True
+                        _pre_flip_lj_code = TRIG_SEQ_ACTIVATE
                     if game_state.seq_memory_active:
                         pc_target_pos = game_state.get_seq_memory_current_target()
 
@@ -562,7 +564,8 @@ def _run_pc_turn(win, game_state, ui_elements, board_renderer, deck_renderer, to
 
                 sound_play(sounds, 'npc_flip')
                 trigger_frame_marker()      # 이벤트: PC 카드 뒤집기
-                _pre_flip_lj_code = TRIG_CARD_FLIP_PC
+                if not _seq_just_activated:
+                    _pre_flip_lj_code = TRIG_CARD_FLIP_PC
                 deadline  = current_time + CARD_FLIP_DURATION
                 _sub_phase = 'CARD_FLIPPING'
 
