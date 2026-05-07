@@ -1,24 +1,3 @@
-# save_func/gaze_event_saver.py
-# AOI 시선 진입/이탈 이벤트를 gaze_events.csv에 기록한다.
-#
-# 역할
-# ----
-# EyeLink EDF 파일에는 GAZE_ENTER / GAZE_EXIT 메시지가 기록되지만,
-# EDF → ASC 변환 없이도 Python에서 바로 분석할 수 있도록
-# 동일한 이벤트를 CSV에도 병렬로 저장한다.
-#
-# 호출 흐름
-# ---------
-#   세션 시작         → init_gaze_file(save_dir, subject_id)  → file_path 저장
-#   AOI 진입 시       → save_gaze_event(..., event_type='enter')
-#   AOI 이탈 시       → save_gaze_event(..., event_type='exit', dwell_time=...)
-#
-# AOIManager와의 연동
-# -------------------
-# aoi_manager.gaze_file_path 속성에 file_path를 주입하면
-# _on_enter / _on_exit 에서 직접 호출할 수 있다.
-# (AOIManager 수정 없이 game_play.py 루프에서 호출해도 무방)
-
 import csv
 import os
 
@@ -43,21 +22,6 @@ _HEADERS = [
 
 
 def init_gaze_file(save_dir: str, subject_id: str) -> str:
-    """
-    gaze_events.csv 파일을 생성하고 헤더를 작성한다.
-
-    Parameters
-    ----------
-    save_dir : str
-        저장 디렉토리 경로.
-    subject_id : str
-        피험자 ID.
-
-    Returns
-    -------
-    str
-        생성된 CSV 파일의 절대 경로.
-    """
     path = os.path.join(save_dir, 'gaze_events.csv')
     with open(path, 'w', newline='', encoding='utf-8') as f:
         writer = csv.DictWriter(f, fieldnames=_HEADERS)
@@ -78,33 +42,6 @@ def save_gaze_event(
     is_seq_memory: bool = False,
     seq_memory_step: int | None = None,
 ):
-    """
-    AOI 진입·이탈 이벤트 1개를 gaze_events.csv에 append한다.
-
-    Parameters
-    ----------
-    file_path : str
-        init_gaze_file() 이 반환한 CSV 경로.
-    subject_id : str
-        피험자 ID.
-    trial_id : int
-        현재 시행 번호 (game_state.trial_id).
-    event_type : str
-        'enter' 또는 'exit'.
-    aoi_id : str
-        AOI 식별자. 예: 'deck_1_4'
-    aoi_info : dict
-        AOIManager.aois[aoi_id] 값.
-        필수 키: 'type', 'pos', 'trigger_code'
-    psychopy_time : float
-        core.getTime() 반환값.
-    dwell_time : float
-        AOI에 머문 시간(초). 이탈 이벤트에만 의미 있음.
-    is_seq_memory : bool
-        해당 trial이 seq_memory 모드인지 여부.
-    seq_memory_step : int | None
-        현재 seq_memory 스텝 인덱스 (0-based). 일반 trial이면 None.
-    """
     pos = aoi_info.get('pos') or (None, None)
 
     row = {

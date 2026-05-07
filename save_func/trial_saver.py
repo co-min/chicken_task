@@ -1,18 +1,3 @@
-# save_func/trial_saver.py
-# 트라이얼(카드 선택 시도)별 행동 데이터를 trials.csv에 기록한다.
-#
-# 호출 흐름
-# ---------
-#   세션 시작  → init_trial_file(save_dir, subject_id)       → trials_path
-#             → init_round_events_file(save_dir)             → events_path
-#   매 시행 후 → save_trial(trials_path, trial_entry, game_state, subject_id)
-#   라운드 경계 → save_round_event(events_path, event_entry)
-#   난이도 변경 → save_deck_layout(save_dir, round_num, diff_idx, deck)
-#   세션 종료  → flush_trials(trials_path)   ← atexit 에서도 자동 호출
-#
-# trials.csv 는 버퍼 기반으로 기록되므로 세션 종료 시 flush_trials()를 명시적으로
-# 호출하거나, atexit 핸들러가 자동으로 처리한다.
-
 import atexit
 import csv
 import json
@@ -102,18 +87,6 @@ atexit.register(_atexit_flush)
 # ── 초기화 ───────────────────────────────────────────────────────────────────
 
 def init_trial_file(save_dir: str, subject_id: str) -> str:
-    """
-    trials.csv 파일을 생성하고 헤더를 작성한다.
-
-    Parameters
-    ----------
-    save_dir : str   저장 디렉토리 경로 (존재해야 함).
-    subject_id : str 피험자 ID (각 행에 기록됨).
-
-    Returns
-    -------
-    str  생성된 CSV 파일의 절대 경로.
-    """
     path = os.path.join(save_dir, 'trials.csv')
     with open(path, 'w', newline='', encoding='utf-8') as f:
         csv.DictWriter(f, fieldnames=_HEADERS).writeheader()
@@ -123,13 +96,6 @@ def init_trial_file(save_dir: str, subject_id: str) -> str:
 
 
 def init_round_events_file(save_dir: str) -> str:
-    """
-    round_events.csv 파일을 생성하고 헤더를 작성한다.
-
-    Returns
-    -------
-    str  생성된 CSV 파일의 절대 경로.
-    """
     path = os.path.join(save_dir, 'round_events.csv')
     with open(path, 'w', newline='', encoding='utf-8') as f:
         csv.DictWriter(f, fieldnames=_ROUND_EVENT_HEADERS).writeheader()
@@ -140,17 +106,6 @@ def init_round_events_file(save_dir: str) -> str:
 # ── 저장 ─────────────────────────────────────────────────────────────────────
 
 def save_trial(file_path: str, trial_entry: dict, game_state, subject_id: str):
-    """
-    trial_history 항목 1개를 버퍼에 추가한다.
-    FLUSH_EVERY 행에 도달하면 자동으로 CSV에 기록한다.
-
-    Parameters
-    ----------
-    file_path : str      init_trial_file() 이 반환한 CSV 경로.
-    trial_entry : dict   game_state.trial_history 의 마지막 항목.
-    game_state           현재 게임 상태 (누적 점수 참조용).
-    subject_id : str     피험자 ID.
-    """
     card     = trial_entry.get('selected_card') or {}
     card_pos = trial_entry.get('selected_card_pos') or (None, None)
     target   = trial_entry.get('target_pos') or (None, None)

@@ -16,20 +16,8 @@ except ImportError:
 
 
 class MainDeck:
-    """
-    메인 카드 덱
-    - layout_mode='random'       : 카드 풀에서 랜덤 샘플 후 셔플 배치
-    - layout_mode='factorization': 행=색상(RGB순), 열=모양(SHAPES[col%3]) 고정 배치
-      · 중복 카드 없도록 같은 (color, shape) 슬롯에는 서로 다른 number 할당
-    - 뒷면으로 시작, 클릭 시 앞면 노출 → CARD_FLIP_DURATION 후 자동 뒷면 복구
-    """
 
     def __init__(self, mode_profile=None, layout_mode='random'):
-        """
-        Args:
-            mode_profile (dict): 게임 모드 설정 (colors/shapes/numbers/deck_rows/deck_cols)
-            layout_mode  (str) : 'random' | 'factorization'
-        """
         self.mode_profile = mode_profile or {}
         self.layout_mode = layout_mode
         self.rows = int(self.mode_profile.get('deck_rows', BOARD_ROWS))
@@ -43,26 +31,18 @@ class MainDeck:
         self.face_up = self._initialize_face_states()
 
         # 플립 타이머 (카드가 앞면으로 뒤집힌 시각)
-        self.flip_timers = {}  # {(row, col): flip_time}
+        self.flip_timers = {}  
 
     # ------------------------------------------------------------------
     # 덱 생성
     # ------------------------------------------------------------------
 
     def _build_deck(self):
-        """layout_mode에 따라 덱 생성을 분기"""
         if self.layout_mode == 'factorization':
             return self._factorization_layout()
         return self._random_layout()
 
     def _random_layout(self):
-        """
-        카드 풀에서 total_cards장을 중복 없이 랜덤 샘플 후 2D 배열로 배치.
-        모든 조건값(색상/모양/숫자 각각)이 덱에 최소 1장 포함되도록 보장.
-
-        Returns:
-            list: 2D 배열 deck[row][col]
-        """
         colors  = self.mode_profile.get('colors',  COLORS)
         shapes  = self.mode_profile.get('shapes',  SHAPES)
         numbers = self.mode_profile.get('numbers', NUMBERS)
@@ -78,7 +58,7 @@ class MainDeck:
                 f"colors({len(colors)}) × shapes({len(shapes)}) × numbers({len(numbers)}) = {len(base_cards)}"
             )
 
-        # 모든 조건값이 덱에 최소 1장 포함되도록 탐욕적 시드 카드 선택
+        # greedy seed selection
         uncovered_colors  = set(colors)
         uncovered_shapes  = set(shapes)
         uncovered_numbers = set(numbers)
@@ -132,21 +112,6 @@ class MainDeck:
         return deck
 
     def _factorization_layout(self):
-        """
-        구조화 배치:
-          - 행(row) → 색상: COLORS[row % len(colors)]  (예: 0=red, 1=green, 2=blue)
-          - 열(col) → 모양: SHAPES[col % len(shapes)]  (예: 0=circle, 1=square, 2=triangle, 3=circle, ...)
-          - 숫자    → 같은 (color, shape)가 한 행 내에서 반복될 때 서로 다른 number 할당
-
-        카드 중복 없음 보장:
-          각 (color, shape) 쌍이 등장하는 슬롯 수만큼 numbers에서 비복원 샘플.
-
-        Returns:
-            list: 2D 배열 deck[row][col]
-
-        Raises:
-            ValueError: 한 (color, shape) 쌍의 슬롯 수가 사용 가능한 numbers 수를 초과할 때
-        """
         colors  = self.mode_profile.get('colors',  COLORS)
         shapes  = self.mode_profile.get('shapes',  SHAPES)
         numbers = self.mode_profile.get('numbers', NUMBERS)

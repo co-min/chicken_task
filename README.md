@@ -9,8 +9,8 @@ EyeLink 아이트래커 및 LabJack T4를 통한 생리신호 동기화
 
 # 개요
 
-참가자(닭)는 운동장 보드의 조건 카드를 참고하여 메인 덱에서 일치하는 카드를 선택
-NPC(문어)가 동시에 덱 카드를 선택하며, 토큰(추격/도주)을 통해 추격-도주 상호작용이 발생.
+참가자(닭)는 운동장 보드의 조건 카드를 참고하여 메인 덱에서 일치하는 카드를 선택.  
+NPC(문어)가 동시에 덱 카드를 선택하며, 토큰(추격/도주)을 통해 추격-도주 상호작용이 발생.  
 적응형 NPC AI, 순차 메모리, 보너스 점수 시스템 등을 통해 난이도가 동적으로 조절.
 
 ---
@@ -23,15 +23,19 @@ NPC(문어)가 동시에 덱 카드를 선택하며, 토큰(추격/도주)을 �
 
 - 적응형 NPC AI: 참가자의 성취 수준을 실시간으로 추정하여 NPC 정답률 동적 조정
 
-- 순차 메모리(Sequential Memory): 일정 점수 이상 시 발동, 연속된 조건에 순서대로 카드를 매칭해야 보너스 이동
+- 순차 메모리(Sequential Memory): 라운드 점수 100점 이상 시 20% 확률로 발동, 연속된 조건에 순서대로 카드를 매칭해야 보너스 이동
 
-- 보너스 슬롯: 라운드별 고정/랜덤 보너스 칸 배치, 해당 칸 도착 시 점수 2배
+- 보너스 슬롯: 난이도 3 이상부터 활성화, 라운드별 고정/랜덤 보너스 칸 배치, 해당 칸 도착 시 점수 2배
 
-- 난이도 자동 스케일: 덱 열 수 및 배치 방식(factorization/random) 8단계 선형 진행
+- 난이도 자동 스케일: 덱 열 수 및 배치 방식(factorization/random) 8단계 선형 진행, 500점마다 단계 상승
+
+- 연언 조건(Conjunctive Condition): 최고 난이도에서 3라운드 연속 후 활성화되는 복합 조건 매칭
+
+- 토큰 자동 전환: flight 토큰이 chase 바로 뒤에 위치하면 자동으로 chase로 전환
 
 - EyeLink 연동: AOI(Area of Interest) 기반 시선 이벤트 기록 및 LabJack TTL 트리거 전송
 
-- 데이터 자동 저장: 세션/시행/시선 이벤트를 CSV·JSON 형식으로 자동 저장
+- 데이터 자동 저장: 세션/시행/이벤트/덱 레이아웃을 CSV·JSON 형식으로 자동 저장
 
 ---
 
@@ -42,20 +46,31 @@ chicken_task_first/
 ├── main.py                   # 게임 진입점
 ├── config.py                 # 모든 설정 상수 (화면, 타이밍, 점수, AI 등)
 ├── initiate.py               # EyeLink·LabJack 초기화
-├── set_up.py                 # 세션 설정 헬퍼
+├── set_up.py                 # 세션 설정 스크립트
+├── setup_utils.py            # 환경 설정 헬퍼 유틸리티
 │
 ├── game_func/                # 게임 핵심 로직
-│   ├── game_state.py         # 통합 게임 상태 관리
+│   ├── game_state.py         # 통합 게임 상태 관리 (오케스트레이터)
 │   ├── board_class.py        # 조건 보드 (운동장)
 │   ├── deck_class.py         # 메인 덱
 │   ├── token_class.py        # 토큰 관리 (chase / flight / octopus)
-│   └── npc_ai.py             # NPC(문어) 적응형 AI
+│   ├── npc_ai.py             # NPC(문어) 적응형 AI
+│   ├── score_system.py       # 점수 계산 및 콤보 추적
+│   ├── adaptive_system.py    # 동적 난이도 조정 및 NPC 성공률 추정
+│   ├── seq_memory.py         # 순차 메모리 게임 모드
+│   └── turn_executor.py      # 턴 로직 실행 (사용자/NPC 턴 처리)
+│
+├── phase_func_practice/      # 연습 게임 단계
+│   └── practice_game.py      # 연습 게임 루프 (본게임 전 선택적 실행)
 │
 ├── phase_func/               # 게임 진행 단계 (phase)
 │   ├── starting.py           # 게임 모드 선택 화면
 │   ├── tutorial.py           # 튜토리얼
 │   ├── token_selection.py    # 토큰 선택 (chase / flight)
 │   ├── game_play.py          # 메인 플레이 루프
+│   ├── turn_machine.py       # 턴 상태 머신
+│   ├── user_turn.py          # 사용자 턴 처리
+│   ├── pc_turn.py            # PC 턴 처리
 │   ├── feedback.py           # 피드백 표시
 │   └── ending.py             # 종료 화면
 │
@@ -72,7 +87,7 @@ chicken_task_first/
 │
 ├── save_func/                # 데이터 저장
 │   ├── session_saver.py      # session.json (세션 메타데이터)
-│   ├── trial_saver.py        # trials.csv (시행별 결과)
+│   ├── trial_saver.py        # trials.csv / round_events.csv / deck_layouts.json
 │   └── gaze_event_saver.py   # gaze_events.csv (시선 AOI 이벤트)
 │
 ├── utils/                    # 유틸리티
@@ -80,7 +95,11 @@ chicken_task_first/
 │   ├── labjack_triggers.py   # LabJack T4 TTL 트리거
 │   ├── timer.py              # 게임 타이머
 │   ├── helpers.py            # 공통 유틸
-│   └── validators.py         # 입력 검증
+│   ├── events.py             # 이벤트 클래스 (RoundEvent 등)
+│   └── frame_drop_log.py     # 프레임 드롭 기록
+│
+├── set_opts/                 # 시각 옵션 설정
+│   └── set_visual_opt.py     # 해상도·컬러스페이스 등 디스플레이 옵션 처리
 │
 ├── stimuli/                  # 이미지 자극
 │   ├── main_cards/           # 메인 덱 카드 (색×모양×숫자, 27종)
@@ -98,7 +117,10 @@ chicken_task_first/
 │   └── {subject_id}_{YYYYMMDD_HHMMSS}/
 │       ├── session.json
 │       ├── trials.csv
-│       └── gaze_events.csv
+│       ├── round_events.csv
+│       ├── deck_layouts.json
+│       ├── gaze_events.csv
+│       └── frame_drops.csv
 │
 ├── pylink/                   # SR Research PyLink 라이브러리 (내장)
 └── requirements.txt
@@ -108,22 +130,22 @@ chicken_task_first/
 
 # 설치
 
-# 요구 사항
+## 요구 사항
 
 - Python 3.11 (PsychoPy가 3.12 이상 미지원)
 - Windows 10/11 권장
 
-# 실행
+## 실행
 
 ```bash
 1. python set_up.py 실행
 2. chicken_env\Scripts\activate
 3. python main.py
-4. 피험자 ID 입력 (예: `P001`).
-5. 데이터는 `Data/{subject_id}_{timestamp}/` 에 자동 저장
+4. 피험자 ID 입력 (예: P001)
+5. 데이터는 Data/{subject_id}_{timestamp}/ 에 자동 저장
 ```
 
-# (선택) EyeLink 설치
+## (선택) EyeLink 설치
 
 ```bash
 pip install eye_func/psychopy_eyetracker_sr_research-0.0.5-py3-none-any.whl
@@ -142,21 +164,55 @@ pip install eye_func/psychopy_eyetracker_sr_research-0.0.5-py3-none-any.whl
 | LabJack T4 사용 | `USE_LABJACK` | `1` |
 | 턴 제한 시간 (초) | `TURN_TIME_LIMIT` | `15` |
 | 게임 총 제한 시간 (초) | `GAME_TIME_LIMIT` | `1800` |
+| 난이도 상승 점수 기준 | `DIFFICULTY_SCORE_THRESHOLD` | `500` |
+| 순차 메모리 발동 확률 | `SEQ_MEMORY_TRIGGER_PROB` | `20%` |
+| 순차 메모리 발동 점수 기준 | `SEQ_MEMORY_SCORE_THRESHOLD` | `100` |
+
+---
+
+# 점수 시스템
+
+| 이벤트 | 점수 |
+| --- | --- |
+| 카드 매칭 성공 | +10 |
+| 속도 보너스 (반응 시간 비례) | +1 ~ +15 |
+| 콤보 보너스 (연속 성공) | +20 |
+| 상대 타겟 카드 steal | +20 |
+| catch 성공 (NPC 잡기) | +20 |
+| catch 당함 | -15 |
+| 매칭 실패 | -5 |
+| 더블 점수 칸 도착 | 2× 배율 |
 
 ---
 
 # 게임 흐름
 
 ```
-게임 모드 선택 → 튜토리얼 → [토큰 선택 → 카드 매칭 → 피드백] × N → 종료
+게임 모드 선택 → 튜토리얼 → 연습게임 → [토큰 선택 → 카드 매칭 → 피드백] × N → 종료
 ```
 
-1. 연습게임
+1. 연습게임: `phase_func_practice/practice_game.py` — 본게임 전 선택적으로 진행되는 연습 루프
 2. 토큰 선택: 매 라운드 시작 시 chase(추격) 또는 flight(도주) 선택
 3. 카드 매칭: 보드의 조건 카드를 보고 메인 덱에서 일치하는 카드를 제한 시간 내에 선택
 4. NPC 경쟁: 문어(NPC)가 덱 카드를 선택 — 적응형 AI가 참가자 수준에 맞게 정답률 조절
 5. 피드백: 성공/실패/타임아웃 결과와 점수 표시
-6. catch 이벤트: 토큰 위치에 따라 추격/피포획 이벤트 발생, 보너스 및 패널티
+6. catch 이벤트: 토큰 위치에 따라 추격/피포획 이벤트 발생, 보너스 및 패널티, 보드 즉시 리셋
+
+### 난이도 진행
+
+- 라운드 점수 500점마다 8단계 중 다음 단계로 상승
+- 덱 크기: 3→4→5→6 열 (9, 12, 15, 18장)
+- 배치 방식: factorization(정렬) ↔ random(무작위) 교대
+- 난이도 3 이상부터 더블 점수 보너스 슬롯 등장
+- 최고 난이도(8단계) 3라운드 연속 도달 시 연언 조건(Conjunctive) 활성화
+
+### 턴 제한 시간
+
+| 라운드 | 제한 시간 |
+| --- | --- |
+| 초반 (기본) | 15초 |
+| 중반 | 12초 |
+| 후반 | 10초 |
 
 ---
 
@@ -203,31 +259,87 @@ while core.getTime() < deadline:
 
 ---
 
-## 데이터 출력
+# 데이터 출력
 
-1. `session.json`
+### 1. `session.json`
 
-세션 메타데이터 및 최종 요약 (피험자 ID, 게임 모드, 하드웨어 설정, 최종 결과, 점수 요약 등)
+세션 메타데이터 및 최종 요약 (피험자 ID, 게임 모드, 하드웨어 설정, 최종 결과, 점수 요약, 순차 메모리 통계 등)
 
-2. `trials.csv`
+```json
+{
+  "subject_id": "P001",
+  "session_start": "2026-03-31 14:30:00",
+  "session_end": "2026-03-31 14:45:00",
+  "game_mode": "selection1",
+  "hardware": { "use_eyelink": false, "use_labjack": true },
+  "outcome": "victory",
+  "summary": {
+    "seq_memory": {
+      "user_activations": 3,
+      "user_all_success": 2,
+      "user_step_fail": 1,
+      "pc_activations": 2,
+      "pc_all_success": 1,
+      "pc_step_fail": 1
+    }
+  },
+  "trial_count": 127
+}
+```
 
-시행별 상세 기록 (시도 번호, 선택 카드, 정오답, 반응 시간, 점수 등)
+### 2. `trials.csv`
 
-3. `gaze_events.csv`
+시행별 상세 기록 (62개 컬럼)
+
+| 컬럼 그룹 | 주요 항목 |
+| --- | --- |
+| 식별자 | trial_id, subject_id, game_mode, round_num, turn_num, actor |
+| 조건 | condition_type (color/shape/number/conjunctive), condition_value |
+| 선택 카드 | selected_card_color/shape/number, 덱 내 위치 row/col |
+| 결과 | result_type, is_match, elapsed_time, cumulative_user/pc_score |
+| 콤보·AI | user_combo, npc_success_rate |
+| 토큰 위치 | user_token_row/col, pc_token_row/col (시행 시작 시) |
+| 순차 메모리 | is_seq_memory, seq_memory_step, seq_memory_total, seq_memory_targets |
+| 타임스탬프 | trial_start_time (PsychoPy getTime), timestamp (UNIX epoch) |
+
+> 10행마다 버퍼 플러시 (`FLUSH_EVERY = 10`)
+
+### 3. `round_events.csv`
+
+라운드 경계 이벤트 기록 (13개 컬럼)
+
+| event_type | 설명 |
+| --- | --- |
+| `game_start` | 게임 시작 |
+| `user_catch` | 사용자가 NPC 잡기 성공 |
+| `npc_catch` | NPC가 사용자 잡기 성공 |
+| `round_advance` | 난이도 단계 상승 |
+
+각 이벤트에 토큰 위치, 점수, 난이도 인덱스, 타임스탬프 기록.
+
+### 4. `deck_layouts.json`
+
+라운드별 덱 카드 배치 누적 기록 (JSON 배열)
+
+### 5. `gaze_events.csv`
 
 EyeLink 연동 시 AOI 진입 이벤트 기록 (AOI 유형, 위치 인덱스, 체류 시간)
+
+### 6. `frame_drops.csv`
+
+렌더링 루프에서 실제 프레임 간격이 임계값을 초과한 경우 기록 (타임스탬프, 예상/실제 프레임 간격)
 
 ---
 
 # 하드웨어 연동
 
-# EyeLink (SR Research)
+## EyeLink (SR Research)
 
 `config.py`에서 `USE_EYELINK = 1` 및 `EYELINK_IP` 설정 후 사용.
 
-1. 보드/덱 카드 각각에 AOI가 자동 등록 2) 시선 진입 시 LabJack으로 TTL 트리거가 전송됩니다.
+보드/덱 카드 각각에 AOI가 자동 등록되며, 시선 진입 시 LabJack으로 TTL 트리거가 전송됩니다.
 
-# LabJack T4
+## LabJack T4
 
 `config.py`에서 `USE_LABJACK = 1` 설정.  
 시행 시작/종료, 닭 선택, 카드 클릭, 카드 뒤집기, 피드백, 순차 메모리 이벤트에 대응하는 TTL 코드가 전송됩니다.

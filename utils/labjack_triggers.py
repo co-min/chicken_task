@@ -7,8 +7,7 @@ except ImportError:
     _LJM_AVAILABLE = False
 
 
-# Trigger latch 핀: CIO0 (CIO_STATE 비트 0)
-_LATCH_CIO_STATE = 1  # HIGH
+_LATCH_CIO_STATE = 1  # CIO0 HIGH → Rising Edge latch
 
 
 # ============================================================================
@@ -36,6 +35,62 @@ TRIG_SEQ_STEP_SUCCESS = 221   # 순차 메모리 스텝 성공 피드백
 TRIG_SEQ_ALL_SUCCESS  = 222   # 순차 메모리 전체 성공 피드백
 TRIG_SEQ_FAILURE      = 223   # 순차 메모리 실패 피드백
 
+# 라운드 식별 트리거 (21–40: round 1–20, 41: 전체 종료)
+# 라운드 전환 시점에 별도 전송 → EEG 소프트웨어가 라운드 경계를 인식.
+TRIG_ROUND_1          = 21
+TRIG_ROUND_2          = 22
+TRIG_ROUND_3          = 23
+TRIG_ROUND_4          = 24
+TRIG_ROUND_5          = 25
+TRIG_ROUND_6          = 26
+TRIG_ROUND_7          = 27
+TRIG_ROUND_8          = 28
+TRIG_ROUND_9          = 29
+TRIG_ROUND_10         = 30
+TRIG_ROUND_11         = 31
+TRIG_ROUND_12         = 32
+TRIG_ROUND_13         = 33
+TRIG_ROUND_14         = 34
+TRIG_ROUND_15         = 35
+TRIG_ROUND_16         = 36
+TRIG_ROUND_17         = 37
+TRIG_ROUND_18         = 38
+TRIG_ROUND_19         = 39
+TRIG_ROUND_20         = 40
+TRIG_ROUND_DONE       = 41   # 전체 라운드 종료
+
+
+# ============================================================================
+# 라운드별 동적 트리거
+# ============================================================================
+
+def get_round_trig(round_num: int) -> int:
+    """Return the round-identifier trigger code for round_num (1–20)."""
+    if not 1 <= round_num <= 20:
+        raise ValueError(f"round_num must be 1–20, got {round_num}")
+    return 20 + round_num
+
+
+# ============================================================================
+# 프레임 로그 (페이지/액션별 신호 기록)
+# ============================================================================
+
+frame_log: list[dict] = []
+
+
+def _log_frame(page: str, action: str, trig_code: int, round_num: int):
+    """
+    Record a frame-level trigger event.
+    Round 1 sets full_recovery=True — keeps enough detail to reconstruct all EEG epochs.
+    """
+    frame_log.append({
+        "round":         round_num,
+        "page":          page,
+        "action":        action,
+        "trig":          trig_code,
+        "full_recovery": round_num == 1,
+    })
+
 
 # ============================================================================
 # 연결 관리
@@ -44,25 +99,15 @@ TRIG_SEQ_FAILURE      = 223   # 순차 메모리 실패 피드백
 def init_labjack(device: str = "T4",
                  connection: str = "USB",
                  identifier: str = "ANY") -> int | None:
-    # LabJack T4 연결
     if not _LJM_AVAILABLE:
         print("[LabJack] ljm 라이브러리를 찾을 수 없습니다. 트리거가 비활성화됩니다.")
         return None
-
     try:
         handle = ljm.openS(device, connection, identifier)
-        # info   = ljm.getHandleInfo(handle)
-        # print(f"[LabJack] 연결 성공: {info}")
-
-        # EIO 및 CIO 포트를 출력으로 설정하고 초기화
-        names = ["EIO_DIRECTION", "EIO_STATE", "CIO_DIRECTION", "CIO_STATE"]
-        values = [0xFF, 0, 0x0F, 0]
-
-        ljm.eWriteNames(handle, len(names), names, values)
-
+        names  = ["EIO_DIRECTION", "EIO_STATE", "CIO_DIRECTION", "CIO_STATE"]
+        ljm.eWriteNames(handle, len(names), names, [0xFF, 0, 0x0F, 0])
         print("[LabJack] EIO(데이터 8핀) + CIO0(trigger latch) 초기화 완료")
         return handle
-
     except Exception as e:
         print(f"[LabJack] 연결 실패: {e}")
         return None
@@ -80,30 +125,23 @@ def close_labjack(handle: int | None):
 
 
 # ============================================================================
-# 트리거 전송(포토다이오드 동기화)
+# 트리거 전송 (포토다이오드 동기화)
 # ============================================================================
 
-def set_trigger(handle: int | None, code: int):
-    """
-    EEG 동기화를 위한 하드웨어 트리거 설정
-
-    동작 방식:
-    - LJM API의 eWriteNames는 동기(Blocking) 방식으로 동작함.
-    - USB 왕복(Round-trip) 완료 후 함수가 반환되므로(~1–4ms),
-      반환 시점과 실제 하드웨어 신호 발생 시점이 밀접하게 동기화됨.
-    - Non-blocking 방식보다 지터(Jitter)가 적어 정밀한 데이터 라벨링에 유리함.
-    """
-    # EIO_STATE에 코드 값, CIO_STATE를 HIGH(1.0)로 설정하여 Rising Edge 발생
-    ljm.eWriteNames(handle, 2, ["EIO_STATE", "CIO_STATE"], [float(code), float(_LATCH_CIO_STATE)])
+def set_trigger(handle: int | None, code: int, *,
+                round_num: int = 1, page: str = "", action: str = ""):
+    if handle is None:
+        return
+    if page or action:
+        _log_frame(page, action, code, round_num)
+    ljm.eWriteNames(handle, 2, ["EIO_STATE", "CIO_STATE"],
+                    [float(code), float(_LATCH_CIO_STATE)])
 
 
 def reset_trigger(handle: int | None):
-    """CIO0(latch)를 LOW로 내리고 EIO_STATE를 0으로 리셋합니다."""
     if handle is None:
         return
     try:
         ljm.eWriteNames(handle, 2, ["EIO_STATE", "CIO_STATE"], [0.0, 0.0])
     except Exception as e:
         print(f"[LabJack] 리셋 오류: {e}")
-
-

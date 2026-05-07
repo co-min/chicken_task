@@ -29,28 +29,13 @@ except ImportError:
 
 
 def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck_renderer, token_renderer, sounds=None, labjack_handle=None):
-    """
-    Phase 0: 닭 선택 단계
-    사용자가 Chase 또는 Flight 중 어떤 닭을 조종할지 선택
-    
-    Args:
-        win: PsychoPy window 객체
-        game_state: GameState 인스턴스
-        ui_elements: UIElements 인스턴스
-        board_renderer: BoardRenderer 인스턴스
-        deck_renderer: DeckRenderer 인스턴스
-        token_renderer: TokenRenderer 인스턴스
-    
-    Returns:
-        str: 선택된 토큰 ('chase' 또는 'flight') 또는 'exit' (게임 종료)
-    """
     
     # 마우스 객체
     mouse = event.Mouse(win=win)
     
     # 선택 상태
     selected_token = None  # 'chase' 또는 'flight'
-    hovering = None  # 현재 마우스가 올라간 버튼
+    hovering = None 
 
     # 토큰 선택 단계에서는 안내 문구를 버튼 위쪽으로 고정 배치
     original_instruction_pos = ui_elements.instruction_text.pos

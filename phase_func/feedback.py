@@ -29,14 +29,7 @@ def run_feedback_phase(
 	trigger_code=0,
 	frame_drop_logger=None,
 ):
-	"""공통 피드백 화면을 렌더링하고 지정 시간만큼 대기한다.
-
-	Args:
-		labjack_handle: LabJack T4 핸들. None이면 트리거 비활성화.
-		trigger_code: 피드백 onset에 전송할 TTL 코드.
-		              210=성공, 211=실패, 212=타임아웃, 0=전송 안 함.
-		frame_drop_logger: FrameDropLogger 인스턴스 (선택). 프레임 드랍 기록용.
-	"""
+	
 	# 호출 전 게임 로직 처리 시간이 길 수 있으므로 기준점 초기화
 	if frame_drop_logger:
 		frame_drop_logger.reset()
@@ -53,11 +46,14 @@ def run_feedback_phase(
 	trigger_frame_marker()   # 이벤트: 피드백 화면 표시 (성공/실패/타임아웃)
 	blink_frame_marker(win)
 	_send_trigger = labjack_handle is not None and bool(trigger_code)
+
 	if _send_trigger:
 		win.callOnFlip(set_trigger, labjack_handle, trigger_code)
 	win.flip()
+
 	if frame_drop_logger:
 		frame_drop_logger.after_flip(core.getTime(), context='feedback')
+		
 	if _send_trigger:
 		win.callOnFlip(reset_trigger, labjack_handle)
 

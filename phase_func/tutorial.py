@@ -14,12 +14,6 @@ except ImportError:
 
 
 def _show_score_rubric(win, ui_elements, key_exit):
-	"""
-	점수 제공 기준판 화면을 표시하고 키 입력을 기다린다.
-
-	Returns:
-		bool: True면 계속, False면 종료
-	"""
 	rubric_title = visual.TextStim(
 		win=win,
 		text="점수 기준표",
@@ -112,14 +106,6 @@ def _show_score_rubric(win, ui_elements, key_exit):
 
 
 def run_tutorial_phase(win, ui_elements):
-	"""
-	튜토리얼 화면.
-	  1페이지: 게임 설명
-	  2페이지: 점수 기준표
-
-	Returns:
-		str: 'continue' 또는 'exit'
-	"""
 	# 원래 위치 저장
 	orig_instruction_pos = ui_elements.instruction_text.pos
 	orig_message_pos = ui_elements.message_text.pos

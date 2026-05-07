@@ -1,58 +1,37 @@
 # board_class.py
-# Chicken Task - Condition Board (운동장 조건 카드)
-# 8가지 단일 조건 × 3회 반복 = 24장, 항상 앞면
-
 import random
 import sys
 from collections import defaultdict
 from pathlib import Path
 
-# 상대 import (모듈로 import될 때) 또는 절대 import (직접 실행될 때)
 try:
     from ..config import BOARD_ROWS, BOARD_COLS, COLORS, SHAPES, NUMBERS
 except ImportError:
-    # 직접 실행할 때: 부모 디렉토리를 sys.path에 추가
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from config import BOARD_ROWS, BOARD_COLS, COLORS, SHAPES, NUMBERS
 
 
 class ConditionBoard:
-    """
-    운동장 조건 카드 보드 (ㅁ자 형태 트랙)
-    - 모드 기반 격자(기본 selection1/2: 5행 × 9열)에서 외곽 순환
-    - 24칸 순환 트랙: 상단(9) → 우측(4) → 하단(8) → 좌측(3)
-    - 각 카드는 단일 조건 1개 ({'type': ..., 'value': ...})
-    - 8가지 조건(색상3+모양3+숫자2) × 3회 반복 = 24장
-    - 항상 앞면 보임
-    """
     
     def __init__(self, mode_profile=None):
-        """운동장 보드 초기화"""
         self.mode_profile = mode_profile or {}
         
-        # 모드 프로필에서 보드 설정 가져오기
+        # mode_profile
         self.track_length = int(self.mode_profile.get('track_length', BOARD_ROWS * BOARD_COLS))
         self.rows = int(self.mode_profile.get('board_rows', BOARD_ROWS))
         self.cols = int(self.mode_profile.get('board_cols', BOARD_COLS))
         self.total_cards = self.track_length
         
-        # ㅁ자 형태 순환 트랙 자동 생성
+        # track pool
         self.track_positions = self._generate_rectangular_track()
         
         self._track_index_by_pos = {pos: idx for idx, pos in enumerate(self.track_positions)}
         
-        # 조건 카드 풀 생성 및 셔플
+        # condition pool
         self.conditions = self._create_conditions()
         self.board = self._shuffle_and_layout()
     
     def _generate_rectangular_track(self):
-        """
-        ㅁ자 형태 순환 트랙 자동 생성 (외곽 테두리)
-        상단 전체 → 우측 아래 → 하단 역순 → 좌측 위(모서리 제외)
-        
-        Returns:
-            list: (row, col) 좌표 리스트
-        """
         track = []
         
         # 상단 (좌→우): row 0, col 0 ~ cols-1
@@ -82,17 +61,7 @@ class ConditionBoard:
         return track
     
     def _create_conditions(self):
-        """
-        GAME_MODE 설정에 따른 단일 조건 카드 생성
-        - 색상 카드: {'type': 'color', 'value': ...}
-        - 모양 카드: {'type': 'shape', 'value': ...}
-        - 숫자 카드: {'type': 'number', 'value': ...}
 
-        기본(selection1/2): 3 + 3 + 2 = 8가지 조건
-        
-        Returns:
-            list: 조건 딕셔너리 리스트
-        """
         # 모드 프로필에서 사용할 속성 가져오기
         colors = self.mode_profile.get('colors', COLORS)
         shapes = self.mode_profile.get('shapes', SHAPES)
@@ -110,7 +79,7 @@ class ConditionBoard:
         if not base_conditions:
             return []
 
-        # 완전 반복 횟수만큼 채우고, 나머지는 랜덤 샘플로 구성
+        # completive random
         base_count = len(base_conditions)
         full_repeats = self.total_cards // base_count
         remainder = self.total_cards % base_count
@@ -125,11 +94,6 @@ class ConditionBoard:
     
     def _apply_bonus_slots(self, cards):
         """
-        완성된 카드 배열에 보너스 마킹을 추가한다.
-
-        인접 중복 방지 로직은 cond_key() = (type, value) 만 비교하므로,
-        bonus 키를 사후에 추가해도 셔플 제약과 완전히 독립된다.
-
         bonus_mode:
           'none'   — 아무 변경 없음
           'fixed'  — mode_profile['bonus_slots'] 인덱스에 bonus 마킹 (고정)
@@ -169,15 +133,6 @@ class ConditionBoard:
         return result
 
     def _shuffle_and_layout(self):
-        """
-        조건을 섞어서 1D 리스트로 반환 (track_positions 순서대로)
-        - 순환 트랙 기준 인접 카드(마지막↔첫 카드 포함) 중복 금지
-        - 셔플 완료 후 _apply_bonus_slots()로 보너스 마킹 추가
-          (bonus 키는 인접 중복 판정에 사용되지 않으므로 제약 무영향)
-
-        Returns:
-            list: 1D 조건 리스트
-        """
         cards = self.conditions[:self.track_length]
         if len(cards) <= 1:
             return self._apply_bonus_slots(cards)
@@ -254,23 +209,10 @@ class ConditionBoard:
         raise ValueError("Failed to generate board without circular adjacent duplicate conditions.")
     
     def reshuffle(self):
-        """
-        조건 카드를 다시 셔플하여 보드를 재배치
-        - 토큰 위치 초기화 이벤트 후 호출
-        - 조건 종류는 동일하게 유지하되 순서만 다시 섞음
-        """
         self.conditions = self._create_conditions()
         self.board = self._shuffle_and_layout()
 
     def apply_conjunctive_conditions(self, deck_cards, count=3):
-        """
-        메인 덱 카드 중 count장을 랜덤 샘플하여 트랙의 count개 슬롯을
-        conjunctive 조건으로 교체한다. reshuffle() 후 game_state에서 호출.
-
-        Args:
-            deck_cards (list): MainDeck의 모든 카드 flat list
-            count (int): 교체할 슬롯 수 (기본 3)
-        """
         n = len(self.board)
         if not deck_cards or count <= 0 or n == 0:
             return
@@ -291,16 +233,6 @@ class ConditionBoard:
               f"{[self.board[i] for i in slot_indices]}")
 
     def get_condition(self, row, col):
-        """
-        특정 위치(row, col)의 조건 가져오기
-
-        Args:
-            row (int): 행
-            col (int): 열
-
-        Returns:
-            dict: 조건 또는 None (트랙에 없는 위치)
-        """
         pos = (row, col)
         if pos in self._track_index_by_pos:
             idx = self._track_index_by_pos[pos]
