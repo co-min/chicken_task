@@ -19,17 +19,6 @@ class FrameDropLogger:
         print(f"[FrameDropLogger] 초기화 완료: {log_path}")
 
     def after_flip(self, psychopy_t: float, trial_id=None, context: str = '') -> None:
-        """win.flip() 반환 직후에 호출.
-
-        직전 after_flip() 호출 대비 경과 시간이 FRAME_DROP_THRESHOLD_MS를 넘으면
-        콘솔 경고를 출력하고 CSV에 즉시 기록한다.
-
-        Parameters
-        ----------
-        psychopy_t : core.getTime() 값 — EDF/trials.csv 와 병합할 기준 타임스탬프.
-        trial_id   : 현재 시행 ID (None 허용).
-        context    : 호출 위치를 나타내는 짧은 문자열.
-        """
         now = time.perf_counter()
         if self._last_perf_t is not None:
             inter_ms = (now - self._last_perf_t) * 1000.0

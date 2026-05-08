@@ -1,37 +1,3 @@
-# save_func/session_saver.py
-# 세션 메타데이터와 게임 최종 요약을 session.json에 기록한다.
-#
-# 호출 흐름
-# ---------
-#   게임 시작 직후  → init_session(...)           → session_file 경로 저장
-#   게임 종료 직전  → finalize_session(session_file, game_state, result)
-#
-# session.json 구조
-# -----------------
-#   {
-#     "subject_id": "P001",
-#     "session_start": "2026-03-31 14:30:00",
-#     "session_end": null,          ← finalize_session 호출 시 채워짐
-#     "game_mode": "selection1",
-#     "hardware": {"use_eyelink": true, "use_labjack": false},
-#     "outcome": null,              ← 'victory' | 'defeat' | 'timeout' | 'exit'
-#     "summary": {                  ← game_state.get_summary() 결과
-#       ...
-#       "seq_memory": {             ← Sequential Memory 집계 (get_seq_memory_summary())
-#         "user_activations": N,    ← 사용자 seq_memory 발동 횟수
-#         "user_all_success": N,    ← 사용자 전체 성공 (n칸 점프) 횟수
-#         "user_step_fail": N,      ← 사용자 스텝 실패 횟수
-#         "user_total_seq_trials": N,
-#         "pc_activations": N,
-#         "pc_all_success": N,
-#         "pc_step_fail": N,
-#         "pc_total_seq_trials": N
-#       }
-#     },
-#     "trial_count": 0,
-#     "save_dir": "/path/to/Data/P001_20260331_143000"
-#   }
-
 import json
 import os
 from datetime import datetime
@@ -43,21 +9,7 @@ def init_session(
     use_eyelink: bool,
     use_labjack: bool,
 ) -> str:
-    
-    """
-    Parameters
-    ----------
-    save_dir : str
-        저장 디렉토리 경로 (존재해야 함).
-    subject_id : str
-        피험자 ID.
-    use_eyelink : bool
-        EyeLink 연결 여부.
-    use_labjack : bool
-        LabJack 연결 여부.
 
-    Returns: str 생성된 session.json 파일의 절대 경로.
-    """
     path = os.path.join(save_dir, 'session.json')
 
     data = {

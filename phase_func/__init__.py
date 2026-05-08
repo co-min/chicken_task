@@ -3,16 +3,8 @@
 from .tutorial import run_tutorial_phase
 from .game_play import run_game_play_phase
 from .ending import run_ending_phase
-
-try:
-	from ..config import DEFAULT_GAME_MODE, USE_PRACTICE
-	from ..phase_func_practice import run_practice_game
-except ImportError:
-	import sys
-	from pathlib import Path
-	sys.path.insert(0, str(Path(__file__).parent.parent))
-	from config import DEFAULT_GAME_MODE, USE_PRACTICE
-	from phase_func_practice import run_practice_game
+from ..config import USE_PRACTICE
+from ..phase_func_practice import run_practice_game
 
 
 def run_all_phases(
@@ -27,42 +19,12 @@ def run_all_phases(
 	save_paths=None,
 	subject_id='',
 ):
-	"""
-	전체 phase 실행 오케스트레이터.
 
-	Args:
-		aoi_manager: AOIManager 인스턴스 (선택). None 이면 EyeLink AOI 추적 비활성화.
-		labjack_handle: LabJack T4 핸들 (선택). None 이면 트리거 비활성화.
-
-	Returns:
-		str: 최종 결과 ('victory', 'defeat', 'exit')
-	"""
-	selected_mode_id = DEFAULT_GAME_MODE
-
-	if selected_mode_id is not None:
-		game_state.set_selected_mode(selected_mode_id)
-		board_renderer.board = game_state.board
-		board_renderer.card_images = {}
-		board_renderer.highlights = {}
-		board_renderer._create_visuals()
-
-		deck_renderer.deck = game_state.deck
-		deck_renderer.card_backs = []
-		deck_renderer.card_fronts = []
-		deck_renderer.highlights = []
-		deck_renderer._create_visuals()
-
-		token_renderer.token_manager = game_state.tokens
-		token_renderer.token_stims = {}
-		token_renderer._create_visuals()
-		print(f"  - 시작 모드 선택: {selected_mode_id}")
-
-		# 게임 모드가 결정된 후 AOI 테이블 재구성 (보드/덱 크기가 확정됨)
-		if aoi_manager is not None:
-			aoi_manager.board = game_state.board
-			aoi_manager.deck  = game_state.deck
-			aoi_manager._build_aois()
-			print(f"  - AOI 테이블 재구성: {len(aoi_manager.aois)}개")
+	if aoi_manager is not None:
+		aoi_manager.board = game_state.board
+		aoi_manager.deck  = game_state.deck
+		aoi_manager._build_aois()
+		print(f"  - AOI 테이블 재구성: {len(aoi_manager.aois)}개")
 
 	print("[3/4] 튜토리얼 phase...")
 	tutorial_result = run_tutorial_phase(win, ui_elements)
@@ -81,7 +43,6 @@ def run_all_phases(
 			return 'exit'
 		# 연습 후 game_state 초기화 (점수·타이머 리셋)
 		game_state.__init__(selected_mode_id=game_state.selected_mode_id)
-		game_state.set_selected_mode(selected_mode_id)
 		board_renderer.board = game_state.board
 		board_renderer.card_images = {}
 		board_renderer.highlights = {}

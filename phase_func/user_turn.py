@@ -20,7 +20,7 @@ try:
     )
     from ..view_func.frame_marker import blink_frame_marker, trigger_frame_marker
     from ..sounds import play as sound_play
-    from ..utils.labjack_triggers import (
+    from ..labjack_func.labjack_triggers import (
         TRIG_TRIAL_START, TRIG_TRIAL_END, TRIG_CARD_CLICK, TRIG_CARD_FLIP_USER,
         TRIG_FEEDBACK_SUCCESS, TRIG_FEEDBACK_FAILURE, TRIG_FEEDBACK_TIMEOUT,
         TRIG_SEQ_ALL_SUCCESS, TRIG_SEQ_FAILURE,
@@ -36,7 +36,7 @@ except ImportError:
     )
     from view_func.frame_marker import blink_frame_marker, trigger_frame_marker
     from sounds import play as sound_play
-    from utils.labjack_triggers import (
+    from chicken_task_first.labjack_func.labjack_triggers import (
         TRIG_TRIAL_START, TRIG_TRIAL_END, TRIG_CARD_CLICK, TRIG_CARD_FLIP_USER,
         TRIG_FEEDBACK_SUCCESS, TRIG_FEEDBACK_FAILURE, TRIG_FEEDBACK_TIMEOUT,
         TRIG_SEQ_ALL_SUCCESS, TRIG_SEQ_FAILURE,

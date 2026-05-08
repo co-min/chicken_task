@@ -3,18 +3,10 @@
 import sys
 from pathlib import Path
 from psychopy import visual, event
-
-try:
-	from ..config import TEXT_COLOR, GOLD, ORANGE_RED
-	from ..view_func.frame_marker import blink_frame_marker, trigger_frame_marker
-except ImportError:
-	sys.path.insert(0, str(Path(__file__).parent.parent))
-	from config import TEXT_COLOR, GOLD, ORANGE_RED
-	from view_func.frame_marker import blink_frame_marker, trigger_frame_marker
-
+from ..config import TEXT_COLOR, GOLD, ORANGE_RED
+from ..view_func.frame_marker import blink_frame_marker, trigger_frame_marker
 
 def _determine_winner(game_state):
-	"""누적 점수로 최종 승자 결정. (문자열, 색상) 반환."""
 	u = game_state.user_score
 	p = game_state.pc_score
 	if u > p:
@@ -26,12 +18,7 @@ def _determine_winner(game_state):
 
 
 def run_ending_phase(win, ui_elements, game_state, result):
-	"""
-	게임 종료 화면.
 
-	Args:
-		result: 'timeout' (10분 경과) 또는 'exit' (중단)
-	"""
 	# ── 결과 메시지 결정 ──
 	if result == 'timeout':
 		winner_msg, winner_color = _determine_winner(game_state)
@@ -41,7 +28,7 @@ def run_ending_phase(win, ui_elements, game_state, result):
 	else:  # 'exit' 또는 기타 중단
 		ui_elements.instruction_text.text = "게임 중단"
 		ui_elements.message_text.text = "게임을 중단했습니다"
-		ui_elements.message_text.color = [255, 255, 0]
+		ui_elements.message_text.color = TEXT_COLOR
 
 	# ── 통계 텍스트 ──
 	u_score = game_state.user_score
@@ -81,11 +68,11 @@ def run_ending_phase(win, ui_elements, game_state, result):
 	ui_elements.message_text.draw()
 	stats_text.draw()
 	exit_text.draw()
-	trigger_frame_marker()   # 이벤트: 게임 종료 화면 표시
+	trigger_frame_marker()  
 	blink_frame_marker(win)
 	win.flip()
 	event.waitKeys()
 
 	# 콘솔 출력
 	print(f"  ✓ 종료 화면 — 유저:{u_score}점 / PC:{p_score}점 "
-		  f"(잡기:{u_catch} / 잡힘:{p_catch})")
+			f"(잡기:{u_catch} / 잡힘:{p_catch})")

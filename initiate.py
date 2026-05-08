@@ -7,7 +7,7 @@ if USE_EYELINK:
     from eye_func.EyeLinkCoreGraphicsPsychoPy import EyeLinkCoreGraphicsPsychoPy
 
 if USE_LABJACK:
-    from utils.labjack_triggers import init_labjack
+    from chicken_task_first.labjack_func.labjack_triggers import init_labjack
 
 
 def initiate_eyelink(win, save_directory):

@@ -14,7 +14,7 @@ try:
     )
     from ..view_func.frame_marker import blink_frame_marker, trigger_frame_marker
     from ..sounds import play as sound_play
-    from ..utils.labjack_triggers import set_trigger, reset_trigger, TRIG_TOKEN_CHASE, TRIG_TOKEN_FLIGHT
+    from ..labjack_func.labjack_triggers import set_trigger, reset_trigger, TRIG_TOKEN_CHASE, TRIG_TOKEN_FLIGHT
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from config import (
@@ -25,7 +25,7 @@ except ImportError:
     )
     from view_func.frame_marker import blink_frame_marker, trigger_frame_marker
     from sounds import play as sound_play
-    from utils.labjack_triggers import set_trigger, reset_trigger, TRIG_TOKEN_CHASE, TRIG_TOKEN_FLIGHT
+    from chicken_task_first.labjack_func.labjack_triggers import set_trigger, reset_trigger, TRIG_TOKEN_CHASE, TRIG_TOKEN_FLIGHT
 
 
 def run_token_selection_phase(win, game_state, ui_elements, board_renderer, deck_renderer, token_renderer, sounds=None, labjack_handle=None):

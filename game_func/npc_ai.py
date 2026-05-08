@@ -1,7 +1,4 @@
 # npc_ai.py
-# Chicken Task - NPC AI Module
-# PC (Octopus) AI 로직 - 동적 정답률 알고리즘
-
 import random
 import sys
 from pathlib import Path
@@ -22,13 +19,7 @@ except ImportError:
 
 
 class NPCAI:
-    """
-    NPC (Octopus) 인공지능 클래스
-    
-    - 설정된 정답률로 카드 선택
-    - 타겟 조건에 맞는 카드 또는 틀린 카드를 전략적으로 선택
-    """
-    
+
     def __init__(self, success_rate=PC_SUCCESS_RATE):
         """
         NPC AI 초기화
@@ -47,17 +38,6 @@ class NPCAI:
         self.success_rate = clamp(success_rate, 0.0, 1.0)
 
     def select_card(self, deck, condition, memory_context=None):
-        """
-        PC가 선택할 카드 좌표 결정
-        
-        Args:
-            deck: MainDeck 객체
-            condition: 타겟 조건 (dict: {'color', 'shape', 'number'})
-            memory_context (dict or None): 문어의 관찰 메모리 컨텍스트
-        
-        Returns:
-            tuple: (card_pos, is_match) - 선택한 카드 위치와 실제 매칭 여부
-        """
         should_succeed = random.random() < self.success_rate
 
         avoid_positions = set() # 직전 실패 위치 회피

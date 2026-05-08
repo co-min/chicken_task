@@ -4,14 +4,14 @@ from psychopy import core
 
 try:
 	from ..view_func.frame_marker import blink_frame_marker, trigger_frame_marker
-	from ..utils.labjack_triggers import set_trigger, reset_trigger
+	from ..labjack_func.labjack_triggers import set_trigger, reset_trigger
 	from ..utils.timer import checked_wait
 except ImportError:
 	import sys
 	from pathlib import Path
 	sys.path.insert(0, str(Path(__file__).parent.parent))
 	from view_func.frame_marker import blink_frame_marker, trigger_frame_marker
-	from utils.labjack_triggers import set_trigger, reset_trigger
+	from chicken_task_first.labjack_func.labjack_triggers import set_trigger, reset_trigger
 	from utils.timer import checked_wait
 
 

@@ -9,7 +9,7 @@ from view_func.token_renderer import TokenRenderer
 from view_func.ui_elements import UIElements, fetch_random_nicknames
 from phase_func import run_all_phases
 # from eye_func.aoi_manager import AOIManager
-from utils.labjack_triggers import close_labjack
+from chicken_task_first.labjack_func.labjack_triggers import close_labjack
 from save_func import init_session, finalize_session, init_trial_file, init_gaze_file
 from setup_utils import get_subject_id, create_save_dir, create_window
 
@@ -25,10 +25,6 @@ logging.console.setLevel(logging.ERROR)
 
 
 def main():
-    print("\n" + "=" * 60)
-    print("Chicken Task")
-    print("=" * 60 + "\n")
-
     subject_id = get_subject_id()
     save_dir = create_save_dir(subject_id)
     print(f"저장 경로: {save_dir}\n")

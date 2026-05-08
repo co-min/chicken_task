@@ -1,26 +1,9 @@
 import sys
 from pathlib import Path
 
-try:
-    from utils.helpers import clamp
-    from utils.card_matcher import check_match
-    from ..config import (
-        USER_WINDOW_SIZE, MIN_USER_TRIALS_FOR_ADAPT, USER_EWMA_ALPHA,
-        KNOWLEDGE_EXIST_W, KNOWLEDGE_DENSITY_W,
-        SKILL_EWMA_W, SKILL_RECENT_W, SKILL_SPEED_W,
-        ESTIMATED_SKILL_W, ESTIMATED_KNOWLEDGE_W, ESTIMATED_NOVELTY_W,
-        SURGE_BASE_W, SURGE_SPEED_W, SURGE_CONSECUTIVE_BONUS,
-        MISS_PENALTY_PER_STREAK, MISS_PENALTY_MAX_STREAK,
-        MEMORY_CONFIDENCE_INIT, MEMORY_CONFIDENCE_INCREMENT,
-        TURN_TIME_LIMIT, NPC_EDGE_OVER_USER,
-        ADAPTIVE_ALPHA_UP, ADAPTIVE_ALPHA_DOWN,
-        MAX_RATE_STEP_UP, MAX_RATE_STEP_DOWN, SURGE_BONUS_SCALE, NPC_RATE_MAX,
-    )
-except ImportError:
-    sys.path.insert(0, str(Path(__file__).parent.parent))
-    from utils.helpers import clamp
-    from utils.card_matcher import check_match
-    from config import (
+from utils.helpers import clamp
+from utils.card_matcher import check_match
+from ..config import (
         USER_WINDOW_SIZE, MIN_USER_TRIALS_FOR_ADAPT, USER_EWMA_ALPHA,
         KNOWLEDGE_EXIST_W, KNOWLEDGE_DENSITY_W,
         SKILL_EWMA_W, SKILL_RECENT_W, SKILL_SPEED_W,

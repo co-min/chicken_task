@@ -1,21 +1,11 @@
 import sys
 from pathlib import Path
 
-try:
-    from utils.helpers import clamp
-    from ..config import (
+from utils.helpers import clamp
+from ..config import (
         TURN_TIME_LIMIT, SCORE_MATCH, SCORE_COMBO_BONUS, SCORE_SPEED_MAX, SCORE_SPEED_MIN,
         SCORE_STEAL, SCORE_PENALTY, SCORE_CATCH_BONUS, SCORE_CAUGHT_PENALTY,
-        SCORE_PC_CATCH_BONUS, BONUS_SCORE_MULTIPLIER,
-    )
-except ImportError:
-    sys.path.insert(0, str(Path(__file__).parent.parent))
-    from utils.helpers import clamp
-    from config import (
-        TURN_TIME_LIMIT, SCORE_MATCH, SCORE_COMBO_BONUS, SCORE_SPEED_MAX, SCORE_SPEED_MIN,
-        SCORE_STEAL, SCORE_PENALTY, SCORE_CATCH_BONUS, SCORE_CAUGHT_PENALTY,
-        SCORE_PC_CATCH_BONUS, BONUS_SCORE_MULTIPLIER,
-    )
+        SCORE_PC_CATCH_BONUS, BONUS_SCORE_MULTIPLIER,)
 
 
 class ScoreSystem:

@@ -25,7 +25,7 @@ try:
     )
     from ..view_func.frame_marker import blink_frame_marker, trigger_frame_marker
     from ..sounds import play as sound_play
-    from ..utils.labjack_triggers import set_trigger, reset_trigger, TRIG_TRIAL_END
+    from ..labjack_func.labjack_triggers import set_trigger, reset_trigger, TRIG_TRIAL_END
     from ..save_func.trial_saver import save_trial
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -38,7 +38,7 @@ except ImportError:
     )
     from view_func.frame_marker import blink_frame_marker, trigger_frame_marker
     from sounds import play as sound_play
-    from utils.labjack_triggers import set_trigger, reset_trigger, TRIG_TRIAL_END
+    from chicken_task_first.labjack_func.labjack_triggers import set_trigger, reset_trigger, TRIG_TRIAL_END
     from save_func.trial_saver import save_trial
 
 
