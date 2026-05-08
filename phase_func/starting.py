@@ -17,9 +17,9 @@ except ImportError:
 def _build_mode_cards(win):
 	"""시작 화면의 모드 선택 카드(이미지+이름) 비주얼 생성."""
 	stimuli_dir = os.path.join(Path(__file__).parent.parent, 'stimuli')
-	ordered_mode_ids = ['selection1', 'selection2']
-	start_x = -195
+	ordered_mode_ids = list(GAME_MODES.keys())
 	spacing_x = 260
+	start_x = -(len(ordered_mode_ids) - 1) * spacing_x // 2
 
 	cards = []
 	for idx, mode_id in enumerate(ordered_mode_ids):

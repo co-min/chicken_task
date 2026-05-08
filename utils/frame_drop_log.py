@@ -1,20 +1,3 @@
-"""
-frame_drop_log.py
-=================
-sEEG 분석용 프레임 드랍 로거.
-
-60 Hz 기준 프레임 간격(16.67 ms)보다 FRAME_DROP_THRESHOLD_MS 이상 길게 걸린 flip을
-CSV에 즉시 append한다. 세션 도중 크래시가 나도 기존 행은 보존된다.
-
-CSV 컬럼
---------
-psychopy_t    : win.flip() 반환 직후 core.getTime() 값 (EDF/trials.csv 병합 기준)
-inter_flip_ms : 직전 flip으로부터 경과 시간 (ms)
-drop_ms       : inter_flip_ms - 16.67 ms (기대값 초과분)
-drop_index    : 세션 내 드랍 누적 번호 (1부터)
-trial_id      : 드랍 발생 시점의 trial_id (알 수 없으면 빈 문자열)
-context       : 렌더링 컨텍스트 (예: 'user_render', 'pc_think', 'feedback')
-"""
 import time
 import csv
 from pathlib import Path

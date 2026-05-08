@@ -10,7 +10,7 @@ from config import (
     HIGHLIGHT_COLOR, HIGHLIGHT_WIDTH
 )
 
-# 이미지 경로
+# path img
 STIMULI_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'stimuli')
 MAIN_CARDS_DIR = os.path.join(STIMULI_DIR, 'main_cards')
 UI_DIR = os.path.join(STIMULI_DIR, 'ui')
@@ -20,15 +20,10 @@ class DeckRenderer:
     """메인 덱 조합 카드를 화면에 렌더링하는 클래스"""
     
     def __init__(self, win, deck):
-        """
-        Args:
-            win: PsychoPy window 객체
-            deck: MainDeck 인스턴스
-        """
         self.win = win
         self.deck = deck
         
-        # 카드 비주얼 요소 생성
+        # card visual
         self.card_backs = []    # 카드 뒷면 이미지
         self.card_fronts = []   # 카드 앞면 이미지
         self.highlights = []    # 하이라이트 테두리
@@ -36,8 +31,8 @@ class DeckRenderer:
         self._create_visuals()
     
     def _create_visuals(self):
-        """모든 카드의 비주얼 요소를 생성"""
-        # 뒷면 이미지 경로
+        
+        # img back
         card_back_path = os.path.join(UI_DIR, 'card_back.png')
         
         for row in range(self.deck.rows):
@@ -46,11 +41,10 @@ class DeckRenderer:
             row_highlights = []
             
             for col in range(self.deck.cols):
-                # 화면 좌표 계산
                 x = self._get_card_x(col)
                 y = self._get_card_y(row)
                 
-                # 카드 뒷면 이미지
+                # back img
                 back = visual.ImageStim(
                     win=self.win,
                     image=card_back_path,
@@ -59,7 +53,7 @@ class DeckRenderer:
                 )
                 row_backs.append(back)
                 
-                # 카드 앞면 이미지
+                # front img
                 card = self.deck.get_card(row, col)
                 front_path = self._get_card_image_path(card)
                 
@@ -71,7 +65,7 @@ class DeckRenderer:
                 )
                 row_fronts.append(front)
                 
-                # 하이라이트
+                # highlight
                 highlight = visual.Rect(
                     win=self.win,
                     width=DECK_CARD_WIDTH + HIGHLIGHT_WIDTH * 2,
@@ -90,27 +84,16 @@ class DeckRenderer:
             self.highlights.append(row_highlights)
     
     def _get_card_x(self, col):
-        """카드의 x 좌표 계산 (PsychoPy 좌표계)"""
         left_x = DECK_LEFT_EDGE + col * (DECK_CARD_WIDTH + DECK_CARD_SPACING)
         center_x = left_x + DECK_CARD_WIDTH / 2
         return center_x - WIDTH / 2
     
     def _get_card_y(self, row):
-        """카드의 y 좌표 계산 (PsychoPy 좌표계)"""
         top_y = BOARD_DECK_TOP_MARGIN + row * (DECK_CARD_HEIGHT + DECK_CARD_SPACING)
         center_y = top_y + DECK_CARD_HEIGHT / 2
         return HEIGHT / 2 - center_y
     
     def _get_card_image_path(self, card):
-        """
-        카드에 맞는 이미지 파일 경로 반환
-        
-        Args:
-            card: {'color': str, 'shape': str, 'number': int}
-        
-        Returns:
-            이미지 파일 경로
-        """
         color = card['color']
         shape = card['shape']
         number = card['number']
@@ -119,7 +102,6 @@ class DeckRenderer:
         return os.path.join(MAIN_CARDS_DIR, filename)
     
     def refresh(self):
-        """덱 재셔플 후 각 위치의 카드 앞면 이미지를 갱신"""
         for row in range(self.deck.rows):
             for col in range(self.deck.cols):
                 card = self.deck.get_card(row, col)
@@ -167,37 +149,22 @@ class DeckRenderer:
             self.refresh()
 
     def draw(self, highlighted_pos=None):
-        """
-        덱을 화면에 그리기
-        
-        Args:
-            highlighted_pos: 하이라이트할 위치 (row, col) 튜플 또는 None
-        """
         for row in range(self.deck.rows):
             for col in range(self.deck.cols):
                 is_face_up = self.deck.is_face_up(row, col)
                 
                 if is_face_up:
-                    # 앞면 그리기
+                    # draw front
                     self.card_fronts[row][col].draw()
                 else:
-                    # 뒷면 그리기
+                    # draw back
                     self.card_backs[row][col].draw()
                 
-                # 하이라이트 그리기
+                # draw highlight
                 if highlighted_pos and highlighted_pos == (row, col):
                     self.highlights[row][col].draw()
     
     def get_clicked_position(self, mouse_pos):
-        """
-        마우스 클릭 위치에 해당하는 카드 위치 반환
-        
-        Args:
-            mouse_pos: (x, y) 마우스 좌표 (PsychoPy 좌표계)
-        
-        Returns:
-            (row, col) 튜플 또는 None
-        """
         mx, my = mouse_pos
         
         for row in range(self.deck.rows):

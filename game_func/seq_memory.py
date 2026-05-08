@@ -2,22 +2,13 @@ import random
 import sys
 from pathlib import Path
 
-try:
-    from ..config import (
+from ..config import (
         SEQ_MEMORY_SCORE_THRESHOLD, SEQ_MEMORY_PC_THRESHOLD,
         SEQ_MEMORY_TRIGGER_PROB, SEQ_MEMORY_MIN_STEPS, SEQ_MEMORY_MAX_STEPS,
-    )
-except ImportError:
-    sys.path.insert(0, str(Path(__file__).parent.parent))
-    from config import (
-        SEQ_MEMORY_SCORE_THRESHOLD, SEQ_MEMORY_PC_THRESHOLD,
-        SEQ_MEMORY_TRIGGER_PROB, SEQ_MEMORY_MIN_STEPS, SEQ_MEMORY_MAX_STEPS,
-    )
+        )
 
 
 class SeqMemory:
-    """순차 메모리(Sequential Memory) 상태 관리."""
-
     def __init__(self):
         self.active = False
         self.targets = []
@@ -38,7 +29,6 @@ class SeqMemory:
         self.is_pc = False
 
     def advance(self):
-        """한 단계 전진. 완료 여부(True/False) 반환."""
         self.step += 1
         return self.step >= len(self.targets)
 
@@ -46,10 +36,12 @@ class SeqMemory:
         all_pos = tokens.get_all_positions()
         occupied = {pos for name, pos in all_pos.items() if name != token_name}
         token = tokens.get_token(token_name)
+
         if not token:
             return []
         targets = []
         pos = tokens.get_next_position(token.get_position())
+
         while pos is not None and len(targets) < n_steps:
             if pos in occupied:
                 next_pos = tokens.get_next_position(pos)
@@ -58,6 +50,7 @@ class SeqMemory:
                 break
             targets.append(pos)
             pos = tokens.get_next_position(pos)
+
         return targets
 
     def try_activate_user(self, round_score, selected_token, tokens):

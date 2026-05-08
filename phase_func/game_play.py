@@ -1,39 +1,28 @@
 """
-게임 플레이 메인 루프.
+game-play main loop
 
-라운드 전환, 턴 전환만 담당하고,
-실제 턴 로직은 UserTurnMachine / PCTurnMachine 에 위임한다.
+round counting, turn change,
+turn logic -> delegate UserTurnMachine / PCTurnMachine 
 """
 
 import sys
 from pathlib import Path
 from psychopy import event
+from ..sounds import load_sounds
+from ..utils.frame_drop_log import FrameDropLogger
+from ..phase_func.user_turn import UserTurnMachine
+from ..phase_func.pc_turn import PCTurnMachine
 
-try:
-    from ..sounds import load_sounds
-    from ..utils.frame_drop_log import FrameDropLogger
-    from ..phase_func.user_turn import UserTurnMachine
-    from ..phase_func.pc_turn import PCTurnMachine
-except ImportError:
-    sys.path.insert(0, str(Path(__file__).parent.parent))
-    from sounds import load_sounds
-    from utils.frame_drop_log import FrameDropLogger
-    from phase_func.user_turn import UserTurnMachine
-    from phase_func.pc_turn import PCTurnMachine
 
 
 def run_game_play_phase(win, game_state, ui_elements, board_renderer, deck_renderer,
                         token_renderer, aoi_manager=None, labjack_handle=None,
                         save_paths=None, subject_id=''):
-    """
-    Returns:
-        'timeout' : 전체 게임 라운드(20라운드) 종료
-        'exit'    : 사용자가 ESC 입력
-    """
+
     mouse  = event.Mouse(win=win)
     sounds = load_sounds()
     fdl    = (FrameDropLogger(save_paths['frame_drops'])
-              if (save_paths and save_paths.get('frame_drops')) else None)
+    if (save_paths and save_paths.get('frame_drops')) else None)
 
     # TurnStateMachine 공통 인자
     deps = dict(

@@ -40,30 +40,23 @@ from datetime import datetime
 def init_session(
     save_dir: str,
     subject_id: str,
-    game_mode: str,
     use_eyelink: bool,
     use_labjack: bool,
 ) -> str:
+    
     """
-    세션 시작 정보를 session.json에 기록한다.
-
     Parameters
     ----------
     save_dir : str
         저장 디렉토리 경로 (존재해야 함).
     subject_id : str
         피험자 ID.
-    game_mode : str
-        선택된 게임 모드 ID. 예: 'selection1'
     use_eyelink : bool
         EyeLink 연결 여부.
     use_labjack : bool
         LabJack 연결 여부.
 
-    Returns
-    -------
-    str
-        생성된 session.json 파일의 절대 경로.
+    Returns: str 생성된 session.json 파일의 절대 경로.
     """
     path = os.path.join(save_dir, 'session.json')
 
@@ -71,7 +64,6 @@ def init_session(
         'subject_id':    subject_id,
         'session_start': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         'session_end':   None,
-        'game_mode':     game_mode,
         'hardware': {
             'use_eyelink': use_eyelink,
             'use_labjack': use_labjack,
@@ -90,18 +82,6 @@ def init_session(
 
 
 def finalize_session(session_file: str, game_state, outcome: str):
-    """
-    게임 종료 시 session.json에 최종 정보를 머지한다.
-
-    Parameters
-    ----------
-    session_file : str
-        init_session() 이 반환한 JSON 경로.
-    game_state : GameState
-        종료 시점의 게임 상태.
-    outcome : str
-        게임 종료 사유. 'victory' | 'defeat' | 'timeout' | 'exit'
-    """
     if not os.path.exists(session_file):
         print(f"[SessionSaver] session.json 없음: {session_file}")
         return
@@ -117,13 +97,6 @@ def finalize_session(session_file: str, game_state, outcome: str):
             k: list(v) if isinstance(v, (tuple, list)) else v
             for k, v in summary['token_positions'].items()
         }
-
-    # selected_mode 는 dict이지만 내부에 직렬화 불가 값이 있을 수 있음
-    if 'selected_mode' in summary:
-        try:
-            json.dumps(summary['selected_mode'])
-        except (TypeError, ValueError):
-            summary['selected_mode'] = str(summary['selected_mode'])
 
     data['session_end'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     data['outcome']     = outcome

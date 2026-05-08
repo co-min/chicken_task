@@ -11,12 +11,6 @@ if USE_LABJACK:
 
 
 def initiate_eyelink(win, save_directory):
-    """
-    EyeLink 연결 및 캘리브레이션 초기화.
-
-    Returns:
-        el_tracker: pylink.EyeLink 객체, 또는 None
-    """
     print("Checking for EyeLink tracker connection...")
 
     try:
@@ -67,10 +61,6 @@ def initiate_eyelink(win, save_directory):
 
 
 def initiate_labjack():
-    """
-    LabJack T4에 연결하고 핸들을 반환합니다.
-    USE_LABJACK=0 이거나 연결 실패 시 None을 반환합니다.
-    """
     if not USE_LABJACK:
         return None
 

@@ -2,21 +2,11 @@ import logging
 import sys
 from pathlib import Path
 
-try:
-    from ..config import (
-        TURN_TIME_LIMIT, DEFAULT_GAME_MODE, GAME_MODES, GAME_TIME_LIMIT,
+from ..config import (
+        TURN_TIME_LIMIT, DEFAULT_GAME_MODE, GAME_TIME_LIMIT,
         TOTAL_ROUNDS, ROUND_TURN_LIMITS,
         DIFFICULTY_SEQUENCE, DIFFICULTY_SCORE_THRESHOLD,
-        BONUS_SEQUENCE,
-    )
-except ImportError:
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from config import (
-        TURN_TIME_LIMIT, DEFAULT_GAME_MODE, GAME_MODES, GAME_TIME_LIMIT,
-        TOTAL_ROUNDS, ROUND_TURN_LIMITS,
-        DIFFICULTY_SEQUENCE, DIFFICULTY_SCORE_THRESHOLD,
-        BONUS_SEQUENCE,
-    )
+        BONUS_SEQUENCE, GAME_MODES,)
 
 from game_func.board_class import ConditionBoard
 from game_func.deck_class import MainDeck

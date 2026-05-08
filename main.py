@@ -8,7 +8,7 @@ from view_func.deck_renderer import DeckRenderer
 from view_func.token_renderer import TokenRenderer
 from view_func.ui_elements import UIElements, fetch_random_nicknames
 from phase_func import run_all_phases
-from eye_func.aoi_manager import AOIManager
+# from eye_func.aoi_manager import AOIManager
 from utils.labjack_triggers import close_labjack
 from save_func import init_session, finalize_session, init_trial_file, init_gaze_file
 from setup_utils import get_subject_id, create_save_dir, create_window
@@ -51,11 +51,11 @@ def main():
         labjack_handle = initiate_labjack()
         print(f"  {'✓' if labjack_handle else '⚠'} LabJack T4: {'연결됨' if labjack_handle else '비활성화'}")
 
-    aoi_manager = AOIManager(
-        board=game_state.board,
-        deck=game_state.deck,
-        el_tracker=el_tracker,
-    )
+    # aoi_manager = AOIManager(
+    #     board=game_state.board,
+    #     deck=game_state.deck,
+    #     el_tracker=el_tracker,
+    # )
 
     session_file = init_session(
         save_dir, subject_id,
@@ -66,8 +66,8 @@ def main():
     trial_file = init_trial_file(save_dir, subject_id)
     gaze_file = init_gaze_file(save_dir, subject_id)
 
-    aoi_manager.gaze_file = gaze_file
-    aoi_manager.subject_id = subject_id
+    # aoi_manager.gaze_file = gaze_file
+    # aoi_manager.subject_id = subject_id
 
     save_paths = {
         'session':     session_file,
@@ -79,7 +79,7 @@ def main():
     result = run_all_phases(
         win, game_state, ui_elements,
         board_renderer, deck_renderer, token_renderer,
-        aoi_manager=aoi_manager,
+        # aoi_manager=aoi_manager,
         labjack_handle=labjack_handle,
         save_paths=save_paths,
         subject_id=subject_id,

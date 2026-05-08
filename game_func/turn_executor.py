@@ -17,7 +17,6 @@ except ImportError:
 
 
 class TurnExecutor:
-    """GameState를 대신해 턴 실행 로직을 처리한다."""
 
     def __init__(self, gs):
         self._gs_ref = weakref.ref(gs)

@@ -182,47 +182,6 @@ GOLD = [255, 200, 0]          # 잡기 성공 피드백
 ORANGE_RED = [255, 70, 0]     # 잡힘 패널티 피드백
 
 
-# ==================== GAME MODE SELECTION (PHASE 1) ====================
-DEFAULT_GAME_MODE = 'selection1'
-
-# 각 게임 모드는 3×3×3 조건 풀에서 선택적으로 부분집합을 사용
-GAME_MODES = {
-    'selection1': {
-        'mode_id': 'selection1',
-        'display_name': '선택 1',
-        'track_length': 24,
-        'board_rows': 5,
-        'board_cols': 9,
-        'deck_rows': 3,
-        'deck_cols': 6,
-        'token_count': 3,
-        'ruleset_id': 'rules_3token',
-        'preview_image': 'selection/selection1.png',
-        'colors': ['red', 'green', 'blue'],        # 사용할 색상
-        'shapes': ['square', 'triangle', 'circle'],  # 사용할 모양
-        'numbers': [1, 2, 3],                          # 사용할 숫자
-    },
-    'selection2': {
-        'mode_id': 'selection2',
-        'display_name': '선택 2',
-        'track_length': 24,
-        'board_rows': 5,
-        'board_cols': 9,
-        'deck_rows': 3,
-        'deck_cols': 6,
-        'token_count': 3,
-        'ruleset_id': 'rules_3token',
-        'preview_image': 'selection/selection2.png',
-        'colors': ['red', 'green', 'blue'],        # 사용할 색상
-        'shapes': ['square', 'triangle', 'circle'],  # 사용할 모양
-        'numbers': [1, 2],                          # 사용할 숫자
-    },
-
-
-    # selection3, 4는 나중에 추가
-    # 예: 'colors': ['red', 'blue'], 'shapes': ['rectangle', 'circle'], 'numbers': [1, 2, 3]
-}
-
 FRAME_MARKER_POS = None              # None → 실행 시 win.size 기준으로 자동 계산 (좌하단)
 FRAME_MARKER_SIZE = (20, 30)        # (width, height)
 FRAME_MARKER_DURATION = 4           # 이벤트 발생 후 마커를 표시할 프레임 수 (약 3~5프레임)
@@ -232,7 +191,6 @@ FRAME_MARKER_DURATION = 4           # 이벤트 발생 후 마커를 표시할 �
 # ==================== AUTO SCREEN SCALE ====================
 
 def _apply_screen_scale():
-    """실제 화면 해상도에 맞게 카드/레이아웃 크기를 자동 조정."""
     global WIDTH, HEIGHT
     global BOARD_CARD_WIDTH, BOARD_CARD_HEIGHT, BOARD_CARD_SPACING
     global BOARD_TOTAL_WIDTH, BOARD_LEFT_EDGE, BOARD_TOP_MARGIN
